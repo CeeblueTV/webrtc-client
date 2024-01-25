@@ -1,0 +1,66 @@
+<!doctype html>
+<!--
+    Copyright 2023 Ceeblue B.V.
+    This file is part of https://github.com/CeeblueTV/webrtc-client which is released under GNU Affero General Public License.
+    See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
+-->
+<html lang="en">
+    <head>
+        <title>Ceeblue WebRTC Timed Metadata Player Example</title>
+        <style>
+            #metadata {
+                width: 100%;
+            }
+        </style>
+        <meta charset="utf-8">
+        <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    </head>
+    <body>
+        <h2>WebRTC Client Timed Metadata Player Example</h2>
+        <video id="video" muted controls autoplay></video>
+        <textarea id="metadata" rows="10" readonly></textarea>
+
+        <script type="module">
+            import { Player, Util, NetAddress } from "/dist/webrtc-client.js";
+
+            const logs = document.getElementById("metadata");
+            const videoElement = document.getElementById('video');
+
+            const options = Util.options();
+            const host = new NetAddress(options.host || location.host, 443).toString();
+            const streamName = options.stream;
+            videoElement.onloadeddata = () => {
+                videoElement.play();
+            };
+            let player = new Player();
+            player.onStart = stream => {
+                videoElement.srcObject = stream;
+            };
+            player.start({
+                host,
+                streamName,
+                iceServer: {
+                    urls: ['turn:' + host.domain + ':3478?transport=tcp', 'turn:' + host.domain + ':3478'],
+                    username: 'csc_demo', credential: 'UtrAFClFFO'
+                }
+            });
+            player.onMetadata = metadata => {
+                const dataTracks = [];
+                for (const track of metadata.datas) {
+                    dataTracks.push(track.idx);
+                }
+                player.dataTracks = dataTracks;
+            }
+            // Read timed metadata
+            let lines = 0;
+            player.onData = (time, track, data) => {
+                logs.innerHTML += Util.stringify(data) + "\n";
+                // Limit the total number of displayed lines to 10
+                if (++lines > 10) {
+                    logs.innerHTML = logs.innerHTML.substring(logs.innerHTML.indexOf("\n") + 1);
+                    lines = 10;
+                }
+            }
+        </script>
+    </body>
+</html>

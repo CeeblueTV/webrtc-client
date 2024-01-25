@@ -1,0 +1,263 @@
+/**
+ * Copyright 2023 Ceeblue B.V.
+ * This file is part of https://github.com/CeeblueTV/webrtc-client which is released under GNU Affero General Public License.
+ * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
+ */
+
+import { MediaReport } from '../connectors/IController';
+import { EventEmitter } from '../utils/EventEmitter';
+import { ILog } from '../utils/ILog';
+
+const HD_Pixels = 1280 * 720;
+const HD_Bitrate = 1.2 * 1000000;
+
+/**
+ * ABRParams is the structure used to initialize an {@link ABRAbstract} instance.
+ */
+export type ABRParams = {
+    /**
+     * Startup bitrate in bps
+     * @defaultValue 2000000
+     */
+    startup?: number;
+    /**
+     * Minimum bitrate in bps
+     * @defaultValue 200000
+     */
+    minimum?: number;
+    /**
+     * Maximum bitrate in bps
+     * @defaultValue 3000000
+     */
+    maximum?: number;
+};
+
+/**
+ * ABRAbstract is the base class for adaptive bitrate algorithm used by {@link Streamer}
+ * when it has a controller connector.
+ */
+export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILog {
+    /**
+     * @override{@inheritDoc ILog.onLog}
+     * @event
+     */
+    onLog(log: string) {}
+    /**
+     * @override{@inheritDoc ILog.onError}
+     * @event
+     */
+    onError(error: string = 'unknown') {
+        console.error(error);
+    }
+
+    /**
+     * Get the configured initial bitrate
+     */
+    get startup(): number {
+        return this._startup;
+    }
+
+    /**
+     * Update the initial bitrate
+     */
+    set startup(value: number) {
+        this._startup = Math.max(this._minimum, Math.min(Math.round(value), this._maximum));
+    }
+
+    /**
+     * Get the minimum bitrate
+     */
+    get minimum(): number {
+        return this._minimum;
+    }
+
+    /**
+     * Update the minimum bitrate
+     */
+    set minimum(value: number) {
+        value = Math.round(value);
+        if ((this._minimum = value) > this._maximum) {
+            this._maximum = this._startup = value;
+        } else if (this._startup < value) {
+            this._startup = value;
+        }
+    }
+
+    /**
+     * Get the maximum bitrate
+     */
+    get maximum(): number {
+        return this._maximum;
+    }
+
+    /**
+     * Update the maximum bitrate
+     */
+    set maximum(value: number) {
+        value = Math.round(value);
+        if ((this._maximum = value) < this._minimum) {
+            this._minimum = this._startup = value;
+        } else if (this._startup > value) {
+            this._startup = value;
+        }
+    }
+
+    /**
+     * Get the current bitrate constraint
+     */
+    get constraint(): number | undefined {
+        return this._bitrateConstraint;
+    }
+
+    /**
+     * Get the current bitrate
+     */
+    get value(): number | undefined {
+        return this._bitrate;
+    }
+
+    /**
+     * @returns the current bitrate
+     * @override
+     */
+    valueOf(): number | undefined {
+        return this.value;
+    }
+
+    /**
+     * Get the {@link https://developer.mozilla.org/docs/Web/API/MediaStream MediaStream} if set
+     */
+    get stream(): MediaStream | undefined {
+        return this._stream;
+    }
+
+    private _bitrateConstraint?: number;
+    private _bitrate?: number;
+    private _startup: number;
+    private _maximum: number;
+    private _minimum: number;
+    private _stream?: MediaStream;
+    private _enabled: boolean;
+    /**
+     * Build the ABR implementation, call {@link compute} to use it
+     * @param params ABR parameters
+     * @param stream If set it can change dynamically the source resolution regarding the network quality
+     */
+    constructor(params: ABRParams, stream?: MediaStream) {
+        super();
+        const init = Object.assign(
+            {
+                startup: 2000000, // Default 2Mbps
+                maximum: 3000000, // Default 3Mbps
+                minimum: 200000 // Default 200Kbps
+            },
+            params
+        );
+        this._startup = init.startup;
+        this._minimum = init.minimum;
+        this._maximum = init.maximum;
+        this._stream = stream;
+        this._enabled = true;
+    }
+
+    /**
+     * Call this method regularly to control if we have to increase or decrease the stream bitrate
+     * depending on the network conditions.
+     * @param bitrate the current bitrate
+     * @param bitrateConstraint the current bitrate constraint
+     * @param mediaReport the media report structure received from the server
+     * @returns the wanted bitrate or undefined to not change the current bitrate
+     */
+    compute(bitrate: number | undefined, bitrateConstraint?: number, mediaReport?: MediaReport): number | undefined {
+        if (bitrate == null) {
+            return (this._bitrate = bitrate);
+        } // disabled (reset _bitrate)
+        const firstTime = this._bitrate == null;
+        // compute required bitrate
+        const newBitrate = firstTime
+            ? this.startup
+            : Math.max(
+                  this.minimum,
+                  Math.min(this._computeBitrate(bitrate, bitrateConstraint, mediaReport), this.maximum)
+              );
+        // assign current bitrate
+        this._bitrate = bitrate;
+        this._bitrateConstraint = bitrateConstraint;
+        // log changes
+        if (firstTime) {
+            this.onLog('Set startup bitrate to ' + newBitrate);
+        } else if (newBitrate > bitrate) {
+            this.onLog('Increase bitrate ' + bitrate + ' => ' + newBitrate);
+        } else if (newBitrate < bitrate) {
+            this.onLog('Decrease bitrate ' + bitrate + ' => ' + newBitrate);
+        }
+        return newBitrate;
+    }
+
+    /**
+     * Reset the ABR algorithm to its initial state
+     */
+    reset() {
+        this._bitrate = this._bitrateConstraint = undefined;
+    }
+
+    /**
+     * Implement this method to define your own congestion algorithm, the method must
+     * return the wanted bitrate or undefined to not change the current bitrate.
+     * @param bitrate the current bitrate
+     * @param bitrateConstraint the current bitrate constraint
+     * @param mediaReport the media report structure received from the server
+     * @returns the wanted bitrate or undefined to not change the current bitrate
+     */
+    protected abstract _computeBitrate(bitrate: number, bitrateConstraint?: number, mediaReport?: MediaReport): number;
+
+    protected _updateVideoConstraints(videoBitrate: number) {
+        const stream = this._stream;
+        if (!stream) {
+            return;
+        }
+        const track = stream.getVideoTracks()[0];
+        if (!track) {
+            return;
+        }
+        const settings = track.getSettings();
+        if (!settings.width || !settings.height) {
+            return;
+        }
+
+        const pixels = settings.width * settings.height;
+        if (videoBitrate >= HD_Bitrate) {
+            if (pixels < HD_Pixels * 0.7) {
+                // increase resolution
+                this._upgradeVideoConstraint(track, 2.0);
+            }
+        } else if (pixels > HD_Pixels * 0.7 && pixels < HD_Pixels * 1.3) {
+            // decrease resolution
+            this._upgradeVideoConstraint(track, 0.5);
+        }
+    }
+
+    private _upgradeVideoConstraint(track: MediaStreamTrack, factor: number) {
+        const constraint: { width?: number; height?: number } = {};
+        const cameraWidth = track.getSettings().width;
+        if (cameraWidth != null) {
+            constraint.width = cameraWidth * factor;
+        }
+        const cameraHeight = track.getSettings().height;
+        if (cameraHeight != null) {
+            constraint.height = cameraHeight * factor;
+        }
+
+        this.onLog(
+            'Resolution change ' +
+                cameraWidth +
+                'X' +
+                cameraHeight +
+                ' => ' +
+                constraint.width +
+                'X' +
+                constraint.height
+        );
+        track.applyConstraints(constraint);
+    }
+}

@@ -1,0 +1,59 @@
+{
+    "env": {
+        "browser": true,
+        "node": true,
+        "es6": true
+    },
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint", "headers", "@html-eslint"],
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/eslint-recommended",
+        "plugin:@typescript-eslint/recommended"
+    ],
+    "overrides": [
+        {
+            "files": ["*.html"],
+            "parser": "@html-eslint/parser",
+            "extends": ["plugin:@html-eslint/recommended"],
+            "rules": {
+                "headers/header-format": "off"
+            }
+        }
+    ],
+    "parserOptions": {
+        "sourceType": "module",
+        "ecmaVersion": 11,
+        "allowImportExportEverywhere": true
+    },
+    "rules": {
+        "no-warning-comments": ["error", { "terms": ["todo"], "location": "start" }],
+        "no-console": 0,
+        "curly": ["error"],
+        "no-empty": [2, { "allowEmptyCatch": true }],
+        "no-unused-vars": "off", // The base rule has been disabled due to the possibility of reporting false positives.
+        "@typescript-eslint/no-unused-vars": ["error", { "args": "none" }],
+        "no-useless-escape": 0,
+        "eqeqeq": ["error", "smart"],
+        "@typescript-eslint/ban-types": [
+            "error",
+            {
+                "types": {
+                    "Function": false
+                },
+                "extendDefaults": true
+            }
+        ],
+        "headers/header-format": [
+            "error",
+            {
+                "source": "file",
+                "path": ".eslint-header"
+            }
+        ],
+        "@html-eslint/indent": ["error", 4]
+    },
+    "globals": {
+        "Symbol": "readonly"
+    }
+}

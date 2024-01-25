@@ -1,0 +1,28 @@
+package-lock.json
+.github
+node_modules
+dist
+examples
+
+# OS
+.DS_Store
+
+# Editors
+.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+*.tmproj
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Markdown
+*.md
+*.mdx

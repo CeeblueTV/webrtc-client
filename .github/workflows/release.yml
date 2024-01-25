@@ -1,0 +1,45 @@
+name: release
+on:
+    workflow_run:
+        workflows: [lint]
+        types: [completed]
+        branches: [main]
+    workflow_dispatch:
+        branches: [main]
+permissions:
+    contents: read # for checkout
+jobs:
+    release:
+        permissions:
+            contents: write # to be able to publish a github release
+            issues: write # to be able to comment on released issues
+            pull-requests: write # to be able to comment on released pull requests
+            id-token: write # to enable use of OIDC for npm provenance
+        name: release
+        runs-on: ubuntu-latest
+        if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+        steps:
+            - name: generate token
+              id: generate_token
+              uses: tibdex/github-app-token@v1
+              with:
+                  app_id: ${{ secrets.RELEASE_BOT_APP_ID }}
+                  private_key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+            - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+                  token: ${{ steps.generate_token.outputs.token }}
+            - uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
+              with:
+                  cache: npm
+                  node-version: lts/*
+            - run: npm ci
+            - run: npx semantic-release
+              env:
+                  GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+                  GIT_AUTHOR_NAME: ${{ vars.RELEASE_BOT_GIT_AUTHOR_NAME }}
+                  GIT_AUTHOR_EMAIL: ${{ vars.RELEASE_BOT_GIT_AUTHOR_EMAIL }}
+                  GIT_COMMITTER_NAME: ${{ vars.RELEASE_BOT_GIT_COMMITTER_NAME }}
+                  GIT_COMMITTER_EMAIL: ${{ vars.RELEASE_BOT_GIT_COMMITTER_EMAIL }}

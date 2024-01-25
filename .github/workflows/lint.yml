@@ -1,0 +1,26 @@
+name: lint
+on:
+    push:
+        branches:
+            - main
+            - dev
+    pull_request:
+        types:
+            - opened
+            - reopened
+            - synchronize
+permissions:
+    contents: read
+    pull-requests: read
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+            - uses: wagoid/commitlint-github-action@v5
+            - uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
+              with:
+                  cache: npm
+                  node-version: 18
+            - run: npm ci
+            - run: npm run lint

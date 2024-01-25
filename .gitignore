@@ -1,0 +1,20 @@
+node_modules/
+dist/
+docs/**/*.html
+docs/.nojekyll
+docs/assets
+
+# OS
+.DS_Store
+
+# Editors
+.idea/
+.project/
+.classpath/
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+*.tmproj
+.vscode/

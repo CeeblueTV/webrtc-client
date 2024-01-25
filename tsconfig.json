@@ -1,0 +1,11 @@
+{
+    "include": ["./index.ts"],
+    "compilerOptions": {
+        "strictPropertyInitialization": true,
+        "noImplicitAny": true,
+        "esModuleInterop": true,
+        "strict": true,
+        "target": "ES6",
+        "moduleResolution": "Node"
+    }
+}

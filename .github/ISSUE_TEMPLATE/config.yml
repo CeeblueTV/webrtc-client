@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/CeeblueTV/webrtc-client/discussions
+    about: Use this for general questions and discussions
+  - name: Trial Account Request
+    url: https://ceeblue.net/free-trial/
+    about: Request your 14-day trial account here
+  - name: Ceeblue Sales Contact
+    url: https://ceeblue.net/contact-us/
+    about: Submit your business-related questions here
