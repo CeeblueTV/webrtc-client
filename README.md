@@ -1,3 +1,5 @@
+[![npm](https://img.shields.io/npm/v/%40ceeblue%2Fwebrtc-client)](https://npmjs.org/package/@ceeblue/webrtc-client)
+
 [Requirements](#requirements) | [Usage](#usage) | [Examples](#examples) | [Building locally](#building-locally) | [Documentation](#documentation) | [Contribution](#contribution) | [License](#license)
 
 # Ceeblue WebRTC Client
