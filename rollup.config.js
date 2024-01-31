@@ -19,7 +19,6 @@ const output = 'dist/webrtc-client';
 export default args => {
     let target;
     let format = args.format;
-    let version = process.env.version;
     // Determine the target and format based on provided arguments
     if (format) {
         if (format.toLowerCase().startsWith('es')) {
@@ -32,22 +31,21 @@ export default args => {
         format = 'es';
         target = 'es6';
     }
-    // Validate version format (SemVer)
-    const [semVer, major, minor, patch, prerelease, buildmetadata] =
-        version.match(
-            /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
-        ) ?? [];
-    if (semVer) {
-        version = semVer;
-        console.info('Major: ' + major);
-        console.info('Minor: ' + minor);
-        console.info('Patch: ' + patch);
-        console.info('Prerelease: ' + prerelease);
-        console.info('Buildmetadata: ' + buildmetadata);
-        console.info('Using provided version: ' + version);
+    // Determine the package version by using the 'version' environment variable (for CI/CD processes) or fallback to the version specified in the 'package.json' file.
+    let version = process.env.version ?? process.env.npm_package_version;
+    // Validate the version format
+    if (typeof version === 'string') {
+        // https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+        const versionRegex =
+            /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+        if (!versionRegex.test(version)) {
+            throw new Error(
+                'The provided version string does not comply with the Semantic Versioning (SemVer) format required. Please refer to https://semver.org/ for more details on the SemVer specification.'
+            );
+        }
+        console.info('Building version: ' + version);
     } else {
-        version = process.env.npm_package_version;
-        console.warn('(!) Invalid version format provided, using package.json version: ' + version);
+        throw new Error('Version is undefined or not a string.');
     }
 
     return [
