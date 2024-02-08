@@ -49,7 +49,7 @@ export class WebSocketReliable extends EventEmitter {
      * @param error error description on an improper closure
      */
     onClose(error?: string) {
-        if(error) {
+        if (error) {
             console.error(error);
         }
     }
