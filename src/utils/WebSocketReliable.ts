@@ -48,7 +48,11 @@ export class WebSocketReliable extends EventEmitter {
      * @event `close` fired on websocket close
      * @param error error description on an improper closure
      */
-    onClose(error?: string) {}
+    onClose(error?: string) {
+        if (error) {
+            console.error(error);
+        }
+    }
 
     /**
      * binaryType, fix binary type to arrayBuffer
