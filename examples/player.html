@@ -167,7 +167,7 @@
                     const host = options.host;
                     this.host = new NetAddress(host || location.host, 443);
                     this.streamName = options.stream;
-                    this.accessToken = options.token;
+                    this.accessToken = options.accessToken;
                     this.connectorType = options.whep || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
                 },
                 methods: {
