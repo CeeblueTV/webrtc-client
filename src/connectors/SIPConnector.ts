@@ -6,6 +6,7 @@
 
 import { ConnectParams } from '../utils/Connect';
 import { EventEmitter } from '../utils/EventEmitter';
+import { NetAddress } from '../utils/NetAddress';
 import { SDP } from '../utils/SDP';
 import { Util } from '../utils/Util';
 import { ConnectionInfos, IConnector } from './IConnector';
@@ -83,6 +84,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     }
 
     private _streamName: string;
+    private _host: string;
     private _stream?: MediaStream;
     private _peerConnection?: RTCPeerConnection;
     private _closed: boolean;
@@ -99,6 +101,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         super();
         this._closed = false;
         this._streamName = connectParams.streamName;
+        this._host = connectParams.host;
         this._stream = stream;
         this._connectionInfosTime = 0;
         this._codecs = new Set<string>();
@@ -207,6 +210,15 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
      * calls the _sip method, then set the answer and calls onOpen
      */
     protected _open(iceServer?: RTCIceServer) {
+        // If iceServer is not provided, use the default one
+        if (!iceServer) {
+            const domain = new NetAddress(this._host, 443).domain;
+            iceServer = {
+                urls: ['turn:' + domain + ':3478?transport=tcp', 'turn:' + domain + ':3478'],
+                username: 'csc_demo',
+                credential: 'UtrAFClFFO'
+            };
+        }
         // Start the RTCPeerConnection and create an offer
         try {
             this._peerConnection = new RTCPeerConnection(iceServer ? { iceServers: [iceServer] } : undefined);
