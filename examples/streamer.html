@@ -243,7 +243,7 @@
                     const host = options.host;
                     this.host = new NetAddress(host || location.host, 4433);
                     this.streamName = options.stream;
-                    this.accessToken = options.token;
+                    this.accessToken = options.accessToken;
                     this.connectorType = options.whip || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
 
                     this.diagnostics = options.diagnostics || options.debug;
