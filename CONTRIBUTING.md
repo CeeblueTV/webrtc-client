@@ -12,7 +12,7 @@ Feel free to reach out if you have any questions or need further clarification o
 
 ## Issues
 
-Use issues exclusively for bug reporting and proposing enhancements. For questions, ideas, or other matters, visit our [discussions page](https://github.com/ceebluetv/webrtc-client/discussions).
+Use issues exclusively for bug reporting and proposing enhancements.
 
 When reporting bugs, describe the problem clearly and provide all relevant information to replicate it. Describe both the expected and actual behavior as detailed as possible.
 
@@ -56,4 +56,5 @@ By making a contribution to this project, I certify that:
   this project or the open source license(s) involved.
 
 ## Questions?
-For any inquiries, suggestions, or discussions, join us at our [discussions forum](https://github.com/ceebluetv/webrtc-client/discussions).
+
+For inquiries other than bug reports or feature requests, please send an email to our support team at <support@ceeblue.net>.
