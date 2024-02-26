@@ -221,7 +221,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         }
         // Start the RTCPeerConnection and create an offer
         try {
-            this._peerConnection = new RTCPeerConnection(iceServer ? { iceServers: [iceServer] } : undefined);
+            this._peerConnection = new RTCPeerConnection({ iceServers: [iceServer] });
         } catch (e) {
             this.close('RTCPeerConnection failed, ' + Util.stringify(e));
             return;
