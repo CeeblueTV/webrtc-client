@@ -11,6 +11,8 @@ import { SDP } from '../utils/SDP';
 import { Util } from '../utils/Util';
 import { ConnectionInfos, IConnector } from './IConnector';
 
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
 /**
  * SIPConnector is a common abstract class for negotiating a new RTCPeerConnection connection
  * with the server.
@@ -221,7 +223,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         }
         // Start the RTCPeerConnection and create an offer
         try {
-            this._peerConnection = new RTCPeerConnection(iceServer ? { iceServers: [iceServer] } : undefined);
+            this._peerConnection = new RTCPeerConnection({ iceServers: [iceServer] });
         } catch (e) {
             this.close('RTCPeerConnection failed, ' + Util.stringify(e));
             return;
@@ -237,6 +239,22 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 this._stream = ev.streams[0];
                 this._tryToOpen();
             };
+        }
+
+        // Add transceivers for Safari
+        // This is necessary for Safari to handle the audio and video tracks correctly
+        if (isSafari) {
+            if (!this._stream) {
+                this._peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+                this._peerConnection.addTransceiver('video', { direction: 'recvonly' });
+            } else {
+                const transceivers = this._peerConnection.getTransceivers();
+                for (const transceiver of transceivers) {
+                    if (transceiver.receiver.track.kind === 'audio' || transceiver.receiver.track.kind === 'video') {
+                        transceiver.direction = 'sendonly';
+                    }
+                }
+            }
         }
 
         let sdp: string;
