@@ -5,8 +5,7 @@
  */
 
 import { MediaReport } from '../connectors/IController';
-import { EventEmitter } from '../utils/EventEmitter';
-import { ILog } from '../utils/ILog';
+import { EventEmitter, ILog } from '@ceeblue/web-utils';
 
 const HD_Pixels = 1280 * 720;
 const HD_Bitrate = 1.2 * 1000000;

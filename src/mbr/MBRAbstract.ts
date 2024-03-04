@@ -5,8 +5,7 @@
  */
 
 import { MTrack, Metadata } from '../metadata/Metadata';
-import { ILog } from '../utils/ILog';
-import { Util } from '../utils/Util';
+import { ILog, Util } from '@ceeblue/web-utils';
 
 const LEARNING_UP_STEP = 1400;
 const MAXIMUM_UP_DELAY = 28000;

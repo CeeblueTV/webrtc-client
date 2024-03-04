@@ -5,7 +5,7 @@
  */
 
 import { MTrack, MType } from '../metadata/Metadata';
-import { Util } from '../utils/Util';
+import { Util } from '@ceeblue/web-utils';
 import { MBRAbstract, MBRParams } from './MBRAbstract';
 
 /**

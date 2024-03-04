@@ -4,11 +4,8 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable } from '../utils/WebSocketReliable';
-import { Util } from '../utils/Util';
+import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
 import { MTrack, MType, Metadata } from './Metadata';
-import { Connect, ConnectType, ConnectParams } from '../utils/Connect';
-import { EventEmitter } from '../utils/EventEmitter';
 
 const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.maxbps;
 
@@ -64,7 +61,7 @@ export class StreamMetadata extends EventEmitter {
     /**
      * Returns the ConnectParams object containing the connection parameters
      */
-    get connectParams(): ConnectParams {
+    get connectParams(): Connect.Params {
         return this._connectParams;
     }
     /**
@@ -83,15 +80,15 @@ export class StreamMetadata extends EventEmitter {
 
     private _ws: WebSocketReliable;
     private _metadata?: Metadata;
-    private _connectParams: ConnectParams;
+    private _connectParams: Connect.Params;
     /**
      * Create a new StreamMetadata instance, connects to the server using WebSocket and
      * listen to metadata events.
      */
-    constructor(connectParams: ConnectParams) {
+    constructor(connectParams: Connect.Params) {
         super();
         this._connectParams = connectParams;
-        this._ws = new WebSocketReliable(Connect.buildURL(ConnectType.META, connectParams));
+        this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.META, connectParams));
         this._ws.onClose = (error?: string) => {
             this._metadata = new Metadata(); // reset metadata
             if (error) {
