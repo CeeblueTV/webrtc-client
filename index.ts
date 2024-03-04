@@ -29,3 +29,7 @@ export { StreamMetadata } from './src/metadata/StreamMetadata';
 // Timed metadata
 export { IStreamData } from './src/metadata/IStreamData';
 export { WSStreamData } from './src/metadata/WSStreamData';
+
+const __lib__version__ = '?'; // will be replaced on building by project version
+
+export const VERSION: string = __lib__version__;

@@ -178,8 +178,8 @@
         <script src="https://cdn.jsdelivr.net/npm/webrtc-adapter/out/adapter.js"></script>
         <script type="module">
             import { NetAddress, Util } from "https://cdn.jsdelivr.net/npm/@ceeblue/web-utils@1.1.0/dist/web-utils.min.js";
-            import { Streamer, HTTPConnector, WSController } from "../dist/webrtc-client.js";
-            console.log('webrtc-client version:', Util.VERSION);
+            import { Streamer, HTTPConnector, WSController, VERSION } from "../dist/webrtc-client.js";
+            console.log('webrtc-client version:', VERSION);
 
             const DEFAULT_STREAMING_BITRATE = 3000000;
             const DEFAULT_STREAMING_WIDTH = 1280;

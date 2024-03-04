@@ -124,12 +124,12 @@
         <script src="https://cdn.jsdelivr.net/npm/webrtc-adapter/out/adapter.js"></script>
         <script type="module">
             import { NetAddress, Util } from "https://cdn.jsdelivr.net/npm/@ceeblue/web-utils@1.1.0/dist/web-utils.min.js";
-            import { Player, HTTPConnector, WSController } from "../dist/webrtc-client.min.js";
+            import { Player, HTTPConnector, WSController, VERSION } from "../dist/webrtc-client.min.js";
             // development version, includes helpful console warnings
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-            console.log('webrtc-client version:', Util.VERSION);
+            console.log('webrtc-client version:', VERSION);
 
             const PlayState = {
                 PLAYING: 'PLAYING',
