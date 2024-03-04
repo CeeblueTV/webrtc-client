@@ -136,7 +136,6 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
     private _maximum: number;
     private _minimum: number;
     private _stream?: MediaStream;
-    private _enabled: boolean;
     /**
      * Build the ABR implementation, call {@link compute} to use it
      * @param params ABR parameters
@@ -156,7 +155,6 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
         this._minimum = init.minimum;
         this._maximum = init.maximum;
         this._stream = stream;
-        this._enabled = true;
     }
 
     /**

@@ -70,7 +70,6 @@ export abstract class MBRAbstract implements MBRParams, ILog {
     private _maximumUpDelay: number;
     private _testTime: number;
     private _appreciationTime?: number;
-    private _enabled: boolean;
 
     /**
      * Build the MBR implementation, call {@link compute} to use it
@@ -88,7 +87,6 @@ export abstract class MBRAbstract implements MBRParams, ILog {
         this._maximumUpDelay = init.maximumUpDelay;
         this._upDelay = 0;
         this._testTime = 0;
-        this._enabled = true;
     }
 
     /**

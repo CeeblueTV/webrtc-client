@@ -14,7 +14,7 @@ const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.
  *  - the list of tracks and their properties,
  *  - the list of availables sources and their properties,
  * @example
- * const streamMetadata = new StreamMetadata(Util.metadataURL(host, streamName));
+ * const streamMetadata = new StreamMetadata(Connect.buildURL(host, streamName));
  * streamMetadata.onMetadata = metadata => {
  *    console.log(metadata);
  * }
