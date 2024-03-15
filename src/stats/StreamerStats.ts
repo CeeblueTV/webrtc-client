@@ -129,7 +129,7 @@ export class StreamerStats extends EventEmitter implements IStats, ILog {
             };
         }
 
-        const video = connectionInfos.outputs.audio;
+        const video = connectionInfos.outputs.video;
         if (video) {
             metrics.video = {
                 bytesSent: video.bytesSent,
