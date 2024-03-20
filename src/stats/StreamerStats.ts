@@ -50,7 +50,7 @@ export class StreamerStats extends EventEmitter implements IStats, ILog {
     }
 
     /**
-     * Return streamer stats into a JSON representation
+     * Return streamer stats into a Object representation
      * @override
      */
     async serialize(): Promise<object> {
