@@ -33,6 +33,7 @@ export { MBRLinear } from './src/mbr/MBRLinear';
 export { Telemetry } from './src/stats/Telemetry';
 export { IStats } from './src/stats/IStats';
 export { StreamerStats } from './src/stats/StreamerStats';
+export { PlayerStats } from './src/stats/PlayerStats';
 // Metadata
 export { Metadata, MSource, MTrack, MType } from './src/metadata/Metadata';
 export { StreamMetadata } from './src/metadata/StreamMetadata';
