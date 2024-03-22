@@ -99,16 +99,14 @@ export class PlayerStats extends EventEmitter implements IStats, ILog {
             metrics.bytesSent = candidate.bytesSent;
             metrics.bytesReceived = candidate.bytesReceived;
 
-            if (candidate.availableIncomingBitrate == null) {
-                const diff = metrics.bytesReceived - this._lastBytesReceived;
-                this._lastBytesReceived = metrics.bytesReceived;
+            // Compute incoming bitrate
+            const diff = metrics.bytesReceived - this._lastBytesReceived;
+            this._lastBytesReceived = metrics.bytesReceived;
+            const now = Date.now();
+            const duration = (now - this._lastBytesReceivedTime) / 1000;
+            this._lastBytesReceivedTime = now;
+            metrics.incomingBitrate = Math.round((diff * 8) / duration);
 
-                const now = Date.now();
-                const duration = (now - this._lastBytesReceivedTime) / 1000;
-                this._lastBytesReceivedTime = now;
-
-                candidate.availableIncomingBitrate = (diff * 8) / duration;
-            }
             metrics.availableIncomingBitrate = candidate.availableIncomingBitrate;
         }
 
