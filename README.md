@@ -1,4 +1,4 @@
-[Requirements](#requirements) | [Usage](#usage) | [Examples](#examples) | [Building locally](#building-locally) | [Documentation](#documentation) | [Contribution](#contribution) | [License](#license)
+[Requirements](#requirements) | [Usage](#usage) | [Examples](#examples) | [Building locally](#building-locally) | [Statistics](#statistics) | [Documentation](#documentation) | [Contribution](#contribution) | [License](#license)
 
 # Ceeblue WebRTC Client
 [![npm](https://img.shields.io/npm/v/%40ceeblue%2Fwebrtc-client)](https://npmjs.org/package/@ceeblue/webrtc-client)
@@ -106,6 +106,7 @@ To understand how to use the library through examples, we provide three illustra
 - [/examples/streamer.html](./examples/streamer.html) → Publish a stream with your webcam
 - [/examples/player.html](./examples/player.html) → Play a stream
 - [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) → Play a stream with timed metadata
+- [/examples/player-stats.html](./examples/player-stats.html) → Play a stream, display and report the statistics
 
 1. In your project directory, [if you have installed the simple-http package](/#requirements), execute the following command from the Terminal prompt by navigating to:
 
@@ -162,6 +163,19 @@ npm run build
 >   ```
 >   npm run watch:es5
 >   ```
+
+## Statistics
+
+The library provides :
+
+- A set of statistics that can be accessed from the [Player](./src/Player.ts) and the [Streamer](./src/Streamer.ts) through the `connectionsInfos()` function.
+- The [Telemetry](./src/stats/Telemetry.ts) class that allows you to send the statistics to a server through WebSocket or HTTP with different formats.
+- An interface called [IStats](./src/stats/IStats.ts) that define the structure of the statistics class to pass to [Telemetry](./src/stats/Telemetry.ts).
+- Two implementations of the [IStats](./src/stats/IStats.ts) interface:
+  - [PlayerStats](./src/stats/PlayerStats.ts) class that serialize the Player [Player](./src/Player.ts).
+  - [StreamerStats](./src/stats/StreamerStats.ts) class that  serialize the Player [Streamer](./src/Streamer.ts).
+
+For a full example, see player-stats.html in [Examples](#examples).
 
 ## Documentation
 
