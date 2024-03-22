@@ -82,7 +82,6 @@ export class CustomStats extends PlayerStats {
         const now = Date.now();
         const newMetrics = {
             sessionId: this._sessionId = metrics.sessionId,
-            timestamp: metrics.timestamp,
             currentTime: Date(now),
 
             roundTripTime: metrics.currentRoundTripTime,
