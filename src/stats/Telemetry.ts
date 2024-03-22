@@ -44,17 +44,18 @@ export class Telemetry extends EventEmitter implements ILog {
      * Number of current reports
      */
     get reporting(): number {
-        return this._reporting;
+        return this._reporting.size;
     }
 
     private _ws?: WebSocketReliable;
-    private _fetch?: AbortController;
+    private _fetchController?: AbortController;
     private _url: string;
-    private _reporting: number;
+    private _reporting: Map<IStats, number | NodeJS.Timeout>;
 
     /**
      * Build a metrics reporter configured with a URL, which can be a websocket or http server.
      * You must call {@link report} to start reporting metrics.
+     * If you call {@link report} with the same {@link IStats} instance, it will udptate this report.
      *
      * @param url a Websocket or HTTP server URL.
      */
@@ -67,52 +68,65 @@ export class Telemetry extends EventEmitter implements ILog {
             throw Error('Protocol ' + url.protocol + ' not supported');
         }
         this._url = url.toString();
-        this._reporting = 0;
+        this._reporting = new Map();
     }
 
     /**
      *  Starts reporting metrics from an {@link IStats} instance to the URL end-point
      * @param stats {@link IStats} implementation
-     * @param frequency report interval, if is equals to 0 it reports only one time the stats
+     * @param frequency set report interval (in seconds), if it is undefined it reports only one time the stats, if it is 0 it stops the reporting
      */
-    report(stats: IStats, frequency: number) {
+    report(stats: IStats, frequency?: number) {
         stats.onError = (error: string) => this.onError(stats.constructor.name + ' error, ' + error);
-        stats.onLog = (log: string) => this.onError(stats.constructor.name + ', ' + log);
+        stats.onLog = (log: string) => this.onLog(stats.constructor.name + ', ' + log);
 
-        let release: (() => void) | undefined = (stats.onRelease = () => {
-            if (!release) {
+        const stop = () => {
+            const timer = this._reporting.get(stats);
+            if (timer == null) {
                 return;
             }
-            release = undefined; // just one callback!
-            clearInterval(interval);
             this.onLog('Stop ' + stats.constructor.name + ' reporting');
-            if (--this._reporting > 0) {
-                return;
-            }
-            // close useless connection!
-            if (this._ws) {
-                this._ws.close();
-            }
-            if (this._fetch) {
-                this._fetch.abort();
-            }
-        });
 
-        // start interval
-        const interval = (frequency ? setInterval : setTimeout)(async () => {
-            if (!frequency && release) {
-                release();
-            }
-            try {
-                await this._send(stats);
-            } catch (e) {
-                this.onError(stats.constructor.name + ' error, ' + Util.stringify(e));
-            }
-        }, frequency * 1000);
+            clearInterval(timer);
+            stats.off('release', stop);
+            this._reporting.delete(stats);
 
-        ++this._reporting;
+            // Cleanup if no more stats to report after this call
+            setTimeout(() => {
+                if (this._reporting.size > 0) {
+                    return;
+                }
+                if (this._ws) {
+                    this._ws.close();
+                }
+                if (this._fetchController) {
+                    this._fetchController.abort();
+                }
+            }, 0);
+        };
 
-        this.onLog('Start ' + stats.constructor.name + ' reporting every ' + frequency + ' seconds');
+        // stop sending if already reporting
+        stop();
+
+        // start sending if required
+        if (frequency == null) {
+            this._report(stats);
+            this.onLog('Send ' + stats.constructor.name + ' report');
+            return;
+        } else if (frequency > 0) {
+            const timer = setInterval(() => this._report(stats), frequency * 1000);
+            this._reporting.set(stats, timer);
+            stats.on('release', stop);
+            this.onLog('Start ' + stats.constructor.name + ' reporting every ' + frequency + ' seconds');
+        }
+    }
+
+    private async _report(stats: IStats) {
+        try {
+            await this._send(stats);
+        } catch (e) {
+            this.onError(stats.constructor.name + ' error, ' + Util.stringify(e));
+        }
     }
 
     private async _send(stats: IStats) {
@@ -148,18 +162,18 @@ export class Telemetry extends EventEmitter implements ILog {
             this._ws.send(body);
         } else {
             // HTTP
-            if (this._fetch) {
+            if (this._fetchController) {
                 // abort previous stats sending
-                this._fetch.abort();
+                this._fetchController.abort();
             }
-            this._fetch = new AbortController();
+            this._fetchController = new AbortController();
             fetch(this._url, {
                 method: 'POST',
                 body,
                 headers: {
                     'Content-Type': mimeType
                 },
-                signal: this._fetch.signal
+                signal: this._fetchController.signal
             });
         }
     }

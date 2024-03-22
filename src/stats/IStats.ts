@@ -5,6 +5,7 @@
  */
 
 import { ILog } from '../utils/ILog';
+import { EventEmitter } from '../utils/EventEmitter';
 
 /**
  * IStats is the interface used to implement statistics seralization
@@ -26,7 +27,7 @@ import { ILog } from '../utils/ILog';
  *    }
  * }
  */
-export interface IStats extends ILog {
+export interface IStats extends ILog, EventEmitter {
     /**
      * Must be called when the resource is closed
      * @event
