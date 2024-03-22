@@ -1,0 +1,137 @@
+<!doctype html>
+<!--
+    Copyright 2023 Ceeblue B.V.
+    This file is part of https://github.com/CeeblueTV/webrtc-client which is released under GNU Affero General Public License.
+    See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
+-->
+<html lang="en" class="h-100">
+    <head>
+        <title>Ceeblue WebRTC Player Example</title>
+        <meta charset="utf-8">
+        <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+        <link rel="icon" href="./assets/ceeblue-logo-32x32.png" sizes="32x32">
+        <link rel="icon" href="./assets/ceeblue-logo-192x192.png" sizes="192x192">
+
+        <link href="./css/bootstrap.css" rel="stylesheet">
+        <link href="./css/solid.css" rel="stylesheet">
+        <link href="./css/fontawesome.css" rel="stylesheet">
+
+        <style>
+            body {
+                margin-top: 1em;
+                margin-bottom: 3em;
+            }
+
+            video {
+                background-color: #333333;
+                max-width: 100%;
+                max-height: 60vh;
+            }
+
+            .nav .nav-item .nav-link {
+                padding: .5rem .8rem;
+            }
+
+            [v-cloak] {
+                display: none;
+            }
+        </style>
+    </head>
+    <body class="container-fluid h-100" id="main">
+        <div class="row h-100">
+            <div class="col-md-8 h-100" id="player">
+                <div class="col-md-12">
+                    <img alt="CEEBLUE Media Services" class="rounded mx-auto d-block" src="./assets/ceeblue-logo.png">
+                    <h3 class="text-center">WebRTC Client Player Example</h3>
+                </div>
+
+                <div class="col-md-12">
+                    <div class="card text-center border-0">
+                        <div class="card-body">
+                            <div class="alert alert-warning" role="alert" v-if="streamErrorMessage">
+                                {{ streamErrorMessage }}
+                            </div>
+
+                            <video autoplay id="video" ref="video" playsinline></video>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-sm">
+                            <select id="video-track-selection" class="custom-select text-center"
+                                :disabled="!player || !player.controller" v-model="videoTrackId" @change="onVideoTrackChange()">
+                                <option :value="undefined" :key="videoTrack">AUTO - {{videoTrack}}</option>
+                                <option v-for="[idx, track] of videoTracks" v-bind:value="idx">
+                                    {{ track }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-sm">
+                            <select id="audio-track-selection" class="custom-select text-center"
+                                :disabled="!player || !player.controller" v-model="audioTrackId" @change="onAudioTrackChange()">
+                                <option :value="undefined" :key="audioTrack">AUTO - {{audioTrack}}</option>
+                                <option v-for="[idx, track] of audioTracks" v-bind:value="idx">
+                                    {{ track }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-2 col-sm-1">
+                            <button class="btn btn-light" type="button" v-on:click="mute">
+                                <i class="fas" v-bind:class="{ 'fa-volume-up': !muted, 'fa-volume-off': muted }"></i>
+                            </button>
+                        </div>
+
+                        <div class="form-group col-10 col-sm">
+                            <select class="custom-select"
+                                :disabled="isPlaying()" v-model="connectorType">
+                                <option v-bind:value="option" v-for="option in connectorTypes">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-sm">
+                            <input :disabled="isPlaying()" class="form-control"
+                                placeholder="Stream name as+30189afc-541d-49b7-9ae0-468d15f62059" type="text"
+                                v-model="streamName">
+                        </div>
+
+                        <div class="form-group col-sm">
+                            <input :disabled="isPlaying()" class="form-control"
+                                placeholder="Access token cc0f52bb-92bb-462b-8218-88c3febe8533" type="text" v-model="accessToken">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-center" v-cloak>
+                        <button class="btn" type="button"
+                            v-bind:class="{ 'btn-danger': isPlaying(), 'btn-success': isStopped(), 'btn-secondary': isStarting() }"
+                            v-on:click="play">
+                            <span>
+                                {{ playButtonCaption() }} <i class="fas fa-spinner fa-pulse" v-if="isStarting()"></i>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 h-100">
+                <div class="card border-0 h-100">
+                    <div class="card-body h-100">
+                        <ul class="list-group h-100 overflow-auto">
+                            <li v-for="item in metrics" :key="item" class="list-group-item p-2">
+                                {{ item }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="./js/player-stats.js"></script>
+    </body>
+</html>
