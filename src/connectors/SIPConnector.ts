@@ -119,7 +119,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         if (!this._peerConnection) {
             return Promise.reject('Not connected');
         }
-        // update only evey seconds!
+        // update only every seconds!
         if (!this._connectionInfos || Util.time() - cacheDuration > this._connectionInfosTime) {
             const infos = await this._peerConnection.getStats(null);
             this._connectionInfos = {
