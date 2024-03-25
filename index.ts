@@ -30,6 +30,8 @@ export { StreamMetadata } from './src/metadata/StreamMetadata';
 export { IStreamData } from './src/metadata/IStreamData';
 export { WSStreamData } from './src/metadata/WSStreamData';
 
+export * as utils from '@ceeblue/web-utils';
+
 const __lib__version__ = '?'; // will be replaced on building by project version
 
 export const VERSION: string = __lib__version__;
