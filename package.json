@@ -42,7 +42,7 @@
         "npm": ">=7"
     },
     "dependencies": {
-        "@ceeblue/web-utils": "^1.1.0"
+        "@ceeblue/web-utils": "^1.2.0"
     },
     "devDependencies": {
         "@html-eslint/eslint-plugin": "~0.22.0",
