@@ -4,11 +4,8 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable } from '../utils/WebSocketReliable';
-import { Util } from '../utils/Util';
-import { Connect, ConnectType, ConnectParams } from '../utils/Connect';
+import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
 import { IStreamData } from './IStreamData';
-import { EventEmitter } from '../utils/EventEmitter';
 
 /**
  * WSStreamData is the WebSocket implementation of IStreamData
@@ -86,9 +83,9 @@ export class WSStreamData extends EventEmitter implements IStreamData {
     /**
      * Build the stream data instance, it only connects to the server when tracks are set.
      */
-    constructor(connectParams: ConnectParams) {
+    constructor(connectParams: Connect.Params) {
         super();
-        this._url = Connect.buildURL(ConnectType.DATA, connectParams).toString();
+        this._url = Connect.buildURL(Connect.Type.DATA, connectParams).toString();
         this._tracks = Array<number>();
         this._ws = new WebSocketReliable();
         this._ws.onOpen = () => this._sendTracks(); // On open sends tracks subscription!

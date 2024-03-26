@@ -5,17 +5,14 @@
  */
 
 import { StreamMetadata } from './metadata/StreamMetadata';
-import { ILog } from './utils/ILog';
+import { ILog, Connect, Util, EventEmitter } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
-import { ConnectParams } from './utils/Connect';
 import { WSController } from './connectors/WSController';
 import { HTTPConnector } from './connectors/HTTPConnector';
-import { Util } from './utils/Util';
 import { MType, Metadata } from './metadata/Metadata';
 import { IStreamData } from './metadata/IStreamData';
 import { WSStreamData } from './metadata/WSStreamData';
-import { EventEmitter } from './utils/EventEmitter';
 import { MBRAbstract, MBRParams } from './mbr/MBRAbstract';
 import { MBRLinear } from './mbr/MBRLinear';
 
@@ -272,7 +269,7 @@ export class Player extends EventEmitter implements ILog {
      *  streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
      * })
      */
-    constructor(private Connector?: { new (connectParams: ConnectParams): IConnector }) {
+    constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
         super();
         this._dataTracks = new Array<number>();
     }
@@ -333,7 +330,7 @@ export class Player extends EventEmitter implements ILog {
      *    player.audioTrack = undefined;
      * }
      */
-    start(params: ConnectParams | StreamMetadata, multiBitrate: MBRAbstract | MBRParams | undefined = {}) {
+    start(params: Connect.Params | StreamMetadata, multiBitrate: MBRAbstract | MBRParams | undefined = {}) {
         this.stop();
         // Connector
         let mbr: MBRAbstract;
@@ -504,7 +501,7 @@ export class Player extends EventEmitter implements ILog {
         }
     }
 
-    private _initStreamMetadata(params: ConnectParams, streamMetadata: StreamMetadata) {
+    private _initStreamMetadata(params: Connect.Params, streamMetadata: StreamMetadata) {
         this._streamMetadata = streamMetadata;
         streamMetadata.onLog = log => this.onLog('StreamMetadata: ' + log);
         streamMetadata.onError = error => this.onError('StreamMetadata: ' + error);
@@ -527,7 +524,7 @@ export class Player extends EventEmitter implements ILog {
         };
     }
 
-    private _newStreamData(params: ConnectParams) {
+    private _newStreamData(params: Connect.Params) {
         const streamData = (this._streamData = new WSStreamData(params));
         streamData.onLog = log => this.onLog('Timed Metadatas: ' + log);
         streamData.onError = error => this.onError('Timed Metadatas: ' + error);
