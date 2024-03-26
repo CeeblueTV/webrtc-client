@@ -4,16 +4,13 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { Util } from './utils/Util';
-import { ILog } from './utils/ILog';
+import { Util, ILog, Connect, EventEmitter } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './connectors/IConnector';
 import { WSController } from './connectors/WSController';
 import { HTTPConnector } from './connectors/HTTPConnector';
 import { IController, IsController, RTPProps, MediaReport } from './connectors/IController';
 import { ABRAbstract, ABRParams } from './abr/ABRAbstract';
 import { ABRLinear } from './abr/ABRLinear';
-import { ConnectParams } from './utils/Connect';
-import { EventEmitter } from './utils/EventEmitter';
 
 /**
  * Use Streamer to broadcast to a WebRTC server.
@@ -193,7 +190,7 @@ export class Streamer extends EventEmitter implements ILog {
      * This doesn't start the broadcast, you must call start() method
      * @param Connector Connector class to use for signaling, can be determined automatically from URL in the start() method
      */
-    constructor(private Connector?: { new (connectParams: ConnectParams, stream: MediaStream): IConnector }) {
+    constructor(private Connector?: { new (connectParams: Connect.Params, stream: MediaStream): IConnector }) {
         super();
         this._videoBitrate = 0;
         this._videoBitrateConstraint = 0;
@@ -239,7 +236,7 @@ export class Streamer extends EventEmitter implements ILog {
      * @param params Connection parameters
      * @param adaptiveBitrate Adaptive bitrate implementation or ABRParams to configure the default implementation
      */
-    start(stream: MediaStream, params: ConnectParams, adaptiveBitrate: ABRAbstract | ABRParams | undefined = {}) {
+    start(stream: MediaStream, params: Connect.Params, adaptiveBitrate: ABRAbstract | ABRParams | undefined = {}) {
         this.stop();
 
         // Connector

@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { Connect, ConnectParams, ConnectType } from '../utils/Connect';
+import { Connect } from '@ceeblue/web-utils';
 import { SIPConnector } from './SIPConnector';
 
 /**
@@ -31,9 +31,9 @@ export class HTTPConnector extends SIPConnector {
      * By default, a listener channel is negotiated.
      * To create a streamer channel, give a media stream parameter
      */
-    constructor(connectParams: ConnectParams, stream?: MediaStream) {
+    constructor(connectParams: Connect.Params, stream?: MediaStream) {
         super(connectParams, stream);
-        this._url = Connect.buildURL(ConnectType.WEBRTC, connectParams, 'https');
+        this._url = Connect.buildURL(Connect.Type.WEBRTC, connectParams, 'https');
         this._fetch = new AbortController();
         // [ENG-142] Add a way to get the server's configuration for 'iceServers'
         setTimeout(() => {

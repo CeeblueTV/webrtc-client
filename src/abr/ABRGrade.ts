@@ -5,8 +5,7 @@
  */
 
 import { MediaReport } from '../connectors/IController';
-import { Util } from '../utils/Util';
-import { Numbers } from '../utils/Numbers';
+import { Util, Numbers } from '@ceeblue/web-utils';
 import { ABRAbstract, ABRParams } from './ABRAbstract';
 
 const BITRATE_RECOVERY_MIN_TIMEOUT = 2500;
