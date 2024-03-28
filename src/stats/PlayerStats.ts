@@ -5,9 +5,7 @@
  */
 
 import { Player } from '../Player';
-import { ILog } from '../utils/ILog';
-import { Util } from '../utils/Util';
-import { EventEmitter } from '../utils/EventEmitter';
+import { ILog, Util, EventEmitter } from '@ceeblue/web-utils';
 import { IStats } from './IStats';
 
 /**

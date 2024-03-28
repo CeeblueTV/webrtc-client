@@ -13,13 +13,15 @@
  * - telemetryURL=<URL> : Use a custom telemetry server URL
  */
 
-import { Player, HTTPConnector, WSController, Util, NetAddress, PlayerStats, Telemetry } from "../../dist/webrtc-client.js";
+import { Player, HTTPConnector, WSController, utils, VERSION, PlayerStats, Telemetry } from "../../dist/webrtc-client.js";
 import { CustomStats, ErrorStats, readableBitrate } from "./CustomStats.js";
 // development version, includes helpful console warnings
 // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
 // production version, optimized for size and speed
 import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-console.log('webrtc-client version:', Util.VERSION);
+console.log('webrtc-client version:', VERSION);
+
+const { Util, NetAddress } = utils;
 
 const PlayState = {
     PLAYING: 'PLAYING',
