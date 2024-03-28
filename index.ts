@@ -6,16 +6,6 @@
 
 export { Player } from './src/Player';
 export { Streamer } from './src/Streamer';
-// Utils
-export { EventEmitter } from './src/utils/EventEmitter';
-export { Connect, ConnectType, ConnectParams } from './src/utils/Connect';
-export { Util } from './src/utils/Util';
-export { NetAddress } from './src/utils/NetAddress';
-export { WebSocketReliable } from './src/utils/WebSocketReliable';
-export { Queue } from './src/utils/Queue';
-export { Numbers } from './src/utils/Numbers';
-export { ILog } from './src/utils/ILog';
-export { SDP } from './src/utils/SDP';
 // Connectors
 export { IConnector, ConnectionInfos } from './src/connectors/IConnector';
 export { IController, PlayingInfos, RTPProps, MediaReport } from './src/connectors/IController';
@@ -40,3 +30,9 @@ export { StreamMetadata } from './src/metadata/StreamMetadata';
 // Timed metadata
 export { IStreamData } from './src/metadata/IStreamData';
 export { WSStreamData } from './src/metadata/WSStreamData';
+
+export * as utils from '@ceeblue/web-utils';
+
+const __lib__version__ = '?'; // will be replaced on building by project version
+
+export const VERSION: string = __lib__version__;

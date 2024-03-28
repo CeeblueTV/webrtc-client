@@ -4,8 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog } from '../utils/ILog';
-import { EventEmitter } from '../utils/EventEmitter';
+import { ILog, EventEmitter } from '@ceeblue/web-utils';
 
 /**
  * IStats is the interface used to implement statistics seralization

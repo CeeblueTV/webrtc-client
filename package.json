@@ -41,10 +41,14 @@
         "node": ">=16",
         "npm": ">=7"
     },
+    "dependencies": {
+        "@ceeblue/web-utils": "^1.2.0"
+    },
     "devDependencies": {
         "@html-eslint/eslint-plugin": "~0.22.0",
         "@html-eslint/parser": "~0.22.0",
         "@rollup/plugin-eslint": "~9.0.4",
+        "@rollup/plugin-node-resolve": "~15.2.3",
         "@rollup/plugin-replace": "~5.0.2",
         "@rollup/plugin-terser": "~0.4.3",
         "@rollup/plugin-typescript": "~11.1.4",

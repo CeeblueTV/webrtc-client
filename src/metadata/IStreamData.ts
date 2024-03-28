@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog } from '../utils/ILog';
+import { ILog } from '@ceeblue/web-utils';
 
 /**
  *  IStreamData is an interface to get JSON data from a stream, parse it and fire the onData callback

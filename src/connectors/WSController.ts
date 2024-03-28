@@ -5,9 +5,7 @@
  */
 
 import { IController, RTPProps, PlayingInfos, MediaReport } from './IController';
-import { Connect, ConnectType, ConnectParams } from '../utils/Connect';
-import { Util } from '../utils/Util';
-import { WebSocketReliable } from '../utils/WebSocketReliable';
+import { Connect, Util, WebSocketReliable } from '@ceeblue/web-utils';
 import { SIPConnector } from './SIPConnector';
 
 /**
@@ -67,9 +65,9 @@ export class WSController extends SIPConnector implements IController {
      * By default, a listener channel is negotiated.
      * To create a streamer channel, pass a stream parameter.
      */
-    constructor(connectParams: ConnectParams, stream?: MediaStream) {
+    constructor(connectParams: Connect.Params, stream?: MediaStream) {
         super(connectParams, stream);
-        this._ws = new WebSocketReliable(Connect.buildURL(ConnectType.WEBRTC, connectParams, 'wss'));
+        this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.WEBRTC, connectParams, 'wss'));
         this._ws.onClose = (error?: string) => this.close(error);
         this._ws.onOpen = () => {
             // [ENG-142] Add a way to get the server's configuration for 'iceServers'

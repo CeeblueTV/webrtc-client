@@ -5,7 +5,7 @@
  */
 
 import { MediaReport } from '../connectors/IController';
-import { Util } from '../utils/Util';
+import { Util } from '@ceeblue/web-utils';
 import { ABRAbstract, ABRParams } from './ABRAbstract';
 
 const STABLE_TIMEOUT = 11; // > 10 sec = maximum window between 2 key frames

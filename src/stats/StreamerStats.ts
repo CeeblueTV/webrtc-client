@@ -5,9 +5,7 @@
  */
 
 import { Streamer } from '../Streamer';
-import { ILog } from '../utils/ILog';
-import { Util } from '../utils/Util';
-import { EventEmitter } from '../utils/EventEmitter';
+import { ILog, EventEmitter, Util } from '@ceeblue/web-utils';
 import { IStats } from './IStats';
 
 /**

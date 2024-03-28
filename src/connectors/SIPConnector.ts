@@ -4,11 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ConnectParams } from '../utils/Connect';
-import { EventEmitter } from '../utils/EventEmitter';
-import { NetAddress } from '../utils/NetAddress';
-import { SDP } from '../utils/SDP';
-import { Util } from '../utils/Util';
+import { Connect, EventEmitter, NetAddress, SDP, Util } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './IConnector';
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -99,7 +95,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
      * By default, a listener channel is negotiated.
      * To create a streamer channel, pass a stream parameter.
      */
-    constructor(connectParams: ConnectParams, stream?: MediaStream) {
+    constructor(connectParams: Connect.Params, stream?: MediaStream) {
         super();
         this._closed = false;
         this._streamName = connectParams.streamName;

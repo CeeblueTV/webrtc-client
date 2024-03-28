@@ -21,7 +21,9 @@
         <textarea id="metadata" rows="10" readonly></textarea>
 
         <script type="module">
-            import { Player, Util, NetAddress } from "../dist/webrtc-client.js";
+            import { Player, utils } from "../dist/webrtc-client.js";
+
+            const { NetAddress, Util } = utils;
 
             const logs = document.getElementById("metadata");
             const videoElement = document.getElementById('video');
