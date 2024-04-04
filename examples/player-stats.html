@@ -40,7 +40,7 @@
     </head>
     <body class="container-fluid h-100" id="main">
         <div class="row h-100">
-            <div class="col-md-8 h-100" id="player">
+            <div class="col-md-8" id="player">
                 <div class="col-md-12">
                     <img alt="CEEBLUE Media Services" class="rounded mx-auto d-block" src="./assets/ceeblue-logo.png">
                     <h3 class="text-center">WebRTC Client Player Example</h3>
@@ -119,10 +119,10 @@
                 </div>
             </div>
 
-            <div class="col-md-4 h-100">
-                <div class="card border-0 h-100">
-                    <div class="card-body h-100">
-                        <ul class="list-group h-100 overflow-auto">
+            <div class="col-md-4">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <ul class="list-group overflow-auto">
                             <li v-for="item in metrics" :key="item" class="list-group-item p-2">
                                 {{ item }}
                             </li>
