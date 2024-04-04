@@ -35,7 +35,10 @@ function toHuman(value) {
     }
     const i = Math.floor(Math.log(value) / Math.log(1000));
     const sizes = ['', ' K', ' M', ' G'];
-    return i ? ((value / Math.pow(1000, i)).toFixed(3) + sizes[i]) : value;
+    if (!i || i >= sizes.length) {
+        return value;
+    }
+    return ((value / Math.pow(1000, i)).toFixed(3) + sizes[i]);
 }
 
 // Convert metrics to one line strings (recursive method)
