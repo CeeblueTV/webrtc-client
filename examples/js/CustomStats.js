@@ -109,14 +109,14 @@ export class CustomStats extends PlayerStats {
         this._prevVideoTrackId = metrics.videoTrack;
 
         if (metrics.audio) {
-            newMetrics.jitter += metrics.audio.jitter;
-            newMetrics.packetsLost += metrics.audio.packetsLost;
-            newMetrics.nackCount += metrics.audio.nackCount;
+            newMetrics.jitter += metrics.audio.jitter ? metrics.audio.jitter : 0;
+            newMetrics.packetsLost += metrics.audio.packetsLost ? metrics.audio.packetsLost : 0;
+            newMetrics.nackCount += metrics.audio.nackCount ? metrics.audio.nackCount : 0;
         }
         if (metrics.video) {
-            newMetrics.jitter += metrics.video.jitter;
-            newMetrics.packetsLost += metrics.video.packetsLost;
-            newMetrics.nackCount += metrics.video.nackCount;
+            newMetrics.jitter += metrics.video.jitter ? metrics.video.jitter : 0;
+            newMetrics.packetsLost += metrics.video.packetsLost ? metrics.video.packetsLost : 0;
+            newMetrics.nackCount += metrics.video.nackCount ? metrics.video.nackCount : 0;
             newMetrics.pliCount = metrics.video.pliCount;
             newMetrics.framesDropped = metrics.video.framesDropped;
         }
