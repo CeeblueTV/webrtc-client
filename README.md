@@ -34,8 +34,9 @@ Then [import](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modu
 import * as WebRTC from '@ceeblue/webrtc-client';
 ```
 > 💡 **TIP**
-> - If your project uses [TypeScript](https://www.typescriptlang.org/), it is recommended to set `"target": "ES6"` in your configuration. This setting aligns with our usage of ES6 features and ensures that your build will succeed. For those requiring a backwards-compatible UMD (Universal Module Definition) version, a [local build](#development) is advised.
-> Defining the compiler option `"moduleResolution": "Node"` in **tsconfig.json** helps with import errors by ensuring that TypeScript uses the correct strategy for resolving imports based on the targeted Node.js version.
+> 
+> If your project uses [TypeScript](https://www.typescriptlang.org/), it is recommended to set `"target": "ES6"` in your configuration to align with our usage of ES6 features and ensures that your build will succeed (for those requiring a backwards-compatible [UMD](https://github.com/umdjs/umd) version, a [local build](#building-locally) is advised).
+> Then Defining the compiler option `"moduleResolution": "Node"` in **tsconfig.json** helps with import errors by ensuring that TypeScript uses the correct strategy for resolving imports based on the targeted Node.js version.
 >   ```json
 >   {
 >      "compilerOptions": {
@@ -107,13 +108,13 @@ To understand how to use the library through examples, we provide three illustra
 - [/examples/player.html](./examples/player.html) → Play a stream
 - [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) → Play a stream with timed metadata
 
-1. In your project directory, [if you have installed the simple-http package](/#requirements), execute the following command from the Terminal prompt by navigating to:
+1. In your project directory, if you have installed the [http-server package](#requirements), execute the following command from the Terminal prompt by navigating to:
 
     ```shell
     http-server . -p 8081
     ```
 
-2. Navigate to the specified address in your browser, making sure to replace any placeholders in the URL with the variables you have copied during the [stream setup](/#requirements) in the dashboard.
+2. Navigate to the specified address in your browser, making sure to replace any placeholders in the URL with the variables you have copied during the [stream setup](#requirements) in the dashboard.
 
     ```html
     http://localhost:8081/examples/streamer.html?host=<endpoint>&stream=<streamName>
@@ -121,7 +122,7 @@ To understand how to use the library through examples, we provide three illustra
 
 3. Click on **Start streaming**. Upon doing so, a live stream from your webcam will initiate. Should your browser request permission to access your camera, ensure to grant it.
 
-4. In the address bar of a separate browser window, enter the following address, making sure to replace the placeholders in the URL with the variables you have copied while configuring the [stream setup](/#requirements) in the dashboard.
+4. In the address bar of a separate browser window, enter the following address, making sure to replace the placeholders in the URL with the variables you have copied while configuring the [stream setup](#requirements) in the dashboard.
 
     ```html
     http://localhost:8081/examples/player.html?host=<endpoint>&stream=<streamName>
