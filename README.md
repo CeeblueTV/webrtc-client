@@ -170,7 +170,7 @@ This monorepo also contains built-in documentation about the APIs in the library
 ```
 npm run build:docs
 ```
-You can access the documentation by opening the index.html file in the docs folder with your browser (`./docs/index.html`), or, if you have [installed and started the http-server](/#requirements), by navigating to:
+You can access the documentation by opening the index.html file in the docs folder with your browser (`./docs/index.html`), or if you have installed and started the [http-server service](#requirements) by navigating to:
 ```
 http://localhost:8081/docs/
 ```
