@@ -51,7 +51,7 @@ import * as WebRTC from '@ceeblue/webrtc-client';
 To publish the stream `<streamName>` to `<endpoint>`, use the [Streamer](./src/Streamer.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see push.html in [Examples](#examples).
 
 ```javascript
-import Streamer as WebRTC from '@ceeblue/webrtc-client';
+import { Streamer } from '@ceeblue/webrtc-client';
 
 const streamer = new Streamer();
 streamer.onStart = stream => {
@@ -60,16 +60,13 @@ streamer.onStart = stream => {
 streamer.onStop = _ => {
    console.log('stop streaming');
 }
-navigator.mediaDevices
-.getUserMedia({ audio: true, video: true })
-.then(stream => {
-   streamer.start(stream, {
-      host: <endpoint>,
-      streamName: <streamName>,
-      iceServer: {
-         urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
-         username: 'csc_demo', credential: 'UtrAFClFFO'
-      }
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+streamer.start(stream, {
+   host: <endpoint>,
+   streamName: <streamName>,
+   iceServer: {
+      urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
+      username: 'csc_demo', credential: 'UtrAFClFFO'
    }
 });
 ```
@@ -79,7 +76,7 @@ navigator.mediaDevices
 To play the stream `<streamName>` from `<endPoint>`, use the [Player](./src/Player.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see play.html in [Examples](#examples).
 
 ```javascript
-import Player as WebRTC from '@ceeblue/webrtc-client';
+import { Player } from '@ceeblue/webrtc-client';
 
 const player = new Player();
 
@@ -90,14 +87,14 @@ player.onStart = stream => {
 player.onStop = _ => {
    console.log('stop playing');
 }
-streamer.start(stream, {
+player.start({
    host: <endPoint>,
-      streamName: <streamName>,
-      iceServer: {
+   streamName: <streamName>,
+   iceServer: {
       urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
       username: 'csc_demo', credential: 'UtrAFClFFO'
    }
-}
+});
 ```
 
 ## Examples
