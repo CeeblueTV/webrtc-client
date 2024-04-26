@@ -36,7 +36,7 @@ import * as WebRTC from '@ceeblue/webrtc-client';
 > 💡 **TIP**
 > 
 > If your project uses [TypeScript](https://www.typescriptlang.org/), it is recommended to set `"target": "ES6"` in your configuration to align with our usage of ES6 features and ensures that your build will succeed (for those requiring a backwards-compatible [UMD](https://github.com/umdjs/umd) version, a [local build](#building-locally) is advised).
-> Then Defining the compiler option `"moduleResolution": "Node"` in **tsconfig.json** helps with import errors by ensuring that TypeScript uses the correct strategy for resolving imports based on the targeted Node.js version.
+> Then defining the compiler option `"moduleResolution": "Node"` in **tsconfig.json** helps with import errors by ensuring that TypeScript uses the correct strategy for resolving imports based on the targeted Node.js version.
 >   ```json
 >   {
 >      "compilerOptions": {
@@ -105,7 +105,7 @@ To understand how to use the library through examples, we provide three illustra
 - [/examples/player.html](./examples/player.html) → Play a stream
 - [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) → Play a stream with timed metadata
 
-1. In your project directory, if you have installed the [http-server package](#requirements), execute the following command from the Terminal prompt by navigating to:
+1. In your project directory, if you have installed the [http-server service](#requirements), execute the following command from the Terminal prompt by navigating to:
 
     ```shell
     http-server . -p 8081
