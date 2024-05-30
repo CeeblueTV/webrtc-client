@@ -13,11 +13,11 @@ import { SIPConnector } from './SIPConnector';
  * using WebSocket custom signaling and keep that connection open for communication.
  * @example
  * // Listener channel (no 'stream' parameter), listen to a stream without sending data
- * const connection = new WSController({host, streamName});
+ * const connection = new WSController({endPoint, streamName});
  * connection.onOpen = stream => videoElement.srcObject = stream;
  *
  * // Streamer channel (with 'stream' parameter), sends and receives media streams
- * const connection = new WSController({host, streamName}, {stream: await navigator.mediaDevices.getUserMedia()});
+ * const connection = new WSController({endPoint, streamName}, {stream: await navigator.mediaDevices.getUserMedia()});
  * connection.onOpen = stream => {}
  */
 export class WSController extends SIPConnector implements IController {

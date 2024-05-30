@@ -29,7 +29,7 @@
             const videoElement = document.getElementById('video');
 
             const options = Util.options();
-            const host = new NetAddress(options.host || location.host, 443).toString();
+            const host = new NetAddress(options.host || location.host, 443);
             const streamName = options.stream;
             videoElement.onloadeddata = () => {
                 videoElement.play();
@@ -39,7 +39,7 @@
                 videoElement.srcObject = stream;
             };
             player.start({
-                host,
+                endPoint: host.toString(),
                 streamName,
                 iceServer: {
                     urls: ['turn:' + host.domain + ':3478?transport=tcp', 'turn:' + host.domain + ':3478'],

@@ -16,7 +16,7 @@ import { ABRLinear } from './abr/ABRLinear';
  * Use Streamer to broadcast to a WebRTC server.
  *
  * You can use a controllable version using a `WSController` as connector, or change it to use a `HTTPConnector` (HTTP WHIP).
- * By default it uses a `WSController` excepting if on {@link Streamer.start} you use a {@link ConnectParams.host} prefixed with a `http://` protocol.
+ * By default it uses a `WSController` excepting if on {@link Streamer.start} you use a {@link Connect.Params.endPoint} prefixed with a `http://` protocol.
  * With a controllable connector you can change video bitrate during the streaming, what is not possible with a HTTP(WHIP) connector.
  *
  * @example
@@ -32,7 +32,7 @@ import { ABRLinear } from './abr/ABRLinear';
  * .getUserMedia({ audio: true, video: true })
  * .then(stream => {
  *    streamer.start(stream, {
- *       host: address, // if address is prefixed by `http://` it uses a HTTPConnector (HTTP-WHIP) if Streamer is build without contructor argument
+ *       endPoint: address, // if address is prefixed by `http://` it uses a HTTPConnector (HTTP-WHIP) if Streamer is build without contructor argument
  *       streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
  *    });
  *    ...
@@ -225,7 +225,7 @@ export class Streamer extends EventEmitter implements ILog {
 
     /**
      * Starts broadcasting the stream
-     * The connector is determined automatically from {@link ConnectParams.host} if not forced in the constructor.
+     * The connector is determined automatically from {@link Connect.Params.endPoint} if not forced in the constructor.
      *
      * The `adaptiveBitrate` option can take three different types of value:
      * - A {@link ABRParams} parameters to configure the default ABRLinear implementation
@@ -242,7 +242,7 @@ export class Streamer extends EventEmitter implements ILog {
         // Connector
         let abr: ABRAbstract;
         this._videoBitrateFixed = false;
-        this._connector = new (this.Connector || (params.host.startsWith('http') ? HTTPConnector : WSController))(
+        this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params,
             stream
         );

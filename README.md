@@ -48,7 +48,7 @@ import * as WebRTC from '@ceeblue/webrtc-client';
 
 ### Publish a stream
 
-To publish the stream `<streamName>` to `<endpoint>`, use the [Streamer](./src/Streamer.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see push.html in [Examples](#examples).
+To publish the stream `<streamName>` to `<endPoint>`, use the [Streamer](./src/Streamer.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see push.html in [Examples](#examples).
 
 ```javascript
 import { Streamer } from '@ceeblue/webrtc-client';
@@ -62,7 +62,7 @@ streamer.onStop = _ => {
 }
 const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
 streamer.start(stream, {
-   host: <endpoint>,
+   endPoint: <endPoint>,
    streamName: <streamName>,
    iceServer: {
       urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
@@ -88,7 +88,7 @@ player.onStop = _ => {
    console.log('stop playing');
 }
 player.start({
-   host: <endPoint>,
+   endPoint: <endPoint>,
    streamName: <streamName>,
    iceServer: {
       urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
@@ -114,7 +114,7 @@ To understand how to use the library through examples, we provide three illustra
 2. Navigate to the specified address in your browser, making sure to replace any placeholders in the URL with the variables you have copied during the [stream setup](#requirements) in the dashboard.
 
     ```html
-    http://localhost:8081/examples/streamer.html?host=<endpoint>&stream=<streamName>
+    http://localhost:8081/examples/streamer.html?host=<endPoint>&stream=<streamName>
     ```
 
 3. Click on **Start streaming**. Upon doing so, a live stream from your webcam will initiate. Should your browser request permission to access your camera, ensure to grant it.
@@ -122,7 +122,7 @@ To understand how to use the library through examples, we provide three illustra
 4. In the address bar of a separate browser window, enter the following address, making sure to replace the placeholders in the URL with the variables you have copied while configuring the [stream setup](#requirements) in the dashboard.
 
     ```html
-    http://localhost:8081/examples/player.html?host=<endpoint>&stream=<streamName>
+    http://localhost:8081/examples/player.html?host=<endPoint>&stream=<streamName>
     ```
 
 5. Click **Play** to start watching the live stream.
