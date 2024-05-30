@@ -48,7 +48,7 @@ export class StreamerStats extends EventEmitter implements IStats, ILog {
     }
 
     /**
-     * Return streamer stats into a JSON representation
+     * Return streamer stats into a Object representation
      * @override
      */
     async serialize(): Promise<object> {
@@ -127,7 +127,7 @@ export class StreamerStats extends EventEmitter implements IStats, ILog {
             };
         }
 
-        const video = connectionInfos.outputs.audio;
+        const video = connectionInfos.outputs.video;
         if (video) {
             metrics.video = {
                 bytesSent: video.bytesSent,

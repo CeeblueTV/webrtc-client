@@ -72,7 +72,7 @@ export interface IConnector extends ILog {
     readonly codecs: Set<string>;
     /**
      * Request connections infos with caching option to save loading cost
-     * @param cacheDuration indicate how many time we can cache the last connection informations
+     * @param cacheDuration indicate how much milliseconds we can cache the last connection informations
      * @returns Promise with a ConnectionInfos on success
      */
     connectionInfos(cacheDuration?: number): Promise<ConnectionInfos>;
