@@ -21,7 +21,7 @@ const RECONNECTION_TIMEOUT: number = 1000;
 /**
  * Use Player to start playing a WebRTC stream.
  * You can use a controllable version using a `WSController` as connector, or change it to use a `HTTPConnector` (HTTP WHEP).
- * By default it uses a `WSController` excepting if on {@link Player.start} you use a {@link ConnectParams.host} prefixed with a `http://` protocol.
+ * By default it uses a `WSController` excepting if on {@link Player.start} you use a {@link Connect.Params.endPoint} prefixed with a `http://` protocol.
  * With a controllable connector you can change track during the playback, what is not possible with a HTTP(WHEP) connector.
  *
  * In addition then a player with a controllable connector uses a MultiBitrate algorithm to switch track automatically
@@ -44,7 +44,7 @@ const RECONNECTION_TIMEOUT: number = 1000;
  * player.videoTrack = 1;
  * // start playback
  * player.start({
- *    host: address, // if address is prefixed by `http://` it uses a HTTPConnector (HTTP-WHEP) if Player is build without contructor argument
+ *    endPoint: address, // if address is prefixed by `http://` it uses a HTTPConnector (HTTP-WHEP) if Player is build without contructor argument
  *    streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
  * });
  * // Tracks are in a MBR mode: video track 1 can change regarding network congestion
@@ -251,7 +251,7 @@ export class Player extends EventEmitter implements ILog {
      * Constructs a new Player instance, optionally with a custom connector
      * This doesn't start the playback, you must call {@link Player.start} method
      * By default if no connector is indicated it uses a  {@link WSController} (WebSocket {@link IController})
-     * excepting if {@link ConnectParams.host} is prefixed with a `http://` protocol in such case it uses
+     * excepting if {@link Connect.Params.endPoint} is prefixed with a `http://` protocol in such case it uses
      * instead a {@link HTTPConnector} (HTTP {@link IConnector}). To force a HTTPConnector build explicitly
      * with {@link HTTPConnector} as Connector argument.
      * @param Connector Connector class to use for signaling, or nothing to let's {@link Player.start} method determines it automatically.
@@ -259,13 +259,13 @@ export class Player extends EventEmitter implements ILog {
      * // Default build
      * const player = new Player();
      * player.start({
-     *    host: address, // if address is prefixed by `http://` it uses a HTTPConnector (HTTP-WHIP), otherwise it uses a WSController (WebSocket)
+     *    endPoint: address, // if address is prefixed by `http://` it uses a HTTPConnector (HTTP-WHIP), otherwise it uses a WSController (WebSocket)
      *    streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
      * });
-     * // Force connector selection whatever the address used in host
+     * // Force connector selection whatever the address used in endPoint
      * const player = new Player(isWHIP ? HTTPConnector : WSController);
      * player.start({
-     *   host: address, // optional protocol prefix has no incidence on connector selection
+     *   endPoint: address, // optional protocol prefix has no incidence on connector selection
      *  streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
      * })
      */
@@ -289,9 +289,9 @@ export class Player extends EventEmitter implements ILog {
 
     /**
      * Starts playing the stream
-     * The connector is determined automatically from {@link ConnectParams.host} if not forced in the constructor.
+     * The connector is determined automatically from {@link Connect.Params.endPoint} if not forced in the constructor.
      *
-     * Instead to use a {@link ConnectParams} you can prefer use a already built {@link StreamMetadata} instance to
+     * Instead to use a {@link Connect.Params} you can prefer use a already built {@link StreamMetadata} instance to
      * the same end-point, it allows to discover tracks in amount and initialize track selection to start playback.
      *
      * The `multiBitrate` option can take three different types of value:
@@ -307,12 +307,12 @@ export class Player extends EventEmitter implements ILog {
      * @example
      * // Default start with MBR activated
      * player.start({
-     *    host: address,
+     *    endPoint: address,
      *    streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
      * });
      * // Start with selected initial track, in using a StreamMetadata object preinitialized
      * const streamMetadata = new StreamMetadata({
-     *    host: address,
+     *    endPoint: address,
      *    streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
      * });
      * streamMetadata.onMetadata = metadata => {
@@ -352,7 +352,7 @@ export class Player extends EventEmitter implements ILog {
         }
         this._audioTrackFixed = false;
         this._videoTrackFixed = false;
-        this._connector = new (this.Connector || (params.host.startsWith('http') ? HTTPConnector : WSController))(
+        this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
         this._connector.onLog = log => this.onLog('Signaling: ' + log);

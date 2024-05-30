@@ -12,12 +12,12 @@ import { SIPConnector } from './SIPConnector';
  * using WHIP (WebRTC HTTP Ingest Protocol) or WHEP (WebRTC HTTP Egress Protocol).
  * @example
  * // Listener channel (no initial 'stream' parameter), listen to a stream without sending data
- * const connection = new HTTPConnector({host, streamName});
+ * const connection = new HTTPConnector({endPoint, streamName});
  * // we get the media stream from server
  * connection.onOpen = stream => videoElement.srcObject = stream;
  *
  * // Streamer channel (with initial 'stream' parameter), sends and receives media streams
- * const connection = new HTTPConnector({host, streamName}, {stream: await navigator.mediaDevices.getUserMedia()});
+ * const connection = new HTTPConnector({endPoint, streamName}, {stream: await navigator.mediaDevices.getUserMedia()});
  * // the media stream here is our local camera as passed in the above constructor
  * connection.onOpen = stream => {}
  */
