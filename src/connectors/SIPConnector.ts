@@ -82,7 +82,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     }
 
     private _streamName: string;
-    private _host: string;
+    private _endPoint: string;
     private _stream?: MediaStream;
     private _peerConnection?: RTCPeerConnection;
     private _closed: boolean;
@@ -99,7 +99,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         super();
         this._closed = false;
         this._streamName = connectParams.streamName;
-        this._host = connectParams.host;
+        this._endPoint = connectParams.endPoint;
         this._stream = stream;
         this._connectionInfosTime = 0;
         this._codecs = new Set<string>();
@@ -210,7 +210,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     protected _open(iceServer?: RTCIceServer) {
         // If iceServer is not provided, use the default one
         if (!iceServer) {
-            const domain = new NetAddress(this._host, 443).domain;
+            const domain = new NetAddress(this._endPoint, 443).domain;
             iceServer = {
                 urls: ['turn:' + domain + ':3478?transport=tcp', 'turn:' + domain + ':3478'],
                 username: 'csc_demo',

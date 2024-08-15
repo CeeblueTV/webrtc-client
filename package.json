@@ -41,9 +41,6 @@
         "node": ">=16",
         "npm": ">=7"
     },
-    "dependencies": {
-        "@ceeblue/web-utils": "^1.2.0"
-    },
     "devDependencies": {
         "@html-eslint/eslint-plugin": "~0.22.0",
         "@html-eslint/parser": "~0.22.0",
@@ -79,5 +76,8 @@
     },
     "publishConfig": {
         "access": "public"
+    },
+    "dependencies": {
+        "@ceeblue/web-utils": "^2.2.0"
     }
 }

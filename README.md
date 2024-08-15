@@ -34,8 +34,9 @@ Then [import](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modu
 import * as WebRTC from '@ceeblue/webrtc-client';
 ```
 > 💡 **TIP**
-> - If your project uses [TypeScript](https://www.typescriptlang.org/), it is recommended to set `"target": "ES6"` in your configuration. This setting aligns with our usage of ES6 features and ensures that your build will succeed. For those requiring a backwards-compatible UMD (Universal Module Definition) version, a [local build](#development) is advised.
-> Defining the compiler option `"moduleResolution": "Node"` in **tsconfig.json** helps with import errors by ensuring that TypeScript uses the correct strategy for resolving imports based on the targeted Node.js version.
+> 
+> If your project uses [TypeScript](https://www.typescriptlang.org/), it is recommended to set `"target": "ES6"` in your configuration to align with our usage of ES6 features and ensures that your build will succeed (for those requiring a backwards-compatible [UMD](https://github.com/umdjs/umd) version, a [local build](#building-locally) is advised).
+> Then defining the compiler option `"moduleResolution": "Node"` in **tsconfig.json** helps with import errors by ensuring that TypeScript uses the correct strategy for resolving imports based on the targeted Node.js version.
 >   ```json
 >   {
 >      "compilerOptions": {
@@ -47,10 +48,10 @@ import * as WebRTC from '@ceeblue/webrtc-client';
 
 ### Publish a stream
 
-To publish the stream `<streamName>` to `<endpoint>`, use the [Streamer](./src/Streamer.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see push.html in [Examples](#examples).
+To publish the stream `<streamName>` to `<endPoint>`, use the [Streamer](./src/Streamer.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see push.html in [Examples](#examples).
 
 ```javascript
-import Streamer as WebRTC from '@ceeblue/webrtc-client';
+import { Streamer } from '@ceeblue/webrtc-client';
 
 const streamer = new Streamer();
 streamer.onStart = stream => {
@@ -59,16 +60,13 @@ streamer.onStart = stream => {
 streamer.onStop = _ => {
    console.log('stop streaming');
 }
-navigator.mediaDevices
-.getUserMedia({ audio: true, video: true })
-.then(stream => {
-   streamer.start(stream, {
-      host: <endpoint>,
-      streamName: <streamName>,
-      iceServer: {
-         urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
-         username: 'csc_demo', credential: 'UtrAFClFFO'
-      }
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+streamer.start(stream, {
+   endPoint: <endPoint>,
+   streamName: <streamName>,
+   iceServer: {
+      urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
+      username: 'csc_demo', credential: 'UtrAFClFFO'
    }
 });
 ```
@@ -78,7 +76,7 @@ navigator.mediaDevices
 To play the stream `<streamName>` from `<endPoint>`, use the [Player](./src/Player.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see play.html in [Examples](#examples).
 
 ```javascript
-import Player as WebRTC from '@ceeblue/webrtc-client';
+import { Player } from '@ceeblue/webrtc-client';
 
 const player = new Player();
 
@@ -89,14 +87,14 @@ player.onStart = stream => {
 player.onStop = _ => {
    console.log('stop playing');
 }
-streamer.start(stream, {
-   host: <endPoint>,
-      streamName: <streamName>,
-      iceServer: {
+player.start({
+   endPoint: <endPoint>,
+   streamName: <streamName>,
+   iceServer: {
       urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
       username: 'csc_demo', credential: 'UtrAFClFFO'
    }
-}
+});
 ```
 
 ## Examples
@@ -108,24 +106,24 @@ To understand how to use the library through examples, we provide three illustra
 - [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) → Play a stream with timed metadata
 - [/examples/player-stats.html](./examples/player-stats.html) → Play a stream, display and report the statistics
 
-1. In your project directory, [if you have installed the simple-http package](/#requirements), execute the following command from the Terminal prompt by navigating to:
+1. In your project directory, if you have installed the [http-server service](#requirements), execute the following command from the Terminal prompt by navigating to:
 
     ```shell
     http-server . -p 8081
     ```
 
-2. Navigate to the specified address in your browser, making sure to replace any placeholders in the URL with the variables you have copied during the [stream setup](/#requirements) in the dashboard.
+2. Navigate to the specified address in your browser, making sure to replace any placeholders in the URL with the variables you have copied during the [stream setup](#requirements) in the dashboard.
 
     ```html
-    http://localhost:8081/examples/streamer.html?host=<endpoint>&stream=<streamName>
+    http://localhost:8081/examples/streamer.html?host=<endPoint>&stream=<streamName>
     ```
 
 3. Click on **Start streaming**. Upon doing so, a live stream from your webcam will initiate. Should your browser request permission to access your camera, ensure to grant it.
 
-4. In the address bar of a separate browser window, enter the following address, making sure to replace the placeholders in the URL with the variables you have copied while configuring the [stream setup](/#requirements) in the dashboard.
+4. In the address bar of a separate browser window, enter the following address, making sure to replace the placeholders in the URL with the variables you have copied while configuring the [stream setup](#requirements) in the dashboard.
 
     ```html
-    http://localhost:8081/examples/player.html?host=<endpoint>&stream=<streamName>
+    http://localhost:8081/examples/player.html?host=<endPoint>&stream=<streamName>
     ```
 
 5. Click **Play** to start watching the live stream.
@@ -183,7 +181,7 @@ This monorepo also contains built-in documentation about the APIs in the library
 ```
 npm run build:docs
 ```
-You can access the documentation by opening the index.html file in the docs folder with your browser (`./docs/index.html`), or, if you have [installed and started the http-server](/#requirements), by navigating to:
+You can access the documentation by opening the index.html file in the docs folder with your browser (`./docs/index.html`), or if you have installed and started the [http-server service](#requirements) by navigating to:
 ```
 http://localhost:8081/docs/
 ```

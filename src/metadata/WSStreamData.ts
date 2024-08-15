@@ -10,7 +10,7 @@ import { IStreamData } from './IStreamData';
 /**
  * WSStreamData is the WebSocket implementation of IStreamData
  * @example
- * const streamData = new WSStreamData({host, streamName});
+ * const streamData = new WSStreamData({endPoint, streamName});
  * streamData.tracks = [0, 1]; // subscribe to data tracks 0 and 1
  * streamData.onData = time, track, data => {
  *    console.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
