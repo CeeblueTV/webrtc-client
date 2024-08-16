@@ -104,6 +104,10 @@ export class StreamerStats extends EventEmitter implements IStats, ILog {
             metrics.bytesSent = candidate.bytesSent;
             metrics.bytesReceived = candidate.bytesReceived;
 
+            metrics.localCandidateProtocol =
+                candidate.localCandidateProtocol +
+                (candidate.localCandidateRelayProtocol ? '/' + candidate.localCandidateRelayProtocol : '');
+
             if (candidate.availableOutgoingBitrate == null) {
                 const diff = metrics.bytesSent - this._lastBytesSend;
                 this._lastBytesSend = metrics.bytesSent;

@@ -97,6 +97,10 @@ export class PlayerStats extends EventEmitter implements IStats, ILog {
             metrics.bytesSent = candidate.bytesSent;
             metrics.bytesReceived = candidate.bytesReceived;
 
+            metrics.localCandidateProtocol =
+                candidate.localCandidateProtocol +
+                (candidate.localCandidateRelayProtocol ? '/' + candidate.localCandidateRelayProtocol : '');
+
             // Compute incoming bitrate
             const diff = metrics.bytesReceived - this._lastBytesReceived;
             this._lastBytesReceived = metrics.bytesReceived;

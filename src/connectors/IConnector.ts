@@ -6,6 +6,11 @@
 
 import { ILog } from '@ceeblue/web-utils';
 
+export type CandidateInfos = RTCIceCandidatePairStats & {
+    localCandidateProtocol?: string;
+    localCandidateRelayProtocol?: string;
+};
+
 /**
  * This is the structure returned by the connectionInfos() method
  * to get statistics about current connection
@@ -28,7 +33,7 @@ export type ConnectionInfos = {
     /**
      * Selected candidate pair
      */
-    candidate?: RTCIceCandidatePairStats;
+    candidate?: CandidateInfos;
 };
 
 /**
