@@ -119,7 +119,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-4" id="metrics-container">
                 <div class="card border-0">
                     <div class="card-body">
                         <ul class="list-group overflow-auto">
@@ -132,6 +132,320 @@
             </div>
         </div>
 
-        <script type="module" src="./js/player-stats.js"></script>
+        <script type="module">
+            /**
+             * This example demonstrates how to use the WebRTC Player and report metrics to a telemetry server.
+             * It also allows to visualize the metrics in real-time to analyze the stream quality.
+             * 
+             * Special query options :
+             * - telemetryURL=<URL> : Use a custom telemetry server URL
+             */
+
+            import { Player, HTTPConnector, WSController, utils, VERSION, PlayerStats, Telemetry } from "../dist/webrtc-client.js";
+            // development version, includes helpful console warnings
+            // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
+            // production version, optimized for size and speed
+            import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
+            console.log('webrtc-client version:', VERSION);
+            console.log('web-utils version:', utils.VERSION);
+
+            const { Util, NetAddress } = utils;
+
+            const PlayState = {
+                PLAYING: 'PLAYING',
+                STARTING: 'STARTING',
+                STOPPED: 'STOPPED'
+            };
+
+            function readableBitrate(bytes) {
+                if (bytes === 0) {
+                    return '';
+                }
+                const i = Math.floor(Math.log(bytes) / Math.log(1000));
+                const sizes = ['bps', 'kbps', 'mbps', 'gbps'];
+                return (bytes / Math.pow(1000, i)).toFixed(1) + ' ' + sizes[i];
+            }
+
+            function toHuman(value) {
+                if (!value || typeof value !== 'number' || value % 1 !== 0) {
+                    return value;
+                }
+                const i = Math.floor(Math.log(value) / Math.log(1000));
+                const sizes = ['', ' K', ' M', ' G'];
+                if (!i || i >= sizes.length) {
+                    return value;
+                }
+                return ((value / Math.pow(1000, i)).toFixed(3) + sizes[i]);
+            }
+
+            // Convert metrics to one line strings (recursive method)
+            function writeMetrics(metrics, lines=[], prefix = '') {
+                for (let [key, value] of Object.entries(metrics)) {
+                    key = (prefix.length? (prefix + '.') : '') + key;
+                    if (typeof value === 'number' || typeof value === 'string') {
+                        lines.push(`${key}: ${toHuman(value)}`);
+                    } else if (typeof value === 'object') {
+                        writeMetrics(value, lines, key);
+                    }
+                }
+                return lines;
+            }
+
+            /**
+             * ErrorStats implements the {@link IStats} interface
+             * to send error messages to the telemetry server
+             * 
+             * Known errors are:
+             *   StreamMetadata: Stream is offline
+             *   Signaling: <stream URL> disconnection (1006)
+             *   Signaling: client rejected
+             *   StreamMetadata: Stream is waiting for data
+             */
+            class ErrorStats {
+                constructor(error, sessionId) {
+                    this._error = error;
+                    this._sessionId = sessionId;
+                }
+
+                async serialize(){
+                    return {
+                        sessionId: this._sessionId,
+                        timestamp: this.timestamp,
+                        currentTime: Date(),
+                        error: this._error
+                    }
+                }
+            }
+
+            const vueApp = {
+                data() {
+                    return {
+                        PlayState: PlayState,
+                        playState: PlayState.STOPPED,
+
+                        streamName: '',
+                        accessToken: null,
+                        muted: true,
+                        host: null,
+
+                        streamMetadata: null,
+                        videoTracks: new Map(),
+                        videoTrack: 'Video',
+                        videoTrackId: undefined,
+                        oldVideoTrackId: undefined,
+                        connectorType:'WebSocket (WS)',
+                        connectorTypes:['WebSocket (WS)', 'WHEP (HTTP)'],
+                        audioTracks: new Map(),
+                        audioTrack: 'Audio',
+                        audioTrackId: undefined,
+                        streamErrorMessage: null,
+
+                        metrics: null, // Metrics to display
+                        telemetryTimer: null,
+                        telemetry: null,
+                        telemetryStats: null,
+                        telemetryURL: null,
+
+                        player: null
+                    }
+                },
+                created() {
+                    const options = Util.options();
+                    // init values
+                    const host = options.host;
+                    this.host = new NetAddress(host || location.host, 443);
+                    this.streamName = options.stream;
+                    this.accessToken = options.accessToken;
+                    this.connectorType = options.whep || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
+                    this.telemetryURL = options.telemetryURL;
+                },
+                methods: {
+                    startPlayback() {
+
+                        this.playState = PlayState.STARTING;
+
+                        const videoElement = this.$refs.video;
+                        videoElement.muted = this.muted;
+                        videoElement.autoplay = true;
+                        videoElement.onloadeddata = () => {
+                            console.log('WebRTC loadeddata');
+                            videoElement.play();
+                        };
+
+                        this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
+                        this.player.onError = error => {
+                            console.warn(error);
+                            this.streamErrorMessage = error;
+                            if (this.telemetry) {
+                                this.telemetry.report(new ErrorStats(error, this.telemetryStats.sessionId), 0);
+                            }
+                        }
+                        this.player.onStart = stream => {
+                            console.log('WebRTCPlayer => PlayerStarted');
+                            this.playState = PlayState.PLAYING;
+                            videoElement.srcObject = stream;
+                        };
+                        this.player.onStop = (error) => {
+                            console.log('WebRTCPlayer => PlayerStopped', error);
+                            videoElement.srcObject = null;
+                            videoElement.onloadeddata = null;
+                            this.stopPlayback();
+                        };
+                        this.player.onPlaying = () => {
+
+                            if (this.oldVideoTrackId !== this.player.videoTrack) {
+                                // Send a new stats report when the video track changes
+                                // then every 60 seconds
+                                if (this.telemetry) {
+                                    this.telemetry.report(this.telemetryStats);
+                                    this.telemetry.report(this.telemetryStats, 60);
+                                }
+
+                                // if not AUTO update the current video track
+                                if(this.videoTrackId != null) {
+                                    this.videoTrackId = this.player.videoTrack;
+                                }
+                                this.oldVideoTrackId = this.player.videoTrack;
+                            }
+                            this.videoTrack = this.videoTracks.get(this.player.videoTrack);
+
+                            // if not AUTO update the current audio track
+                            if(this.audioTrackId != null) {
+                                this.audioTrackId = this.player.audioTrack;
+                            }
+                            this.audioTrack = this.audioTracks.get(this.player.audioTrack);
+                        };
+                        this.player.onMetadata = metadata => {
+                            this.updateStreamMetadata(metadata);
+                        };
+                        this.player.start({
+                                endPoint:this.host.toString(),
+                                streamName: this.streamName,
+                                accessToken: this.accessToken,
+                                iceServer: {
+                                    urls: ['turn:' + this.host.domain + ':3478?transport=tcp', 'turn:' + this.host.domain + ':3478'],
+                                    username: 'csc_demo', credential: 'UtrAFClFFO'
+                                }
+                        });
+
+                        // Metrics
+                        if (this.telemetryURL) {
+                            try {
+                                this.telemetry = new Telemetry(this.telemetryURL);
+                                this.telemetry.onLog = log => console.log('Telemetry:', log);
+                                this.telemetry.onError = error => console.error('Telemetry:', error);
+                                this.telemetryStats = new PlayerStats(this.player, videoElement);
+                                // (The first report will be in the next track change)
+                            } catch (error) {
+                                console.error('Telemetry:', error);
+                                this.telemetry = null;
+                            }
+                        }
+
+                        // Start the metrics rendering
+                        // We create a new PlayerStats instance to avoid conflicts with the telemetry
+                        const renderStats = new PlayerStats(this.player, videoElement);
+                        this.renderTimer = setInterval(() => {
+                            renderStats.serialize().then(data => {
+                                this.metrics = writeMetrics(data);
+                            });
+                        }, 2000); // Every 2 second
+                    },
+                    stopPlayback() {
+                        console.log('StopPlayback');
+
+                        if (this.player) {
+                            this.player.stop();
+                            this.player = null;
+                        }
+                        clearInterval(this.telemetryTimer);
+                        clearInterval(this.renderTimer);
+                        this.telemetryTimer = this.renderTimer = null;
+
+                        this.audioTracks = new Map();
+                        this.audioTrack = 'Audio';
+                        this.audioTrackId = undefined;
+                        this.videoTracks = new Map();
+                        this.videoTrack = 'Video';
+                        this.videoTrackId = undefined;
+
+                        this.playState = PlayState.STOPPED;
+                    },
+                    mutePlayback() {
+                        console.log('MutePlayback');
+                        this.$refs.video.muted = this.muted;
+                    },
+                    updateStreamMetadata(metadata) {
+                        this.audioTracks = new Map();
+                        this.videoTracks = new Map();
+
+                        for (const [id, track] of metadata.tracks) {
+
+                            if (track.type === 'video') {
+                                this.videoTracks.set(
+                                    id,
+                                    `${track.codec} ${track.width}x${track.height} ${readableBitrate(track.bps * 8)}`
+                                );
+                            } else if (track.type === 'audio') {
+                                this.audioTracks.set(
+                                    id,
+                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${readableBitrate(track.bps * 8)}`
+                                );
+                            }
+                        }
+                    },
+                    play() {
+                        this.streamErrorMessage = null;
+                        if(this.playState === PlayState.STOPPED) {
+                            if (!this.streamName) {
+                                this.streamErrorMessage = "Enter a non-empty stream name to play";
+                                return;
+                            }
+                            this.startPlayback();
+                        } else {
+                            this.stopPlayback();
+                        }
+                    },
+                    mute() {
+                        this.muted = !this.muted;
+                        this.mutePlayback();
+                    },
+
+                    playButtonCaption() {
+                        if (this.isStopped()) {
+                            return 'Play';
+                        }
+                        if (this.isStarting()) {
+                            return 'Starting... ';
+                        } 
+                        if (this.isPlaying()) {
+                            return 'Stop';
+                        }
+                    },
+                    isPlaying() {
+                        return this.playState === PlayState.PLAYING;
+                    },
+                    isStarting() {
+                        return this.playState === PlayState.STARTING;
+                    },
+                    isStopped() {
+                        return this.playState === PlayState.STOPPED;
+                    },
+                    onVideoTrackChange() {
+                        if (this.player) {
+                            this.player.videoTrack = this.videoTrackId;
+                        }
+                    },
+                    onAudioTrackChange() {
+                        if (this.player) {
+                            this.player.audioTrack = this.audioTrackId;
+                        }
+                    }
+                },
+            }
+
+            // Create the main app
+            createApp(vueApp).mount('#main');
+        </script>
     </body>
 </html>
