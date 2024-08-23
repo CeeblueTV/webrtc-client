@@ -4,10 +4,49 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { Connect, EventEmitter, NetAddress, SDP, Util } from '@ceeblue/web-utils';
+import { Connect, EventEmitter, NetAddress, Util } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './IConnector';
+import * as sdpTransform from 'sdp-transform';
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+/**
+ * Set stereo=1 for the opus codecs in the sdp
+ * This is necessary for the opus codec to work in stereo mode
+ * on browsers like Safari and Chrome
+ *
+ * @param sdp the original sdp
+ * @returns the sdp with stereo=1 for the opus codecs
+ */
+function setStereoForOpus(sdp: string): string {
+    const sdpObj = sdpTransform.parse(sdp);
+    for (const media of sdpObj.media) {
+        if (media.type === 'audio') {
+            const opusPayloads = [];
+            // Search for the opus codec payload ID in rtpmap
+            for (const rtp of media.rtp) {
+                if (rtp.codec === 'opus') {
+                    opusPayloads.push(rtp.payload);
+                }
+            }
+            if (!opusPayloads.length) {
+                continue;
+            }
+            // Set stereo=1 for the opus codecs fmtp
+            for (const fmtp of media.fmtp) {
+                if (opusPayloads.includes(fmtp.payload)) {
+                    const newConfig = sdpTransform.parseParams(fmtp.config);
+                    newConfig.stereo = 1;
+                    fmtp.config = '';
+                    for (const key in newConfig) {
+                        fmtp.config += (fmtp.config ? ';' : '') + key + '=' + newConfig[key];
+                    }
+                }
+            }
+        }
+    }
+    return sdpTransform.write(sdpObj);
+}
 
 /**
  * SIPConnector is a common abstract class for negotiating a new RTCPeerConnection connection
@@ -260,7 +299,8 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 if (!this._peerConnection) {
                     return;
                 }
-                sdp = offer.sdp ?? '';
+                offer.sdp = sdp = offer.sdp ? setStereoForOpus(offer.sdp as string) : '';
+
                 this.onLog('Offer\r\n' + sdp);
                 return this._peerConnection.setLocalDescription(offer);
             })
@@ -278,28 +318,27 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                     return;
                 } // has been closed!
                 this.onLog('Answer\r\n' + answer);
-                for (const media of SDP.fromString(answer)) {
-                    if (!media.rtpmap) {
-                        continue;
-                    }
-                    let found = media.rtpmap.indexOf(' ');
-                    if (found < 0) {
-                        continue;
-                    }
-                    let codec = media.rtpmap.substring(found + 1);
-                    if (!codec) {
-                        return;
-                    }
-                    found = codec.indexOf('/');
-                    codec = found < 0 ? codec : codec.substring(0, found);
-                    this._codecs.add(codec.toLowerCase());
-                }
+                this.updateCodecs(answer);
                 return this._peerConnection.setRemoteDescription(
                     new RTCSessionDescription({ type: 'answer', sdp: answer })
                 );
             })
             .then(() => this._tryToOpen())
             .catch(e => this.close('SIP failed, ' + Util.stringify(e)));
+    }
+
+    /**
+     * Fill the codecs set with the codecs found in the sdp
+     *
+     * @param sdp the sdp to parse
+     */
+    private updateCodecs(sdp: string) {
+        const sdpObj = sdpTransform.parse(sdp);
+        for (const media of sdpObj.media) {
+            for (const rtp of media.rtp) {
+                this._codecs.add(rtp.codec.toLowerCase());
+            }
+        }
     }
 
     /**
