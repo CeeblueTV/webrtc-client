@@ -1,6 +1,6 @@
 {
     "name": "@ceeblue/webrtc-client",
-    "version": "2.0.0",
+    "version": "3.0.1",
     "description": "Ceeblue WebRTC Client",
     "keywords": [
         "webrtc",
@@ -44,6 +44,7 @@
     "devDependencies": {
         "@html-eslint/eslint-plugin": "~0.22.0",
         "@html-eslint/parser": "~0.22.0",
+        "@rollup/plugin-commonjs": "^26.0.1",
         "@rollup/plugin-eslint": "~9.0.4",
         "@rollup/plugin-node-resolve": "~15.2.3",
         "@rollup/plugin-replace": "~5.0.2",
@@ -52,6 +53,7 @@
         "@semantic-release/exec": "^6.0.3",
         "@semantic-release/git": "^10.0.1",
         "@types/node": "~20.11.2",
+        "@types/sdp-transform": "^2.4.9",
         "@typescript-eslint/eslint-plugin": "~6.19.0",
         "@typescript-eslint/parser": "~6.19.0",
         "cz-conventional-changelog": "~3.3.0",
@@ -78,6 +80,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@ceeblue/web-utils": "^2.2.0"
+        "@ceeblue/web-utils": "^2.2.0",
+        "sdp-transform": "^2.14.2"
     }
 }

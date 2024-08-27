@@ -11,6 +11,7 @@ import replace from '@rollup/plugin-replace';
 import eslint from '@rollup/plugin-eslint';
 import typescript from '@rollup/plugin-typescript';
 import terser from '@rollup/plugin-terser';
+import commonjs from '@rollup/plugin-commonjs';
 import { dts } from 'rollup-plugin-dts';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 
@@ -67,7 +68,8 @@ export default args => {
                 }),
                 eslint(),
                 typescript({ target }),
-                nodeResolve()
+                nodeResolve(),
+                commonjs()
             ]
         },
         {
