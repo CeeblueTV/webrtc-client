@@ -132,10 +132,10 @@
                                     </select>
                                 </div>
                                 <div class="col-sm">
-                                    <!--            <select :disabled="!isIdle()" class="custom-select" v-model="streaming.resolution">-->
-                                    <!--              <option disabled selected>Target resolution</option>-->
-                                    <!--              <option value="1">640x480</option>-->
-                                    <!--            </select>-->
+                                    <div class="form-check">
+                                        <input :disabled="!isIdle()" class="form-check-input" id="adaptiveCheck" type="checkbox" v-model="adaptiveBitrate">
+                                        <label class="form-check-label" for="adaptiveCheck">Adaptive bitrate</label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -296,6 +296,7 @@
                             videoSource: null
                         },
 
+                        adaptiveBitrate: true,
                         permanentLandscape: DEFAULT_PERMANENT_LANDSCAPE,
                         overlayTimestamp: true,
                         streamer: null,
@@ -329,6 +330,7 @@
 
                     this.diagnostics = options.diagnostics || options.debug;
                     this.permanentLandscape = options.landscape? true : false;
+                    this.adaptiveBitrate = options.adaptive !== false;
                     this.overlayTimestamp = options.timestamp? true : false;
                     this.telemetryURL = options.telemetryURL;
                 },
@@ -465,10 +467,8 @@
                                             username: 'csc_demo', credential: 'UtrAFClFFO'
                                         }
                                     },
-                                    {
-                                        maximum: this.streaming.bitrate,
-                                        startup: this.streaming.bitrate * 0.7
-                                    });
+                                    this.adaptiveBitrate ? { maximum: this.streaming.bitrate, startup: this.streaming.bitrate * 0.7 } : null
+                                );
 
                                 // If set start sending metrics every 60 seconds
                                 if (this.telemetryURL) {
