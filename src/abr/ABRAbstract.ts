@@ -5,7 +5,7 @@
  */
 
 import { MediaReport } from '../connectors/IController';
-import { EventEmitter, ILog } from '@ceeblue/web-utils';
+import { EventEmitter, ILogger, NullLogger } from '@ceeblue/web-utils';
 
 const HD_Pixels = 1280 * 720;
 const HD_Bitrate = 1.2 * 1000000;
@@ -35,20 +35,7 @@ export type ABRParams = {
  * ABRAbstract is the base class for adaptive bitrate algorithm used by {@link Streamer}
  * when it has a controller connector.
  */
-export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export abstract class ABRAbstract extends EventEmitter implements ABRParams {
     /**
      * Get the configured initial bitrate
      */
@@ -130,12 +117,24 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
         return this._stream;
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _bitrateConstraint?: number;
     private _bitrate?: number;
     private _startup: number;
     private _maximum: number;
     private _minimum: number;
     private _stream?: MediaStream;
+    protected _logger: ILogger;
     /**
      * Build the ABR implementation, call {@link compute} to use it
      * @param params ABR parameters
@@ -143,6 +142,7 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
      */
     constructor(params: ABRParams, stream?: MediaStream) {
         super();
+        this._logger = new NullLogger();
         const init = Object.assign(
             {
                 startup: 2000000, // Default 2Mbps
@@ -182,11 +182,11 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
         this._bitrateConstraint = bitrateConstraint;
         // log changes
         if (firstTime) {
-            this.onLog('Set startup bitrate to ' + newBitrate);
+            this._logger.log('Set startup bitrate to ' + newBitrate);
         } else if (newBitrate > bitrate) {
-            this.onLog('Increase bitrate ' + bitrate + ' => ' + newBitrate);
+            this._logger.log('Increase bitrate ' + bitrate + ' => ' + newBitrate);
         } else if (newBitrate < bitrate) {
-            this.onLog('Decrease bitrate ' + bitrate + ' => ' + newBitrate);
+            this._logger.log('Decrease bitrate ' + bitrate + ' => ' + newBitrate);
         }
         return newBitrate;
     }
@@ -245,7 +245,7 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
             constraint.height = cameraHeight * factor;
         }
 
-        this.onLog(
+        this._logger.log(
             'Resolution change ' +
                 cameraWidth +
                 'X' +

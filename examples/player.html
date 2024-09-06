@@ -185,8 +185,15 @@
                         };
 
                         this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                        this.player.onLog = log => console.log(log);
-                        this.player.onError = error => this.streamErrorMessage = error;
+                        this.player.logger = {
+                            log: (msg, ...optionalParams) => console.log(msg, ...optionalParams),
+                            warn: (msg, ...optionalParams) => console.warn(msg, ...optionalParams),
+                            error: (msg, ...optionalParams) => {
+                                console.error(msg, ...optionalParams);
+                                this.streamErrorMessage = msg;
+                            },
+                        };
+
                         this.player.onStart = stream => {
                             console.log('WebRTCPlayer => PlayerStarted');
                             this.playState = PlayState.PLAYING;

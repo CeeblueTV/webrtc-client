@@ -5,42 +5,42 @@
  */
 
 import { Streamer } from '../Streamer';
-import { ILog, EventEmitter, Util } from '@ceeblue/web-utils';
+import { EventEmitter, Util, ILogger, NullLogger } from '@ceeblue/web-utils';
 import { IStats } from './IStats';
 
 /**
  * StreamerStats implements the statistics serialization for a {@link Streamer} instance.
  */
-export class StreamerStats extends EventEmitter implements IStats, ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class StreamerStats extends EventEmitter implements IStats {
     /**
      * @override{@inheritDoc IStats.onRelease}
      * @event
      */
     onRelease() {}
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _streamer: Streamer;
     private _lastBytesSend: number;
     private _lastBytesSendTime: number;
+    protected _logger: ILogger;
+
     /**
      * Build a StreamerStats instance to report streamer stats
      * @param streamer streamer instance
      */
     constructor(streamer: Streamer) {
         super();
+        this._logger = new NullLogger();
         this._streamer = streamer;
         this._lastBytesSend = 0;
         this._lastBytesSendTime = Date.now();
@@ -82,7 +82,7 @@ export class StreamerStats extends EventEmitter implements IStats, ILog {
         try {
             connectionInfos = await this._streamer.connectionInfos();
         } catch (e) {
-            this.onLog('Report stats without connection infos, ' + Util.stringify(e));
+            this._logger.log('Report stats without connection infos, ' + Util.stringify(e));
             return metrics;
         }
 

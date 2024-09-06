@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog, WebSocketReliable, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, EventEmitter, Util, ILogger, NullLogger, PrefixLogger } from '@ceeblue/web-utils';
 import { IStats } from './IStats';
 
 /**
@@ -15,21 +15,7 @@ import { IStats } from './IStats';
  * const telemetry = new Telemetry('wss://address/metrics');
  * telemetry.report(new StreamerStats(streamer), 1);
  */
-export class Telemetry extends EventEmitter implements ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class Telemetry extends EventEmitter {
     /**
      * URL of connection
      */
@@ -44,10 +30,22 @@ export class Telemetry extends EventEmitter implements ILog {
         return this._reporting;
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _ws?: WebSocketReliable;
     private _fetch?: AbortController;
     private _url: string;
     private _reporting: number;
+    protected _logger: ILogger;
 
     /**
      * Build a metrics reporter configured with a URL, which can be a websocket or http server.
@@ -57,6 +55,7 @@ export class Telemetry extends EventEmitter implements ILog {
      */
     constructor(url: string | URL) {
         super();
+        this._logger = new NullLogger();
         url = new URL(url);
         if (url.protocol.startsWith('ws')) {
             this._ws = new WebSocketReliable();
@@ -73,8 +72,7 @@ export class Telemetry extends EventEmitter implements ILog {
      * @param frequency report interval, if is equals to 0 it reports only one time the stats
      */
     report(stats: IStats, frequency: number) {
-        stats.onError = (error: string) => this.onError(stats.constructor.name + ' error, ' + error);
-        stats.onLog = (log: string) => this.onError(stats.constructor.name + ', ' + log);
+        stats.logger = new PrefixLogger(`${stats.constructor.name}: `, this._logger);
 
         let release: (() => void) | undefined = (stats.onRelease = () => {
             if (!release) {
@@ -82,7 +80,7 @@ export class Telemetry extends EventEmitter implements ILog {
             }
             release = undefined; // just one callback!
             clearInterval(interval);
-            this.onLog('Stop ' + stats.constructor.name + ' reporting');
+            this._logger.log('Stop ' + stats.constructor.name + ' reporting');
             if (--this._reporting > 0) {
                 return;
             }
@@ -103,13 +101,13 @@ export class Telemetry extends EventEmitter implements ILog {
             try {
                 await this._send(stats);
             } catch (e) {
-                this.onError(stats.constructor.name + ' error, ' + Util.stringify(e));
+                this._logger.error(stats.constructor.name + ' error, ' + Util.stringify(e));
             }
         }, frequency * 1000);
 
         ++this._reporting;
 
-        this.onLog('Start ' + stats.constructor.name + ' reporting every ' + frequency + ' seconds');
+        this._logger.log('Start ' + stats.constructor.name + ' reporting every ' + frequency + ' seconds');
     }
 
     private async _send(stats: IStats) {

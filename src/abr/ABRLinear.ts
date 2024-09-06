@@ -43,7 +43,7 @@ export class ABRLinear extends ABRAbstract {
      * @override{@inheritDoc ABRAbstract._computeBitrate}
      */
     protected _computeBitrate(bitrate: number, bitrateConstraint?: number, mediaReport?: MediaReport): number {
-        /*this.onLog({
+        /*this._logger.log({
 			bitrate,
 			lost:mediaReport && mediaReport.stats && mediaReport.stats.loss_perc,
 			attempts: this._attempts,

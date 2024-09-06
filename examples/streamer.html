@@ -359,10 +359,16 @@
                                     return;
                                 }
                                 this.streamer = new Streamer(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                                this.streamer.onLog = log => console.log(log);
+                                this.streamer.logger = {
+                                    log: (msg, ...optionalParams) => console.log(msg, ...optionalParams),
+                                    warn: (msg, ...optionalParams) => console.warn(msg, ...optionalParams),
+                                    error: (msg, ...optionalParams) => {
+                                        this.onStreamingError.bind(msg);
+                                    },
+                                };
+
                                 this.streamer.onStart = this.onStreamingStart.bind(this);
                                 this.streamer.onStop = this.onStreamingStop.bind(this);
-                                this.streamer.onError = this.onStreamingError.bind(this);
                                 this.streamer.onRTPProps = this.onRTPProps.bind(this);
 
                                 this.streamer.start(stream,

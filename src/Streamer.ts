@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { Util, ILog, Connect, EventEmitter } from '@ceeblue/web-utils';
+import { Util, Connect, EventEmitter, ILogger, NullLogger, PrefixLogger } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './connectors/IConnector';
 import { WSController } from './connectors/WSController';
 import { HTTPConnector } from './connectors/HTTPConnector';
@@ -39,32 +39,20 @@ import { ABRLinear } from './abr/ABRLinear';
  *    streamer.stop();
  * });
  */
-export class Streamer extends EventEmitter implements ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class Streamer extends EventEmitter {
     /**
      * Event fired when the stream has started
      * @param stream
      */
     onStart(stream: MediaStream) {
-        this.onLog('onStart');
+        this._logger.log('onStart');
     }
 
     /**
      * Event fired when the stream has stopped
      */
     onStop() {
-        this.onLog('onStop');
+        this._logger.log('onStop');
     }
 
     /**
@@ -72,7 +60,7 @@ export class Streamer extends EventEmitter implements ILog {
      * @param props
      */
     onRTPProps(props: RTPProps) {
-        this.onLog('onRTPProps ' + Util.stringify(props));
+        this._logger.log('onRTPProps ' + Util.stringify(props));
     }
 
     /**
@@ -89,7 +77,7 @@ export class Streamer extends EventEmitter implements ILog {
      * @param videoBitrateConstraint
      */
     onVideoBitrate(videoBitrate: number, videoBitrateConstraint: number) {
-        this.onLog('onVideoBitrate ' + Util.stringify({ videoBitrate, videoBitrateConstraint }));
+        this._logger.log('onVideoBitrate ' + Util.stringify({ videoBitrate, videoBitrateConstraint }));
     }
 
     /**
@@ -178,6 +166,17 @@ export class Streamer extends EventEmitter implements ILog {
         return this._videoBitrateConstraint;
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _connector?: IConnector;
     private _controller?: IController;
     private _mediaReport?: MediaReport;
@@ -185,6 +184,8 @@ export class Streamer extends EventEmitter implements ILog {
     private _videoBitrateConstraint: number;
     private _videoBitrateFixed?: boolean;
     private _rtpProps?: RTPProps;
+    private _logger: ILogger;
+
     /**
      * Constructs a new Streamer instance, optionally with a custom connector
      * This doesn't start the broadcast, you must call start() method
@@ -192,6 +193,7 @@ export class Streamer extends EventEmitter implements ILog {
      */
     constructor(private Connector?: { new (connectParams: Connect.Params, stream: MediaStream): IConnector }) {
         super();
+        this._logger = new NullLogger();
         this._videoBitrate = 0;
         this._videoBitrateConstraint = 0;
     }
@@ -246,8 +248,7 @@ export class Streamer extends EventEmitter implements ILog {
             params,
             stream
         );
-        this._connector.onLog = log => this.onLog('Signaling: ' + log);
-        this._connector.onError = error => this.onError('Signaling: ' + error);
+        this._connector.logger = new PrefixLogger('Signaling: ', this._logger);
         this._connector.onOpen = stream => this.onStart(stream);
         this._connector.onClose = () => {
             abr?.reset(); // reset to release resources!
@@ -256,7 +257,7 @@ export class Streamer extends EventEmitter implements ILog {
 
         if (!IsController(this._connector)) {
             if (adaptiveBitrate) {
-                this.onLog(
+                this._logger.log(
                     'Cannot use an adaptive bitrate without a controller: Connector ' +
                         this._connector.constructor.name +
                         " doesn't implements IController"
@@ -271,7 +272,7 @@ export class Streamer extends EventEmitter implements ILog {
                 abr = adaptiveBitrate;
             } else {
                 abr = new ABRLinear(adaptiveBitrate);
-                abr.onLog = log => this.onLog('AdaptiveBitrate: ' + log);
+                abr.logger = new PrefixLogger('AdaptiveBitrate: ', this._logger);
             }
         }
 

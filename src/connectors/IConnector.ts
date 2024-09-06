@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog } from '@ceeblue/web-utils';
+import { ILogger } from '@ceeblue/web-utils';
 
 /**
  * This is the structure returned by the connectionInfos() method
@@ -36,7 +36,7 @@ export type ConnectionInfos = {
  *
  * This interface can serve the both roles: player or streamer.
  */
-export interface IConnector extends ILog {
+export interface IConnector {
     /**
      * Call when connector is open
      * @param stream MediaStream description provided from the server if we are the player,
@@ -70,6 +70,16 @@ export interface IConnector extends ILog {
      * Indicate codecs supported, should be set before than {@link onOpen} happen
      */
     readonly codecs: Set<string>;
+
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(logger: ILogger);
+
     /**
      * Request connections infos with caching option to save loading cost
      * @param cacheDuration indicate how many time we can cache the last connection informations

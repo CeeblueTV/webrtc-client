@@ -5,7 +5,7 @@
  */
 
 import { StreamMetadata } from './metadata/StreamMetadata';
-import { ILog, Connect, Util, EventEmitter } from '@ceeblue/web-utils';
+import { Connect, Util, EventEmitter, ILogger, NullLogger, PrefixLogger } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
 import { WSController } from './connectors/WSController';
@@ -55,32 +55,20 @@ const RECONNECTION_TIMEOUT: number = 1000;
  * player.stop();
  *
  */
-export class Player extends EventEmitter implements ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class Player extends EventEmitter {
     /**
      * Event fired when streaming starts
      * @param stream
      */
     onStart(stream: MediaStream) {
-        this.onLog('onStart');
+        this._logger.log('onStart');
     }
 
     /**
      * Event fired when streaming stops
      */
     onStop() {
-        this.onLog('onStop');
+        this._logger.log('onStop');
     }
 
     /**
@@ -96,7 +84,7 @@ export class Player extends EventEmitter implements ILog {
      * @param metadata
      */
     onMetadata(metadata: Metadata) {
-        this.onLog(Util.stringify(metadata));
+        this._logger.log(Util.stringify(metadata));
     }
 
     /**
@@ -107,7 +95,7 @@ export class Player extends EventEmitter implements ILog {
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any) {
-        this.onLog(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
+        this._logger.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
     }
 
     /**
@@ -236,6 +224,17 @@ export class Player extends EventEmitter implements ILog {
         }
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _connector?: IConnector;
     private _controller?: IController;
     private _streamMetadata?: StreamMetadata;
@@ -247,6 +246,7 @@ export class Player extends EventEmitter implements ILog {
     private _playingInfos?: PlayingInfos;
     private _streamData?: IStreamData;
     private _metadata?: Metadata;
+    private _logger: ILogger;
     /**
      * Constructs a new Player instance, optionally with a custom connector
      * This doesn't start the playback, you must call {@link Player.start} method
@@ -271,6 +271,7 @@ export class Player extends EventEmitter implements ILog {
      */
     constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
         super();
+        this._logger = new NullLogger();
         this._dataTracks = new Array<number>();
     }
 
@@ -355,8 +356,7 @@ export class Player extends EventEmitter implements ILog {
         this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
-        this._connector.onLog = log => this.onLog('Signaling: ' + log);
-        this._connector.onError = error => this.onError('Signaling: ' + error);
+        this._connector.logger = new PrefixLogger('Signaling: ', this._logger);
         this._connector.onOpen = stream => {
             this.onStart(stream);
             // metadata in first!
@@ -378,7 +378,7 @@ export class Player extends EventEmitter implements ILog {
 
         if (!IsController(this._connector)) {
             if (multiBitrate) {
-                this.onLog(
+                this._logger.log(
                     'Cannot use a multiple bitrate without a controller: Connector ' +
                         this._connector.constructor.name +
                         " doesn't implements IController"
@@ -394,7 +394,7 @@ export class Player extends EventEmitter implements ILog {
             } else {
                 // MBRParams
                 mbr = new MBRLinear(multiBitrate);
-                mbr.onLog = log => this.onLog('MultiBitrate: ' + log);
+                mbr.logger = new PrefixLogger('MultiBitrate: ', this._logger);
             }
         }
 
@@ -437,7 +437,7 @@ export class Player extends EventEmitter implements ILog {
                     this._controller.setTracks(tracks);
                 }
             } catch (e) {
-                this.onError("Can't compute MBR, " + Util.stringify(e));
+                this._logger.error("Can't compute MBR, " + Util.stringify(e));
             }
         };
     }
@@ -503,8 +503,7 @@ export class Player extends EventEmitter implements ILog {
 
     private _initStreamMetadata(params: Connect.Params, streamMetadata: StreamMetadata) {
         this._streamMetadata = streamMetadata;
-        streamMetadata.onLog = log => this.onLog('StreamMetadata: ' + log);
-        streamMetadata.onError = error => this.onError('StreamMetadata: ' + error);
+        streamMetadata.logger = new PrefixLogger('StreamMetadata: ', this._logger);
         streamMetadata.onMetadata = metadata => {
             if (!this._connector || !this._connector.opened) {
                 return;
@@ -514,7 +513,7 @@ export class Player extends EventEmitter implements ILog {
             this.onMetadata(this._metadata);
         };
         streamMetadata.onClose = () => {
-            this.onLog('StreamMetadata closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
+            this._logger.log('StreamMetadata closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
             // Manage reconnection!
             setTimeout(() => {
                 if (this._streamMetadata === streamMetadata) {
@@ -526,13 +525,12 @@ export class Player extends EventEmitter implements ILog {
 
     private _newStreamData(params: Connect.Params) {
         const streamData = (this._streamData = new WSStreamData(params));
-        streamData.onLog = log => this.onLog('Timed Metadatas: ' + log);
-        streamData.onError = error => this.onError('Timed Metadatas: ' + error);
+        streamData.logger = new PrefixLogger('Timed Metadatas: ', this._logger);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         streamData.onData = (time: number, track: number, data: any) => this.onData(track, time, data);
         streamData.tracks = this._dataTracks; // initialize data tracks
         streamData.onClose = () => {
-            this.onLog('Timed Metadatas closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
+            this._logger.log('Timed Metadatas closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
             // Manage reconnection!
             setTimeout(() => {
                 if (this._streamData === streamData) {

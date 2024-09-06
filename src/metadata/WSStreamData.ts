@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Connect, EventEmitter, Util, ILogger, NullLogger } from '@ceeblue/web-utils';
 import { IStreamData } from './IStreamData';
 
 /**
@@ -18,25 +18,11 @@ import { IStreamData } from './IStreamData';
  */
 export class WSStreamData extends EventEmitter implements IStreamData {
     /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
-    /**
      * @override{@inheritDoc IStreamData.onClose}
      * @event
      */
     onClose() {
-        this.onLog('onClose');
+        this._logger.log('onClose');
     }
 
     /**
@@ -45,7 +31,7 @@ export class WSStreamData extends EventEmitter implements IStreamData {
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any) {
-        this.onLog(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
+        this._logger.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
     }
 
     /**
@@ -77,21 +63,34 @@ export class WSStreamData extends EventEmitter implements IStreamData {
         return !this._ws || this._ws.closed;
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _ws: WebSocketReliable;
     private _tracks: Array<number>;
     private _url: string;
+    protected _logger: ILogger;
     /**
      * Build the stream data instance, it only connects to the server when tracks are set.
      */
     constructor(connectParams: Connect.Params) {
         super();
+        this._logger = new NullLogger();
         this._url = Connect.buildURL(Connect.Type.DATA, connectParams).toString();
         this._tracks = Array<number>();
         this._ws = new WebSocketReliable();
         this._ws.onOpen = () => this._sendTracks(); // On open sends tracks subscription!
         this._ws.onClose = (error?: string) => {
             if (error) {
-                this.onError(error);
+                this._logger.error(error);
             }
             this.onClose();
         };
@@ -100,10 +99,10 @@ export class WSStreamData extends EventEmitter implements IStreamData {
             try {
                 json = JSON.parse(message);
             } catch (e) {
-                return this.onError('Invalid signaling message, ' + Util.stringify(e));
+                return this._logger.error('Invalid signaling message, ' + Util.stringify(e));
             }
             if (json.error) {
-                return this.onError(json.error);
+                return this._logger.error(json.error);
             }
             if ('time' in json && 'track' in json && 'data' in json) {
                 this.onData(json.track, json.time, json.data);

@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Connect, EventEmitter, Util, ILogger, NullLogger } from '@ceeblue/web-utils';
 import { MTrack, MType, Metadata } from './Metadata';
 
 const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.maxbps;
@@ -21,25 +21,11 @@ const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.
  */
 export class StreamMetadata extends EventEmitter {
     /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
-    /**
      * Event fired when the stream is closed
      * @event
      */
     onClose() {
-        this.onLog('onClose');
+        this._logger.log('onClose');
     }
 
     /**
@@ -48,7 +34,7 @@ export class StreamMetadata extends EventEmitter {
      * @event
      */
     onMetadata(metadata: Metadata) {
-        this.onLog(Util.stringify(metadata));
+        this._logger.log(Util.stringify(metadata));
     }
 
     /**
@@ -78,21 +64,34 @@ export class StreamMetadata extends EventEmitter {
         return this._ws.closed;
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _ws: WebSocketReliable;
     private _metadata?: Metadata;
     private _connectParams: Connect.Params;
+    protected _logger: ILogger;
     /**
      * Create a new StreamMetadata instance, connects to the server using WebSocket and
      * listen to metadata events.
      */
     constructor(connectParams: Connect.Params) {
         super();
+        this._logger = new NullLogger();
         this._connectParams = connectParams;
         this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.META, connectParams));
         this._ws.onClose = (error?: string) => {
             this._metadata = new Metadata(); // reset metadata
             if (error) {
-                this.onError(error);
+                this._logger.error(error);
             }
             this.onClose();
         };
@@ -131,7 +130,7 @@ export class StreamMetadata extends EventEmitter {
                             this._metadata.datas.push(track);
                             break;
                         default:
-                            this.onLog('Unknown track type' + track.type);
+                            this._logger.log('Unknown track type' + track.type);
                     }
                     tracks.push(track);
                 }
@@ -143,7 +142,7 @@ export class StreamMetadata extends EventEmitter {
                     this._metadata.tracks.set(track.idx, track);
                 }
             } catch (e) {
-                this.onError(Util.stringify(e));
+                this._logger.error(Util.stringify(e));
                 return;
             }
 

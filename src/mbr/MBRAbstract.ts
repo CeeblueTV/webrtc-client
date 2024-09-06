@@ -5,7 +5,7 @@
  */
 
 import { MTrack, Metadata } from '../metadata/Metadata';
-import { ILog, Util } from '@ceeblue/web-utils';
+import { ILogger, NullLogger, Util } from '@ceeblue/web-utils';
 
 const LEARNING_UP_STEP = 1400;
 const MAXIMUM_UP_DELAY = 28000;
@@ -30,21 +30,7 @@ export type MBRParams = {
  * MBRAbstract is the base class for multi-bitrate algorithm used by {@link Player}
  * to switch between tracks quality depending on the network's congestion.
  */
-export abstract class MBRAbstract implements MBRParams, ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export abstract class MBRAbstract implements MBRParams {
     /**
      * delay before to increase bitrate when network quality is good
      */
@@ -64,18 +50,31 @@ export abstract class MBRAbstract implements MBRParams, ILog {
         return this._maximumUpDelay;
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _mTrack?: MTrack;
     private _learningUpStep: number;
     private _upDelay: number;
     private _maximumUpDelay: number;
     private _testTime: number;
     private _appreciationTime?: number;
+    protected _logger: ILogger;
 
     /**
      * Build the MBR implementation, call {@link compute} to use it
      * @param params MBR parameters
      */
     constructor(params: MBRParams) {
+        this._logger = new NullLogger();
         const init = Object.assign(
             {
                 learningUpStep: LEARNING_UP_STEP,
@@ -125,14 +124,16 @@ export abstract class MBRAbstract implements MBRParams, ILog {
 
             this._mTrack = metadata.tracks.get(track);
             if (!this._mTrack) {
-                this.onError("Can't find track " + track + ' absent from metadata');
+                this._logger.error("Can't find track " + track + ' absent from metadata');
                 return false;
             }
         }
 
         const trackStats = track === tracks.video ? stats.video : stats.audio;
         if (!trackStats) {
-            this.onError("Can't compute " + this._mTrack.type + ' track ' + this._mTrack.idx + ' without statistics');
+            this._logger.error(
+                "Can't compute " + this._mTrack.type + ' track ' + this._mTrack.idx + ' without statistics'
+            );
             return false;
         }
 
@@ -167,7 +168,7 @@ export abstract class MBRAbstract implements MBRParams, ILog {
             // CONGESTED! => increase delay to up again!
             this._upDelay = Math.min(this._upDelay + this._learningUpStep, this._maximumUpDelay);
         }
-        this.onLog(
+        this._logger.log(
             (down ? 'DOWN' : 'UP') +
                 ' from ' +
                 this._mTrack.type +
@@ -202,7 +203,7 @@ export abstract class MBRAbstract implements MBRParams, ILog {
         if (mTrack) {
             return mTrack[direction];
         }
-        this.onError("Can't find track " + track + ' from metadata');
+        this._logger.error("Can't find track " + track + ' from metadata');
     }
 
     /**

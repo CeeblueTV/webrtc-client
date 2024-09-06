@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog } from '@ceeblue/web-utils';
+import { ILogger } from '@ceeblue/web-utils';
 
 /**
  * IStats is the interface used to implement statistics seralization
@@ -26,7 +26,16 @@ import { ILog } from '@ceeblue/web-utils';
  *    }
  * }
  */
-export interface IStats extends ILog {
+export interface IStats {
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger);
+
     /**
      * Must be called when the resource is closed
      * @event

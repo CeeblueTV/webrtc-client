@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { Connect, EventEmitter, NetAddress, Util } from '@ceeblue/web-utils';
+import { Connect, EventEmitter, ILogger, NetAddress, NullLogger, Util } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './IConnector';
 import * as sdpTransform from 'sdp-transform';
 
@@ -56,25 +56,11 @@ function setStereoForOpus(sdp: string): string {
  */
 export abstract class SIPConnector extends EventEmitter implements IConnector {
     /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
-    /**
      * @override{@inheritDoc IConnector.onOpen}
      * @event
      */
     onOpen(stream: MediaStream) {
-        this.onLog('onOpen');
+        this._logger.log('onOpen');
     }
 
     /**
@@ -82,7 +68,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
      * @event
      */
     onClose() {
-        this.onLog('onClose');
+        this._logger.log('onClose');
     }
 
     /**
@@ -120,6 +106,17 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         return this._codecs;
     }
 
+    /**
+     * Sets a new underlying logger for this PrefixLogger instance.
+     *
+     * This method allows changing the logger to which the messages are delegated.
+     *
+     * @param {ILogger} logger - The new logger to which messages will be delegated.
+     */
+    set logger(value: ILogger) {
+        this._logger = value;
+    }
+
     private _streamName: string;
     private _endPoint: string;
     private _stream?: MediaStream;
@@ -128,6 +125,8 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     private _connectionInfos?: ConnectionInfos;
     private _connectionInfosTime: number;
     private _codecs: Set<string>;
+    protected _logger: ILogger;
+
     /**
      * Create a new SIPConnector instance. The RTCPeerConnection is created only when calling _open().
      *
@@ -136,6 +135,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
      */
     constructor(connectParams: Connect.Params, stream?: MediaStream) {
         super();
+        this._logger = new NullLogger();
         this._closed = false;
         this._streamName = connectParams.streamName;
         this._endPoint = connectParams.endPoint;
@@ -228,7 +228,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             this._stream.getTracks().forEach(track => track.stop());
         }
         if (error) {
-            this.onError(error);
+            this._logger.error(error);
         }
         this.onClose();
     }
@@ -301,7 +301,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 }
                 offer.sdp = sdp = offer.sdp ? setStereoForOpus(offer.sdp as string) : '';
 
-                this.onLog('Offer\r\n' + sdp);
+                this._logger.log('Offer\r\n' + sdp);
                 return this._peerConnection.setLocalDescription(offer);
             })
             .then(_ => {
@@ -317,8 +317,8 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 if (!answer || !this._peerConnection) {
                     return;
                 } // has been closed!
-                this.onLog('Answer\r\n' + answer);
                 this.updateCodecs(answer);
+                this._logger.log('Answer\r\n' + answer);
                 return this._peerConnection.setRemoteDescription(
                     new RTCSessionDescription({ type: 'answer', sdp: answer })
                 );
