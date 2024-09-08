@@ -36,7 +36,7 @@ export class MBRLinear extends MBRAbstract {
         const lost = stats.packetsLost;
         const nack = stats.nackCount;
         if (lost == null) {
-            this.onLog('No packetsLost information in ' + Util.stringify(stats));
+            this.log('No packetsLost information in ' + Util.stringify(stats)).warn();
             return false; // can't compute congestion!
         }
         // Lost increasing?

@@ -5,7 +5,7 @@
  */
 
 import { StreamMetadata } from './metadata/StreamMetadata';
-import { ILog, Connect, Util, EventEmitter } from '@ceeblue/web-utils';
+import { Connect, Util, Loggable } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
 import { WSController } from './connectors/WSController';
@@ -55,48 +55,40 @@ const RECONNECTION_TIMEOUT: number = 1000;
  * player.stop();
  *
  */
-export class Player extends EventEmitter implements ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class Player extends Loggable {
     /**
      * Event fired when streaming starts
      * @param stream
+     * @event
      */
     onStart(stream: MediaStream) {
-        this.onLog('onStart');
+        this.log('onStart').info();
     }
 
     /**
      * Event fired when streaming stops
+     * @event
      */
     onStop() {
-        this.onLog('onStop');
+        this.log('onStop').info();
     }
 
     /**
      * Event fired every second to report information while content plays
      * @param playing
+     * @event
      */
     onPlaying(playing: PlayingInfos) {
-        console.debug('onPlaying ' + Util.stringify(playing));
+        this.log('onPlaying ' + Util.stringify(playing)).debug();
     }
 
     /**
      * Event fired when metadata is present in the stream
      * @param metadata
+     * @event
      */
     onMetadata(metadata: Metadata) {
-        this.onLog(Util.stringify(metadata));
+        this.log(Util.stringify(metadata)).info();
     }
 
     /**
@@ -104,10 +96,11 @@ export class Player extends EventEmitter implements ILog {
      * @param time
      * @param track
      * @param data
+     * @event
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any) {
-        this.onLog(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
+        this.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`).info();
     }
 
     /**
@@ -355,8 +348,7 @@ export class Player extends EventEmitter implements ILog {
         this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
-        this._connector.onLog = log => this.onLog('Signaling: ' + log);
-        this._connector.onError = error => this.onError('Signaling: ' + error);
+        this._connector.log = this.log.bind(this, 'Signaling:');
         this._connector.onOpen = stream => {
             this.onStart(stream);
             // metadata in first!
@@ -378,11 +370,11 @@ export class Player extends EventEmitter implements ILog {
 
         if (!IsController(this._connector)) {
             if (multiBitrate) {
-                this.onLog(
+                this.log(
                     'Cannot use a multiple bitrate without a controller: Connector ' +
                         this._connector.constructor.name +
                         " doesn't implements IController"
-                );
+                ).info();
             }
             return;
         }
@@ -394,7 +386,7 @@ export class Player extends EventEmitter implements ILog {
             } else {
                 // MBRParams
                 mbr = new MBRLinear(multiBitrate);
-                mbr.onLog = log => this.onLog('MultiBitrate: ' + log);
+                mbr.log = this.log.bind(this, 'MultiBitrate:');
             }
         }
 
@@ -437,7 +429,7 @@ export class Player extends EventEmitter implements ILog {
                     this._controller.setTracks(tracks);
                 }
             } catch (e) {
-                this.onError("Can't compute MBR, " + Util.stringify(e));
+                this.log("Can't compute MBR, " + Util.stringify(e)).error();
             }
         };
     }
@@ -503,8 +495,7 @@ export class Player extends EventEmitter implements ILog {
 
     private _initStreamMetadata(params: Connect.Params, streamMetadata: StreamMetadata) {
         this._streamMetadata = streamMetadata;
-        streamMetadata.onLog = log => this.onLog('StreamMetadata: ' + log);
-        streamMetadata.onError = error => this.onError('StreamMetadata: ' + error);
+        streamMetadata.log = this.log.bind(this, 'StreamMetadata:');
         streamMetadata.onMetadata = metadata => {
             if (!this._connector || !this._connector.opened) {
                 return;
@@ -514,7 +505,7 @@ export class Player extends EventEmitter implements ILog {
             this.onMetadata(this._metadata);
         };
         streamMetadata.onClose = () => {
-            this.onLog('StreamMetadata closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
+            this.log('StreamMetadata closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms').info();
             // Manage reconnection!
             setTimeout(() => {
                 if (this._streamMetadata === streamMetadata) {
@@ -526,13 +517,12 @@ export class Player extends EventEmitter implements ILog {
 
     private _newStreamData(params: Connect.Params) {
         const streamData = (this._streamData = new WSStreamData(params));
-        streamData.onLog = log => this.onLog('Timed Metadatas: ' + log);
-        streamData.onError = error => this.onError('Timed Metadatas: ' + error);
+        streamData.log = this.log.bind(this, 'Timed Metadatas:');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         streamData.onData = (time: number, track: number, data: any) => this.onData(track, time, data);
         streamData.tracks = this._dataTracks; // initialize data tracks
         streamData.onClose = () => {
-            this.onLog('Timed Metadatas closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
+            this.log('Timed Metadatas closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms').info();
             // Manage reconnection!
             setTimeout(() => {
                 if (this._streamData === streamData) {

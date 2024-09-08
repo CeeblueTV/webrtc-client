@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog } from '@ceeblue/web-utils';
+import { Loggable } from '@ceeblue/web-utils';
 
 /**
  * This is the structure returned by the connectionInfos() method
@@ -36,7 +36,7 @@ export type ConnectionInfos = {
  *
  * This interface can serve the both roles: player or streamer.
  */
-export interface IConnector extends ILog {
+export interface IConnector extends Loggable {
     /**
      * Call when connector is open
      * @param stream MediaStream description provided from the server if we are the player,

@@ -176,11 +176,12 @@
         <!-- production version, optimized for size and speed -->
         <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
         <script type="module">
-            import { Streamer, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.js";
-            console.log('webrtc-client version:', VERSION);
-            console.log('web-utils version:', utils.VERSION);
+            import { Streamer, HTTPConnector, WSController, VERSION, utils} from "../dist/webrtc-client.js";
 
-            const { NetAddress, Util } = utils;
+            const { NetAddress, Util, log } = utils;
+
+            log('webrtc-client version:', VERSION).info();
+            log('web-utils version:', utils.VERSION).info();
 
             const DEFAULT_STREAMING_BITRATE = 3000000;
             const DEFAULT_STREAMING_WIDTH = 1280;
@@ -308,7 +309,7 @@
                         this.streaming.muted = !this.streaming.muted;
                     },
                     captureMediaStream() {
-                        console.log('Capturing media stream ...');
+                        log('Capturing media stream ...').info();
 
                         return navigator.mediaDevices
                             .getUserMedia({
@@ -340,7 +341,7 @@
                                 return stream;
                             })
                             .catch((e) => {
-                                console.error('Failed to capture media stream', e);
+                                log('Failed to capture media stream', e).error();
                                 this.showErrorMessage('Failed to capture media stream'+ e.toString());
                             });
                     },
@@ -353,13 +354,12 @@
 
                         this.captureMediaStream()
                             .then(stream => {
-                                console.log('Start streaming...');
+                                log('Start streaming...').info();
                                 if (!stream) {
                                     this.state = StreamingState.IDLE;
                                     return;
                                 }
                                 this.streamer = new Streamer(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                                this.streamer.onLog = log => console.log(log);
                                 this.streamer.onStart = this.onStreamingStart.bind(this);
                                 this.streamer.onStop = this.onStreamingStop.bind(this);
                                 this.streamer.onError = this.onStreamingError.bind(this);
@@ -388,12 +388,12 @@
                     },
                     stopStreaming() {
                         if (this.streamer) {
-                            console.log('Stop streaming...');
+                            log('Stop streaming...').info();
                             this.streamer.stop();
                         }
                     },
                     onStreamingStart() {
-                        console.log('onStreamingStart');
+                        log('onStreamingStart').info();
                         this.state = StreamingState.STREAMING;
                         if (this.streamer.controller) {
                             // to get current values!
@@ -401,7 +401,7 @@
                         }
                     },
                     onStreamingStop() {
-                        console.log('onStreamingStop');
+                        log('onStreamingStop').info();
                         this.state = StreamingState.IDLE;
 
                         this.$refs.camera.pause();
@@ -420,24 +420,24 @@
                             this.restarting = false;
 
                             setTimeout(() => {
-                                console.log('Planned restarting...');
+                                log('Planned restarting...').info();
                                 this.startStreaming();
                             }, 100);
                         }
                     },
                     onStreamingError(e) {
-                        console.log('* OnStreamingError');
+                        log('* OnStreamingError').info();
 
                         this.showErrorMessage(Util.stringify(e), true);
 
                         // setTimeout(() => {
-                        //   console.log('Stopping on restarting...');
+                        //   log('Stopping on restarting...').info();
                         //   this.restarting = true;
                         //   this.stopStreaming();
                         // }, 0);
                     },
                     onRTPProps(nack, drop) {
-                        console.log('* onRTPProps');
+                        log('* onRTPProps').info();
 
                         if (nack) {
                             this.streaming.rtp.nack = nack;
@@ -448,11 +448,11 @@
                         }
                     },
                     setupLandscapeAnimation(cameraStream) {
-                        console.log('* SetupLandscapeAnimation');
+                        log('* SetupLandscapeAnimation').info();
                         const videoTrack = cameraStream.getVideoTracks()[0];
 
                         const capabilities = videoTrack.getCapabilities();
-                        console.log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings()));
+                        log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
 
                         try {
                             if (capabilities.frameRate && capabilities.frameRate.max) {
@@ -465,7 +465,7 @@
                                 });
                             }
                         } catch (e) {
-                            console.error('Constraint error (ignoring):', e);
+                            log('Constraint error (ignoring):', e).error();
                         }
 
                         // Create a stream which captures canvas image + has the same audio tracks that original media-stream

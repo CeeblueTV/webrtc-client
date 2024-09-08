@@ -49,7 +49,7 @@
 
                 <div class="card text-center border-0">
                     <div class="card-body">
-                        <div class="alert alert-warning" role="alert" v-if="streamErrorMessage">
+                        <div class="alert alert-warning" role="alert" :disabled="isPlaying()" v-if="streamErrorMessage">
                             {{ streamErrorMessage }}
                         </div>
 
@@ -126,10 +126,11 @@
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-            console.log('webrtc-client version:', VERSION);
-            console.log('web-utils version:', utils.VERSION);
 
-            const { Util, NetAddress } = utils;
+            const { Util, NetAddress, log } = utils;
+
+            log('webrtc-client version:', VERSION).info();
+            log('web-utils version:', utils.VERSION).info();
 
             const PlayState = {
                 PLAYING: 'PLAYING',
@@ -180,20 +181,19 @@
                         videoElement.muted = this.muted;
                         videoElement.autoplay = true;
                         videoElement.onloadeddata = () => {
-                            console.log('WebRTC loadeddata');
+                            log('WebRTC loadeddata').info();
                             videoElement.play();
                         };
 
                         this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                        this.player.onLog = log => console.log(log);
                         this.player.onError = error => this.streamErrorMessage = error;
                         this.player.onStart = stream => {
-                            console.log('WebRTCPlayer => PlayerStarted');
+                            log('WebRTCPlayer => PlayerStarted').info();
                             this.playState = PlayState.PLAYING;
                             videoElement.srcObject = stream;
                         };
                         this.player.onStop = () => {
-                            console.log('WebRTCPlayer => PlayerStopped');
+                            log('WebRTCPlayer => PlayerStopped').info();
                             videoElement.srcObject = null;
                             videoElement.onloadeddata = null;
                             this.stopPlayback();
@@ -209,14 +209,14 @@
                             }
                             this.audioTrack = this.audioTracks.get(this.player.audioTrack);
 
-                            console.debug(
+                            log(
                                 'Position ' + playing.begin + '>>[' + playing.current + ']>>' + playing.end,
                                 {
                                     Buff:(playing.end - playing.current) + 'ms',
                                     audioTrack: this.audioTrackId,
                                     videoTrack: this.videoTrackId
                                 }
-                            );
+                            ).debug();
                         };
                         this.player.onMetadata = metadata => {
                             this.updateStreamMetadata(metadata);
@@ -234,7 +234,7 @@
 
                     },
                     stopPlayback() {
-                        console.log('StopPlayback');
+                        log('StopPlayback').info();
 
                         if (this.player) {
                             this.player.stop();
@@ -251,7 +251,7 @@
                         this.playState = PlayState.STOPPED;
                     },
                     mutePlayback() {
-                        console.log('MutePlayback');
+                        log('MutePlayback').info();
                         this.$refs.video.muted = this.muted;
                     },
                     updateStreamMetadata(metadata) {

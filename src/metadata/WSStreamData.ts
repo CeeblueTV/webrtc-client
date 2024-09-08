@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Connect, Loggable, Util } from '@ceeblue/web-utils';
 import { IStreamData } from './IStreamData';
 
 /**
@@ -16,27 +16,13 @@ import { IStreamData } from './IStreamData';
  *    console.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
  * }
  */
-export class WSStreamData extends EventEmitter implements IStreamData {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class WSStreamData extends Loggable implements IStreamData {
     /**
      * @override{@inheritDoc IStreamData.onClose}
      * @event
      */
     onClose() {
-        this.onLog('onClose');
+        this.log('onClose').info();
     }
 
     /**
@@ -45,7 +31,7 @@ export class WSStreamData extends EventEmitter implements IStreamData {
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any) {
-        this.onLog(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
+        this.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`).info();
     }
 
     /**
@@ -91,7 +77,7 @@ export class WSStreamData extends EventEmitter implements IStreamData {
         this._ws.onOpen = () => this._sendTracks(); // On open sends tracks subscription!
         this._ws.onClose = (error?: string) => {
             if (error) {
-                this.onError(error);
+                this.log(error).error();
             }
             this.onClose();
         };
@@ -100,15 +86,15 @@ export class WSStreamData extends EventEmitter implements IStreamData {
             try {
                 json = JSON.parse(message);
             } catch (e) {
-                return this.onError('Invalid signaling message, ' + Util.stringify(e));
+                return this.log('Invalid signaling message, ' + Util.stringify(e)).error();
             }
             if (json.error) {
-                return this.onError(json.error);
+                return this.log(json.error).error();
             }
             if ('time' in json && 'track' in json && 'data' in json) {
                 this.onData(json.track, json.time, json.data);
             } else if (json.type !== 'on_time') {
-                console.debug('Internal JSON : ', Util.stringify(json));
+                this.log('Internal JSON : ', Util.stringify(json)).debug();
             }
         };
     }

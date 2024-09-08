@@ -26,7 +26,7 @@ export class WSController extends SIPConnector implements IController {
      * @event
      */
     onRTPProps(rtpProps: RTPProps) {
-        this.onLog('onRTPProps ' + Util.stringify(rtpProps));
+        this.log('onRTPProps ' + Util.stringify(rtpProps)).info();
     }
 
     /**
@@ -34,7 +34,7 @@ export class WSController extends SIPConnector implements IController {
      * @event
      */
     onMediaReport(mediaReport: MediaReport) {
-        console.debug('onMediaReport ' + Util.stringify(mediaReport));
+        this.log('onMediaReport ' + Util.stringify(mediaReport)).debug();
     }
 
     /**
@@ -42,10 +42,10 @@ export class WSController extends SIPConnector implements IController {
      * @event
      */
     onVideoBitrate(videoBitrate: number, videoBitrateConstraint: number) {
-        this.onLog(
+        this.log(
             'onVideoBitrate ' +
                 Util.stringify({ video_bitrate: videoBitrate, video_bitrate_constraint: videoBitrateConstraint })
-        );
+        ).info();
     }
 
     /**
@@ -53,7 +53,7 @@ export class WSController extends SIPConnector implements IController {
      * @event
      */
     onPlaying(playing: PlayingInfos) {
-        console.debug('onPlaying ' + Util.stringify(playing));
+        this.log('onPlaying ' + Util.stringify(playing)).debug();
     }
 
     private _ws: WebSocketReliable;
@@ -77,7 +77,7 @@ export class WSController extends SIPConnector implements IController {
             try {
                 this._eventHandler(JSON.parse(message));
             } catch (e) {
-                this.onError('Invalid signaling message, ' + Util.stringify(e));
+                this.log('Invalid signaling message, ' + Util.stringify(e)).error();
             }
         };
     }
@@ -110,10 +110,10 @@ export class WSController extends SIPConnector implements IController {
         try {
             // Send immediatly when SIPConnector is opened (offer+answed)
             // OR delay command sending (will be flushed one time onOpen)
-            this.onLog('Command ' + type + ' ' + Util.stringify(params));
+            this.log('Command ' + type + ' ' + Util.stringify(params)).info();
             this._ws.send(JSON.stringify(Object.assign({ type }, params)));
         } catch (ex) {
-            this.onError(Util.stringify(ex));
+            this.log(Util.stringify(ex)).error();
         }
     }
 
@@ -147,7 +147,7 @@ export class WSController extends SIPConnector implements IController {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     protected _eventHandler(ev: any) {
-        //this.onLog('EventHandler ' + Util.stringify(ev));
+        //this.logs('EventHandler ' + Util.stringify(ev)).info();
         switch (ev.type) {
             case 'on_answer_sdp': {
                 if (this._promise) {
@@ -157,7 +157,7 @@ export class WSController extends SIPConnector implements IController {
             }
             case 'on_error': {
                 if (this.opened) {
-                    this.onError(Util.stringify(ev));
+                    this.log(Util.stringify(ev)).error();
                 } else {
                     // error on start or offer/answer => irrecoverable error!
                     this.close(Util.stringify(ev));
@@ -169,7 +169,7 @@ export class WSController extends SIPConnector implements IController {
                 break;
             }
             case 'on_stop': {
-                this.onLog('on_stop');
+                this.log('on_stop').info();
                 // Close the signaling channel when live stream on_stop
                 this.close();
                 break;
@@ -177,7 +177,7 @@ export class WSController extends SIPConnector implements IController {
             case 'on_track_drop': {
                 const mediatype = ev.mediatype ?? '?';
                 const trackId = ev.track ?? '?';
-                this.onError(mediatype + ' track #' + trackId + 'dropped');
+                this.log(mediatype + ' track #' + trackId + 'dropped').error();
                 break;
             }
             case 'on_rtp_props': {
@@ -197,7 +197,7 @@ export class WSController extends SIPConnector implements IController {
                 break;
             }
             default: {
-                this.onError('Unhandled event: ' + ev.type);
+                this.log('Unhandled event: ' + ev.type).error();
                 break;
             }
         }

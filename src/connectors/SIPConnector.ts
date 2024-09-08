@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { Connect, EventEmitter, NetAddress, Util } from '@ceeblue/web-utils';
+import { Connect, Loggable, NetAddress, Util } from '@ceeblue/web-utils';
 import { ConnectionInfos, IConnector } from './IConnector';
 import * as sdpTransform from 'sdp-transform';
 
@@ -54,27 +54,13 @@ function setStereoForOpus(sdp: string): string {
  *
  * The child class must implement the _sip method to send the offer to the server and get the answer.
  */
-export abstract class SIPConnector extends EventEmitter implements IConnector {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export abstract class SIPConnector extends Loggable implements IConnector {
     /**
      * @override{@inheritDoc IConnector.onOpen}
      * @event
      */
     onOpen(stream: MediaStream) {
-        this.onLog('onOpen');
+        this.log('onOpen').info();
     }
 
     /**
@@ -82,7 +68,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
      * @event
      */
     onClose() {
-        this.onLog('onClose');
+        this.log('onClose').info();
     }
 
     /**
@@ -228,7 +214,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             this._stream.getTracks().forEach(track => track.stop());
         }
         if (error) {
-            this.onError(error);
+            this.log(error).error();
         }
         this.onClose();
     }
@@ -301,7 +287,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 }
                 offer.sdp = sdp = offer.sdp ? setStereoForOpus(offer.sdp as string) : '';
 
-                this.onLog('Offer\r\n' + sdp);
+                this.log('Offer\r\n' + sdp).info();
                 return this._peerConnection.setLocalDescription(offer);
             })
             .then(_ => {
@@ -317,7 +303,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 if (!answer || !this._peerConnection) {
                     return;
                 } // has been closed!
-                this.onLog('Answer\r\n' + answer);
+                this.log('Answer\r\n' + answer).info();
                 this.updateCodecs(answer);
                 return this._peerConnection.setRemoteDescription(
                     new RTCSessionDescription({ type: 'answer', sdp: answer })

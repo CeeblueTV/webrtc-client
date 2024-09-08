@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Connect, Loggable, Util } from '@ceeblue/web-utils';
 import { MTrack, MType, Metadata } from './Metadata';
 
 const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.maxbps;
@@ -19,27 +19,13 @@ const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.
  *    console.log(metadata);
  * }
  */
-export class StreamMetadata extends EventEmitter {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class StreamMetadata extends Loggable {
     /**
      * Event fired when the stream is closed
      * @event
      */
     onClose() {
-        this.onLog('onClose');
+        this.log('onClose').info();
     }
 
     /**
@@ -48,7 +34,7 @@ export class StreamMetadata extends EventEmitter {
      * @event
      */
     onMetadata(metadata: Metadata) {
-        this.onLog(Util.stringify(metadata));
+        this.log(Util.stringify(metadata)).info();
     }
 
     /**
@@ -92,7 +78,7 @@ export class StreamMetadata extends EventEmitter {
         this._ws.onClose = (error?: string) => {
             this._metadata = new Metadata(); // reset metadata
             if (error) {
-                this.onError(error);
+                this.log(error).error();
             }
             this.onClose();
         };
@@ -131,7 +117,7 @@ export class StreamMetadata extends EventEmitter {
                             this._metadata.datas.push(track);
                             break;
                         default:
-                            this.onLog('Unknown track type' + track.type);
+                            this.log('Unknown track type' + track.type).info();
                     }
                     tracks.push(track);
                 }
@@ -143,7 +129,7 @@ export class StreamMetadata extends EventEmitter {
                     this._metadata.tracks.set(track.idx, track);
                 }
             } catch (e) {
-                this.onError(Util.stringify(e));
+                this.log(Util.stringify(e)).error();
                 return;
             }
 

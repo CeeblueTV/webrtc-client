@@ -80,7 +80,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@ceeblue/web-utils": "^2.2.0",
+        "@ceeblue/web-utils": "file:../web-utils",
         "sdp-transform": "^2.14.2"
     }
 }
