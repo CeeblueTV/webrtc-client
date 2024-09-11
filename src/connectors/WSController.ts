@@ -192,7 +192,7 @@ export class WSController extends SIPConnector implements IController {
                 break;
             }
             case 'on_media_receive': {
-                this._reportReceivedTimestamp = Date.now();
+                this._reportReceivedTimestamp = Util.time();
                 this.onMediaReport(ev);
                 break;
             }
@@ -201,7 +201,7 @@ export class WSController extends SIPConnector implements IController {
                 break;
             }
             case 'on_time': {
-                this._reportReceivedTimestamp = Date.now();
+                this._reportReceivedTimestamp = Util.time();
                 this.onPlaying(ev);
                 break;
             }
@@ -213,11 +213,11 @@ export class WSController extends SIPConnector implements IController {
     }
 
     private _startReportWatchdog() {
-        this._reportReceivedTimestamp = Date.now();
+        this._reportReceivedTimestamp = Util.time();
 
         this._reportWatchdogInterval = setInterval(() => {
             const timeout = this._reportReceivedTimestamp
-                ? Date.now() - this._reportReceivedTimestamp
+                ? Util.time() - this._reportReceivedTimestamp
                 : REPORT_WATCHDOG_TIMEOUT;
             if (timeout >= REPORT_WATCHDOG_TIMEOUT / 3) {
                 this.onError(`WARNING! No updates received for the last ${(timeout / 1000).toFixed(1)}s`); // WIP replace with warning
