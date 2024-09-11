@@ -222,7 +222,8 @@ export class WSController extends SIPConnector implements IController {
             if (timeout >= REPORT_WATCHDOG_TIMEOUT / 3) {
                 // eslint-disable-next-line no-warning-comments
                 this.onError(`WARNING! No updates received for the last ${(timeout / 1000).toFixed(1)}s`); // TODO replace with warning
-            } else if (timeout >= REPORT_WATCHDOG_TIMEOUT) {
+            }
+            if (timeout >= REPORT_WATCHDOG_TIMEOUT) {
                 this.close('Signalling connection timeout');
             }
         }, REPORT_WATCHDOG_TIMEOUT / 6);
