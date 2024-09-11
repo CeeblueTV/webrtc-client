@@ -8,6 +8,8 @@ import { IController, RTPProps, PlayingInfos, MediaReport } from './IController'
 import { Connect, Util, WebSocketReliable } from '@ceeblue/web-utils';
 import { SIPConnector } from './SIPConnector';
 
+const REPORT_WATCHDOG_TIMEOUT = 30000;
+
 /**
  * Use WSController to negotiate a new RTCPeerConnection connection with the server
  * using WebSocket custom signaling and keep that connection open for communication.
@@ -58,6 +60,9 @@ export class WSController extends SIPConnector implements IController {
 
     private _ws: WebSocketReliable;
     private _promise?: { (result: string | Error): void };
+    private _reportWatchdogInterval?: NodeJS.Timeout;
+    private _reportReceivedTimestamp?: number;
+
     /**
      * Instantiate the WSController, connect to the WebSocket endpoint
      * and call _open() to create the RTCPeerConnection.
@@ -70,6 +75,7 @@ export class WSController extends SIPConnector implements IController {
         this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.WEBRTC, connectParams, 'wss'));
         this._ws.onClose = (error?: string) => this.close(error);
         this._ws.onOpen = () => {
+            this._startReportWatchdog();
             // [ENG-142] Add a way to get the server's configuration for 'iceServers'
             this._open(connectParams.iceServer);
         };
@@ -121,6 +127,7 @@ export class WSController extends SIPConnector implements IController {
      * @override{@inheritDoc SIPConnector.close}
      */
     close(error?: string) {
+        this._clearReportWatchdog();
         this._ws.close(error);
         if (this._promise) {
             this._promise(Error('closing'));
@@ -185,6 +192,7 @@ export class WSController extends SIPConnector implements IController {
                 break;
             }
             case 'on_media_receive': {
+                this._reportReceivedTimestamp = Date.now();
                 this.onMediaReport(ev);
                 break;
             }
@@ -193,6 +201,7 @@ export class WSController extends SIPConnector implements IController {
                 break;
             }
             case 'on_time': {
+                this._reportReceivedTimestamp = Date.now();
                 this.onPlaying(ev);
                 break;
             }
@@ -200,6 +209,29 @@ export class WSController extends SIPConnector implements IController {
                 this.onError('Unhandled event: ' + ev.type);
                 break;
             }
+        }
+    }
+
+    private _startReportWatchdog() {
+        this._reportReceivedTimestamp = Date.now();
+
+        this._reportWatchdogInterval = setInterval(() => {
+            const timeout = this._reportReceivedTimestamp
+                ? Date.now() - this._reportReceivedTimestamp
+                : REPORT_WATCHDOG_TIMEOUT;
+            if (timeout >= REPORT_WATCHDOG_TIMEOUT / 3) {
+                // eslint-disable-next-line no-warning-comments
+                this.onError(`WARNING! No updates received for the last ${(timeout / 1000).toFixed(1)}s`); // TODO replace with warning
+            } else if (timeout >= REPORT_WATCHDOG_TIMEOUT) {
+                this.close('Signalling connection timeout');
+            }
+        }, REPORT_WATCHDOG_TIMEOUT / 6);
+    }
+
+    private _clearReportWatchdog() {
+        if (this._reportWatchdogInterval) {
+            clearInterval(this._reportWatchdogInterval);
+            this._reportWatchdogInterval = undefined;
         }
     }
 }
