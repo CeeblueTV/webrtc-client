@@ -4,13 +4,13 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { EventEmitter } from '@ceeblue/web-utils';
+import { Loggable } from '@ceeblue/web-utils';
 
 /**
  *  IStreamData is an interface to get JSON data from a stream, parse it and fire the onData callback
  *  It can receive data from multiple tracks.
  */
-export interface IStreamData extends EventEmitter {
+export interface IStreamData extends Loggable {
     /**
      * Call when the stream is closed
      * @event
