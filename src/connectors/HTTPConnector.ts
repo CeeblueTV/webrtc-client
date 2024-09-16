@@ -62,6 +62,6 @@ export class HTTPConnector extends SIPConnector {
             },
             signal: this._fetch.signal
         });
-        return response ? response.text() : Promise.reject('client rejected');
+        return response && response.ok ? response.text() : Promise.reject('client rejected');
     }
 }
