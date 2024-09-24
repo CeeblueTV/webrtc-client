@@ -217,8 +217,8 @@
                     },
                     onStop(error) {
                         if(error) {
-                            log(`onStop ${error}`).error();
-                            this.streamErrorMessage = error;
+                            log('onStop', error).error();
+                            this.streamErrorMessage = error.name;
                         } else {
                             log('onStop').info();
                         }

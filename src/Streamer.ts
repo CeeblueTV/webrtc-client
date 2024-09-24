@@ -65,7 +65,7 @@ export class Streamer extends EventEmitter {
      */
     onStop(error?: StreamerError) {
         if (error) {
-            this.log(`onStop ${error}`).error();
+            this.log('onStop', error).error();
         } else {
             this.log('onStop').info();
         }

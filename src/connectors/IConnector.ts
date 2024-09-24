@@ -43,11 +43,7 @@ export type ConnectorError =
     /**
      * Represents a RTCPeerConnection creation error.
      */
-    | {
-          type: 'ConnectorError';
-          name: 'RTCPeerConnection failed';
-          detail: string;
-      }
+    | { type: 'ConnectorError'; name: 'RTCPeerConnection failed'; detail: string }
     /**
      * Represents a SIP handshake error.
      */

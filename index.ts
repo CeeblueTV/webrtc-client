@@ -25,7 +25,7 @@ export { IStats } from './src/stats/IStats';
 export { StreamerStats } from './src/stats/StreamerStats';
 // Metadata
 export { Metadata, MSource, MTrack, MType } from './src/metadata/Metadata';
-export { StreamMetadata } from './src/metadata/StreamMetadata';
+export { StreamMetadata, StreamMetadataError } from './src/metadata/StreamMetadata';
 // Timed metadata
 export { IStreamData } from './src/metadata/IStreamData';
 export { WSStreamData } from './src/metadata/WSStreamData';

@@ -9,6 +9,16 @@ import { MTrack, MType, Metadata } from './Metadata';
 
 const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.maxbps;
 
+export type StreamMetadataError =
+    /**
+     * Represents a Connection error.
+     */
+    | { type: 'StreamMetadataError'; name: string; stream: string }
+    /**
+     * Represents a {@link WebSocketReliableError} error
+     */
+    | WebSocketReliableError;
+
 /**
  * Use StreamMetadata to get real-time information on a server stream, including:
  *  - the list of tracks and their properties,
@@ -25,7 +35,7 @@ export class StreamMetadata extends EventEmitter {
      * @param error error description on an improper closure
      * @event
      */
-    onClose(error?: WebSocketReliableError) {
+    onClose(error?: StreamMetadataError) {
         this.log('onClose').info();
     }
 
@@ -76,16 +86,15 @@ export class StreamMetadata extends EventEmitter {
         super();
         this._connectParams = connectParams;
         this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.META, connectParams));
-        this._ws.onClose = (error?: WebSocketReliableError) => {
-            this._metadata = new Metadata(); // reset metadata
-            this.onClose(error);
-        };
+        this._ws.onClose = (error?: WebSocketReliableError) => this.close(error);
         this._ws.onMessage = (message: string) => {
             try {
                 const data = JSON.parse(message);
                 if (data.error) {
-                    throw data.error;
-                } // Mist issue
+                    // Unrecoverable issue!
+                    this.close({ type: 'StreamMetadataError', name: data.error, stream: connectParams.streamName });
+                    return;
+                }
 
                 this._metadata = new Metadata();
                 this._metadata.type = data.type;
@@ -140,8 +149,14 @@ export class StreamMetadata extends EventEmitter {
      * Close the stream metadata channel
      * @param error error description on an improper closure
      */
-    close(error?: WebSocketReliableError) {
-        this._ws.close(error);
+    close(error?: StreamMetadataError) {
+        if (this._ws.onClose === Util.EMPTY_FUNCTION) {
+            return;
+        }
+        this._ws.onClose = Util.EMPTY_FUNCTION;
+        this._ws.close();
+        this._metadata = new Metadata(); // reset metadata
+        this.onClose(error);
     }
 
     private _addSortedTrack(medias: Array<MTrack>, tracks: Map<number, MTrack>) {

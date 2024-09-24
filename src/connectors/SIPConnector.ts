@@ -70,7 +70,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
      */
     onClose(error?: ConnectorError) {
         if (error) {
-            this.log(`onClose ${error}`).error();
+            this.log('onClose', error).error();
         } else {
             this.log('onClose').info();
         }

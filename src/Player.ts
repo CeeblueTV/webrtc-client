@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { StreamMetadata } from './metadata/StreamMetadata';
+import { StreamMetadata, StreamMetadataError } from './metadata/StreamMetadata';
 import { ILog, Connect, Util, EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
@@ -26,7 +26,11 @@ export type PlayerError =
     /**
      * Represents a {@link WebSocketReliableError} error
      */
-    | WebSocketReliableError;
+    | WebSocketReliableError
+    /**
+     * Represents a {@link StreamMetadataError} error
+     */
+    | StreamMetadataError;
 /**
  * Use Player to start playing a WebRTC stream.
  * You can use a controllable version using a `WSController` as connector, or change it to use a `HTTPConnector` (HTTP WHEP).
@@ -81,7 +85,7 @@ export class Player extends EventEmitter {
      */
     onStop(error?: PlayerError) {
         if (error) {
-            this.log(`onStop ${error}`).error();
+            this.log('onStop', error).error();
         } else {
             this.log('onStop').info();
         }
@@ -522,7 +526,12 @@ export class Player extends EventEmitter {
             this._updateTracks();
             this.onMetadata(this._metadata);
         };
-        streamMetadata.onClose = (error?: WebSocketReliableError) => {
+        streamMetadata.onClose = (error?: StreamMetadataError) => {
+            if (error?.type === 'StreamMetadataError') {
+                // unrecoverable!
+                this.stop(error);
+                return;
+            }
             // Manage reconnection!
             streamMetadata
                 .log(

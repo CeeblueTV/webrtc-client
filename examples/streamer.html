@@ -401,9 +401,11 @@
                         }
                     },
                     onStreamingStop(error) {
-                        log('onStreamingStop').info();
                         if(error) {
+                            log('onStreamingStop', error).error();
                             this.showErrorMessage(error.name, true);
+                        } else {
+                            log('onStreamingStop').info();
                         }
                         this.state = StreamingState.IDLE;
 
