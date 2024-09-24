@@ -5,7 +5,7 @@
  */
 
 import { Connect, EventEmitter, NetAddress, Util } from '@ceeblue/web-utils';
-import { ConnectionInfos, IConnector } from './IConnector';
+import { ConnectionInfos, ConnectorError, IConnector } from './IConnector';
 import * as sdpTransform from 'sdp-transform';
 
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -53,36 +53,27 @@ function setStereoForOpus(sdp: string): string {
  * with the server.
  *
  * The child class must implement the _sip method to send the offer to the server and get the answer.
+ *
  */
 export abstract class SIPConnector extends EventEmitter implements IConnector {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
     /**
      * @override{@inheritDoc IConnector.onOpen}
      * @event
      */
     onOpen(stream: MediaStream) {
-        this.onLog('onOpen');
+        this.log('onOpen').info();
     }
 
     /**
      * @override{@inheritDoc IConnector.onClose}
      * @event
      */
-    onClose() {
-        this.onLog('onClose');
+    onClose(error?: ConnectorError) {
+        if (error) {
+            this.log(`onClose ${error}`).error();
+        } else {
+            this.log('onClose').info();
+        }
     }
 
     /**
@@ -210,7 +201,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     /**
      * @override{@inheritDoc IConnector.close}
      */
-    close(error?: string) {
+    close(error?: ConnectorError) {
         if (this._closed) {
             return;
         } // Already closed!
@@ -227,10 +218,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         if (this._stream) {
             this._stream.getTracks().forEach(track => track.stop());
         }
-        if (error) {
-            this.onError(error);
-        }
-        this.onClose();
+        this.onClose(error);
     }
 
     /**
@@ -260,7 +248,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         try {
             this._peerConnection = new RTCPeerConnection({ iceServers: [iceServer] });
         } catch (e) {
-            this.close('RTCPeerConnection failed, ' + Util.stringify(e));
+            this.close({ type: 'ConnectorError', name: 'RTCPeerConnection failed', detail: Util.stringify(e) });
             return;
         }
         if (this._stream) {
@@ -301,7 +289,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 }
                 offer.sdp = sdp = offer.sdp ? setStereoForOpus(offer.sdp as string) : '';
 
-                this.onLog('Offer\r\n' + sdp);
+                this.log(`Offer\r\n${sdp}`).debug();
                 return this._peerConnection.setLocalDescription(offer);
             })
             .then(_ => {
@@ -317,14 +305,14 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 if (!answer || !this._peerConnection) {
                     return;
                 } // has been closed!
-                this.onLog('Answer\r\n' + answer);
+                this.log(`Answer\r\n${answer}`).debug();
                 this.updateCodecs(answer);
                 return this._peerConnection.setRemoteDescription(
                     new RTCSessionDescription({ type: 'answer', sdp: answer })
                 );
             })
             .then(() => this._tryToOpen())
-            .catch(e => this.close('SIP failed, ' + Util.stringify(e)));
+            .catch(e => this.close({ type: 'ConnectorError', name: 'SIP failed', detail: Util.stringify(e) }));
     }
 
     /**

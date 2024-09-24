@@ -4,10 +4,10 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-export { Player } from './src/Player';
-export { Streamer } from './src/Streamer';
+export { Player, PlayerError } from './src/Player';
+export { Streamer, StreamerError } from './src/Streamer';
 // Connectors
-export { IConnector, ConnectionInfos } from './src/connectors/IConnector';
+export { IConnector, ConnectorError, ConnectionInfos } from './src/connectors/IConnector';
 export { IController, PlayingInfos, RTPProps, MediaReport } from './src/connectors/IController';
 export { SIPConnector } from './src/connectors/SIPConnector';
 export { HTTPConnector } from './src/connectors/HTTPConnector';

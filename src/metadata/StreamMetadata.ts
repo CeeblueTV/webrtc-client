@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Connect, EventEmitter, Util, WebSocketReliableError } from '@ceeblue/web-utils';
 import { MTrack, MType, Metadata } from './Metadata';
 
 const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.maxbps;
@@ -21,25 +21,12 @@ const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.
  */
 export class StreamMetadata extends EventEmitter {
     /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
-    /**
      * Event fired when the stream is closed
+     * @param error error description on an improper closure
      * @event
      */
-    onClose() {
-        this.onLog('onClose');
+    onClose(error?: WebSocketReliableError) {
+        this.log('onClose').info();
     }
 
     /**
@@ -48,7 +35,7 @@ export class StreamMetadata extends EventEmitter {
      * @event
      */
     onMetadata(metadata: Metadata) {
-        this.onLog(Util.stringify(metadata));
+        this.log(Util.stringify(metadata)).info();
     }
 
     /**
@@ -89,12 +76,9 @@ export class StreamMetadata extends EventEmitter {
         super();
         this._connectParams = connectParams;
         this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.META, connectParams));
-        this._ws.onClose = (error?: string) => {
+        this._ws.onClose = (error?: WebSocketReliableError) => {
             this._metadata = new Metadata(); // reset metadata
-            if (error) {
-                this.onError(error);
-            }
-            this.onClose();
+            this.onClose(error);
         };
         this._ws.onMessage = (message: string) => {
             try {
@@ -131,7 +115,7 @@ export class StreamMetadata extends EventEmitter {
                             this._metadata.datas.push(track);
                             break;
                         default:
-                            this.onLog('Unknown track type' + track.type);
+                            this.log(`Unknown track type ${track.type}`).warn();
                     }
                     tracks.push(track);
                 }
@@ -143,7 +127,7 @@ export class StreamMetadata extends EventEmitter {
                     this._metadata.tracks.set(track.idx, track);
                 }
             } catch (e) {
-                this.onError(Util.stringify(e));
+                this.log(Util.stringify(e)).error();
                 return;
             }
 
@@ -154,8 +138,9 @@ export class StreamMetadata extends EventEmitter {
 
     /**
      * Close the stream metadata channel
+     * @param error error description on an improper closure
      */
-    close(error?: string) {
+    close(error?: WebSocketReliableError) {
         this._ws.close(error);
     }
 

@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Connect, EventEmitter, Util, WebSocketReliableError } from '@ceeblue/web-utils';
 import { IStreamData } from './IStreamData';
 
 /**
@@ -18,25 +18,11 @@ import { IStreamData } from './IStreamData';
  */
 export class WSStreamData extends EventEmitter implements IStreamData {
     /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
-    /**
      * @override{@inheritDoc IStreamData.onClose}
      * @event
      */
-    onClose() {
-        this.onLog('onClose');
+    onClose(error?: WebSocketReliableError) {
+        this.log('onClose').info();
     }
 
     /**
@@ -45,7 +31,7 @@ export class WSStreamData extends EventEmitter implements IStreamData {
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any) {
-        this.onLog(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
+        this.log(`Data received on track ${track} at ${time}: ${Util.stringify(data)}`).info();
     }
 
     /**
@@ -89,26 +75,22 @@ export class WSStreamData extends EventEmitter implements IStreamData {
         this._tracks = Array<number>();
         this._ws = new WebSocketReliable();
         this._ws.onOpen = () => this._sendTracks(); // On open sends tracks subscription!
-        this._ws.onClose = (error?: string) => {
-            if (error) {
-                this.onError(error);
-            }
-            this.onClose();
-        };
+        this._ws.onClose = (error?: WebSocketReliableError) => this.onClose(error);
         this._ws.onMessage = (message: string) => {
             let json;
             try {
                 json = JSON.parse(message);
+                if (json.error) {
+                    throw Error(json.error);
+                }
             } catch (e) {
-                return this.onError('Invalid signaling message, ' + Util.stringify(e));
-            }
-            if (json.error) {
-                return this.onError(json.error);
+                this.log(Util.stringify(e)).error();
+                return;
             }
             if ('time' in json && 'track' in json && 'data' in json) {
                 this.onData(json.track, json.time, json.data);
             } else if (json.type !== 'on_time') {
-                console.debug('Internal JSON : ', Util.stringify(json));
+                this.log(`Internal JSON: ${Util.stringify(json)}`).debug();
             }
         };
     }
@@ -116,7 +98,7 @@ export class WSStreamData extends EventEmitter implements IStreamData {
     /**
      * @override{@inheritDoc IStreamData.close}
      */
-    close(error?: string) {
+    close(error?: WebSocketReliableError) {
         this._ws.close(error);
     }
 

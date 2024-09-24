@@ -126,10 +126,11 @@
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-            console.log('webrtc-client version:', VERSION);
-            console.log('web-utils version:', utils.VERSION);
 
-            const { Util, NetAddress } = utils;
+            const { Util, NetAddress, log } = utils;
+
+            log('webrtc-client version:', VERSION).info();
+            log('web-utils version:', utils.VERSION).info();
 
             const PlayState = {
                 PLAYING: 'PLAYING',
@@ -172,55 +173,31 @@
                     this.connectorType = options.whep || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
                 },
                 methods: {
-                    startPlayback() {
-
+                    play() {
+                        if (this.player) {
+                            this.player.stop();
+                            return;
+                        }
+                        this.streamErrorMessage = null;
+                        if (!this.streamName) {
+                            this.streamErrorMessage = "Enter a non-empty stream name to play";
+                            return;
+                        }
                         this.playState = PlayState.STARTING;
 
                         const videoElement = this.$refs.video;
                         videoElement.muted = this.muted;
                         videoElement.autoplay = true;
                         videoElement.onloadeddata = () => {
-                            console.log('WebRTC loadeddata');
+                            log('WebRTC loadeddata').info();
                             videoElement.play();
                         };
 
                         this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                        this.player.onLog = log => console.log(log);
-                        this.player.onError = error => this.streamErrorMessage = error;
-                        this.player.onStart = stream => {
-                            console.log('WebRTCPlayer => PlayerStarted');
-                            this.playState = PlayState.PLAYING;
-                            videoElement.srcObject = stream;
-                        };
-                        this.player.onStop = () => {
-                            console.log('WebRTCPlayer => PlayerStopped');
-                            videoElement.srcObject = null;
-                            videoElement.onloadeddata = null;
-                            this.stopPlayback();
-                        };
-                        this.player.onPlaying = playing => {
-
-                            if(this.videoTrackId != null) {
-                                this.videoTrackId = this.player.videoTrack;
-                            }
-                            this.videoTrack = this.videoTracks.get(this.player.videoTrack);
-                            if(this.audioTrackId != null) {
-                                this.audioTrackId = this.player.audioTrack;
-                            }
-                            this.audioTrack = this.audioTracks.get(this.player.audioTrack);
-
-                            console.debug(
-                                'Position ' + playing.begin + '>>[' + playing.current + ']>>' + playing.end,
-                                {
-                                    Buff:(playing.end - playing.current) + 'ms',
-                                    audioTrack: this.audioTrackId,
-                                    videoTrack: this.videoTrackId
-                                }
-                            );
-                        };
-                        this.player.onMetadata = metadata => {
-                            this.updateStreamMetadata(metadata);
-                        };
+                        this.player.onStart = this.onStart.bind(this);
+                        this.player.onStop = this.onStop.bind(this);
+                        this.player.onPlaying = this.onPlaying.bind(this);
+                        this.player.onMetadata = this.onMetadata.bind(this);
                         this.player.start(
                             {
                                 endPoint:this.host.toString(),
@@ -233,14 +210,21 @@
                             });
 
                     },
-                    stopPlayback() {
-                        console.log('StopPlayback');
-
-                        if (this.player) {
-                            this.player.stop();
-                            this.player = null;
+                    onStart(stream) {
+                        log('onStart').info();
+                        this.playState = PlayState.PLAYING;
+                        this.$refs.video.srcObject = stream;
+                    },
+                    onStop(error) {
+                        if(error) {
+                            log(`onStop ${error}`).error();
+                            this.streamErrorMessage = error;
+                        } else {
+                            log('onStop').info();
                         }
-
+                        const videoElement = this.$refs.video;
+                        videoElement.srcObject = null;
+                        videoElement.onloadeddata = null;
                         this.audioTracks = new Map();
                         this.audioTrack = 'Audio';
                         this.audioTrackId = undefined;
@@ -248,13 +232,31 @@
                         this.videoTrack = 'Video';
                         this.videoTrackId = undefined;
 
+                        this.player = null;
                         this.playState = PlayState.STOPPED;
                     },
-                    mutePlayback() {
-                        console.log('MutePlayback');
-                        this.$refs.video.muted = this.muted;
+                    onPlaying(playing) {
+                        if(this.videoTrackId != null) {
+                            this.videoTrackId = this.player.videoTrack;
+                        }
+                        this.videoTrack = this.videoTracks.get(this.player.videoTrack);
+                        if(this.audioTrackId != null) {
+                            this.audioTrackId = this.player.audioTrack;
+                        }
+                        this.audioTrack = this.audioTracks.get(this.player.audioTrack);
+
+                        log(
+                            'Position ' + playing.begin + '>>[' + playing.current + ']>>' + playing.end,
+                            {
+                                Buff:(playing.end - playing.current) + 'ms',
+                                audioTrack: this.audioTrackId,
+                                videoTrack: this.videoTrackId
+                            }
+                        ).debug();
                     },
-                    updateStreamMetadata(metadata) {
+                    onMetadata(metadata) {
+                        log(`onMetadata ${Util.stringify(metadata)}`).info();
+
                         this.audioTracks = new Map();
                         this.videoTracks = new Map();
 
@@ -280,21 +282,10 @@
                             }
                         }
                     },
-                    play() {
-                        this.streamErrorMessage = null;
-                        if(this.playState === PlayState.STOPPED) {
-                            if (!this.streamName) {
-                                this.streamErrorMessage = "Enter a non-empty stream name to play";
-                                return;
-                            }
-                            this.startPlayback();
-                        } else {
-                            this.stopPlayback();
-                        }
-                    },
                     mute() {
                         this.muted = !this.muted;
-                        this.mutePlayback();
+                        log('MutePlayback').info();
+                        this.$refs.video.muted = this.muted;
                     },
 
                     playButtonCaption() {
