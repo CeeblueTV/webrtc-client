@@ -16,6 +16,7 @@ import { WSStreamData } from './metadata/WSStreamData';
 import { MBRAbstract, MBRParams } from './mbr/MBRAbstract';
 import { MBRLinear } from './mbr/MBRLinear';
 
+// Reconnection timeout, 2 seconds
 const RECONNECTION_TIMEOUT: number = 2000;
 
 export type PlayerError =
