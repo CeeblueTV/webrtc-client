@@ -141,31 +141,33 @@ export class StreamMetadata extends EventEmitter {
                 this._metadata.height = data.height;
 
                 this._metadata.sources.clear();
-                for (const source of data.source) {
+                for (const source of data.source || []) {
                     this._metadata.sources.set(source.hrn, source);
                 }
 
                 const tracks = [];
 
                 this._metadata.tracks.clear();
-                for (const [name, track] of Util.objectEntries(data.meta.tracks)) {
-                    track.name = name;
-                    track.type = track.type.toLowerCase();
-                    switch (track.type) {
-                        case 'audio':
-                            this._metadata.audios.push(track);
-                            continue;
-                        case 'video':
-                            this._metadata.videos.push(track);
-                            continue;
-                        case 'meta':
-                            track.type = MType.DATA; // Fix meta string to explicit DATA type
-                            this._metadata.datas.push(track);
-                            break;
-                        default:
-                            this.log(`Unknown track type ${track.type}`).warn();
+                if (data.meta?.tracks) {
+                    for (const [name, track] of Util.objectEntries(data.meta.tracks)) {
+                        track.name = name;
+                        track.type = track.type.toLowerCase();
+                        switch (track.type) {
+                            case 'audio':
+                                this._metadata.audios.push(track);
+                                continue;
+                            case 'video':
+                                this._metadata.videos.push(track);
+                                continue;
+                            case 'meta':
+                                track.type = MType.DATA; // Fix meta string to explicit DATA type
+                                this._metadata.datas.push(track);
+                                break;
+                            default:
+                                this.log(`Unknown track type ${track.type}`).warn();
+                        }
+                        tracks.push(track);
                     }
-                    tracks.push(track);
                 }
 
                 // Sorts audios/videos by descending BPS
