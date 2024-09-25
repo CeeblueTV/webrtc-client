@@ -6,6 +6,7 @@
 
 import { Connect } from '@ceeblue/web-utils';
 import { SIPConnector } from './SIPConnector';
+import { ConnectorError } from './IConnector';
 
 /**
  * Use HTTPConnector to negotiate a new RTCPeerConnection connection with the server
@@ -45,7 +46,7 @@ export class HTTPConnector extends SIPConnector {
     /**
      * @override{@inheritDoc SIPConnector.close}
      */
-    close(error?: string) {
+    close(error?: ConnectorError) {
         this._fetch.abort();
         super.close(error);
     }
@@ -62,6 +63,10 @@ export class HTTPConnector extends SIPConnector {
             },
             signal: this._fetch.signal
         });
-        return response ? response.text() : Promise.reject('client rejected');
+
+        if (response.ok) {
+            return response.text();
+        }
+        return Promise.reject(`HTTP ${response.status} ${response.statusText} status`);
     }
 }
