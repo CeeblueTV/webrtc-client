@@ -382,7 +382,6 @@ export class Player extends EventEmitter {
         this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
-
         this._connector.log = this.log.bind(this, 'Signaling:') as ILog;
         this._connector.onOpen = stream => {
             this.onStart(stream);
@@ -403,7 +402,13 @@ export class Player extends EventEmitter {
                 // if stream-state was offine on disconnection, shows this error!
                 this.stop({
                     type: 'StreamMetadataError',
-                    name: this.streamState,
+                    name: StreamState.OFFLINE,
+                    stream: (params as Connect.Params).streamName
+                });
+            } else if (error?.type === 'WebSocketReliableError' && error.name === 'Socket disconnection') {
+                this.stop({
+                    type: 'StreamMetadataError',
+                    name: 'Resource not available',
                     stream: (params as Connect.Params).streamName
                 });
             } else {

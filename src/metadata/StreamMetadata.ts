@@ -20,7 +20,7 @@ export enum StreamState {
 
 export type StreamMetadataError =
     /**
-     * Represents a Connection error.
+     * Represents a Stream metadata error.
      */
     | { type: 'StreamMetadataError'; name: string; stream: string }
     /**
