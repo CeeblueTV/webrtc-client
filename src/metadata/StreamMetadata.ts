@@ -13,7 +13,7 @@ export enum StreamState {
     UNKNOWN = '',
     ONLINE = 'Stream is online',
     OFFLINE = 'Stream is offline',
-    LOADING = 'Stream is initializing',
+    INITIALIZING = 'Stream is initializing',
     BOOTING = 'Stream is booting',
     WAITING = 'Stream is waiting for data'
 }
