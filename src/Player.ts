@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { StreamMetadata, StreamMetadataError } from './metadata/StreamMetadata';
+import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
 import { ILog, Connect, Util, EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
@@ -92,6 +92,14 @@ export class Player extends EventEmitter {
     }
 
     /**
+     * Event fired when stream state is changing
+     * @param state
+     */
+    onState(state: StreamState) {
+        this.log('onState', state).info();
+    }
+
+    /**
      * Event fired every second to report information while content plays
      * @param playing
      * @event
@@ -155,6 +163,13 @@ export class Player extends EventEmitter {
      */
     get connector(): IConnector | undefined {
         return this._connector;
+    }
+
+    /**
+     * State of the stream as indicated by the server
+     */
+    get streamState(): StreamState {
+        return this._streamMetadata?.streamState || StreamState.UNKNOWN;
     }
 
     /**
@@ -383,7 +398,16 @@ export class Player extends EventEmitter {
             // reset to release resources!
             mbr?.reset();
             // Stop the player if signaling fails!
-            this.stop(error);
+            if (this.streamState === StreamState.OFFLINE) {
+                // if stream-state was offine on disconnection, shows this error!
+                this.stop({
+                    type: 'StreamMetadataError',
+                    name: this.streamState,
+                    stream: (params as Connect.Params).streamName
+                });
+            } else {
+                this.stop(error);
+            }
         };
 
         // Timed Metadatas
@@ -518,6 +542,7 @@ export class Player extends EventEmitter {
     private _initStreamMetadata(params: Connect.Params, streamMetadata: StreamMetadata) {
         this._streamMetadata = streamMetadata;
         streamMetadata.log = this.log.bind(this, 'StreamMetadata:') as ILog;
+        streamMetadata.onState = (state: StreamState) => this.onState(state);
         streamMetadata.onMetadata = metadata => {
             if (!this._connector || !this._connector.opened) {
                 return;

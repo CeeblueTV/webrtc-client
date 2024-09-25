@@ -9,6 +9,15 @@ import { MTrack, MType, Metadata } from './Metadata';
 
 const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.maxbps;
 
+export enum StreamState {
+    UNKNOWN = '',
+    ONLINE = 'Stream is online',
+    OFFLINE = 'Stream is offline',
+    LOADING = 'Stream is initializing',
+    BOOTING = 'Stream is booting',
+    WAITING = 'Stream is waiting for data'
+}
+
 export type StreamMetadataError =
     /**
      * Represents a Connection error.
@@ -18,7 +27,6 @@ export type StreamMetadataError =
      * Represents a {@link WebSocketReliableError} error
      */
     | WebSocketReliableError;
-
 /**
  * Use StreamMetadata to get real-time information on a server stream, including:
  *  - the list of tracks and their properties,
@@ -28,8 +36,16 @@ export type StreamMetadataError =
  * streamMetadata.onMetadata = metadata => {
  *    console.log(metadata);
  * }
+ *
  */
 export class StreamMetadata extends EventEmitter {
+    /**
+     * Event fired when stream state is changing
+     * @param state
+     */
+    onState(state: StreamState) {
+        this.log('onState', state).info();
+    }
     /**
      * Event fired when the stream is closed
      * @param error error description on an improper closure
@@ -56,6 +72,13 @@ export class StreamMetadata extends EventEmitter {
     }
 
     /**
+     * State of the stream as indicated by the server
+     */
+    get streamState(): StreamState {
+        return this._streamState;
+    }
+
+    /**
      * Returns the {@link Connect.Params} object containing the connection parameters
      */
     get connectParams(): Connect.Params {
@@ -78,24 +101,40 @@ export class StreamMetadata extends EventEmitter {
     private _ws: WebSocketReliable;
     private _metadata?: Metadata;
     private _connectParams: Connect.Params;
+    private _streamState: StreamState;
     /**
      * Create a new StreamMetadata instance, connects to the server using WebSocket and
      * listen to metadata events.
      */
     constructor(connectParams: Connect.Params) {
         super();
+
+        const states = new Map<string, StreamState>();
+        for (const state of Object.values(StreamState)) {
+            states.set(state, state);
+        }
+        // Server can server the following text to indicate a unknown status
+        states.set('Stream status is unknown?!', StreamState.UNKNOWN);
+
         this._connectParams = connectParams;
+        this._streamState = StreamState.UNKNOWN;
         this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.META, connectParams));
         this._ws.onClose = (error?: WebSocketReliableError) => this.close(error);
         this._ws.onMessage = (message: string) => {
             try {
                 const data = JSON.parse(message);
                 if (data.error) {
-                    // Unrecoverable issue!
-                    this.close({ type: 'StreamMetadataError', name: data.error, stream: connectParams.streamName });
+                    const state = states.get(data.error);
+                    if (state) {
+                        this.onState((this._streamState = state));
+                    } else {
+                        // Unrecoverable issue!
+                        this.close({ type: 'StreamMetadataError', name: data.error, stream: connectParams.streamName });
+                    }
                     return;
                 }
 
+                // Metadata
                 this._metadata = new Metadata();
                 this._metadata.type = data.type;
                 this._metadata.width = data.width;
@@ -135,6 +174,8 @@ export class StreamMetadata extends EventEmitter {
                 for (const track of tracks) {
                     this._metadata.tracks.set(track.idx, track);
                 }
+                // SUCCESS
+                this.onState((this._streamState = StreamState.ONLINE));
             } catch (e) {
                 this.log(Util.stringify(e)).error();
                 return;
