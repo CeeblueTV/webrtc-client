@@ -224,7 +224,7 @@ export class WSController extends SIPConnector implements IController {
                 this.log(`No updates received for the last ${(timeout / 1000).toFixed(1)}s`).warn();
             }
             if (timeout >= REPORT_WATCHDOG_TIMEOUT) {
-                this.close({ type: 'ConnectorError', name: 'Connection idle error' });
+                this.close({ type: 'ConnectorError', name: 'Connection idle' });
             }
         }, REPORT_WATCHDOG_TIMEOUT / 6);
     }
