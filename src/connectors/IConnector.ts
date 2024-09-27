@@ -49,6 +49,10 @@ export type ConnectorError =
      */
     | { type: 'ConnectorError'; name: 'SIP failed'; detail: string }
     /**
+     * Represents access rejected error.
+     */
+    | { type: 'ConnectorError'; name: 'Access rejected'; detail?: string }
+    /**
      * Represents a {@link WebSocketReliableError} error
      */
     | WebSocketReliableError;
