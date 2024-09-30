@@ -163,7 +163,7 @@ export class WSController extends SIPConnector implements IController {
                         this._promise(ev.answer_sdp);
                     }
                 } else {
-                    this.close({ type: 'ConnectorError', name: 'Access rejected' });
+                    this.close({ type: 'ConnectorError', name: 'Access denied' });
                 }
                 break;
             }
