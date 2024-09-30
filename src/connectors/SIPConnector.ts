@@ -209,7 +209,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             return;
         } // Already closed!
         this._closed = true;
-        this._clearPeerConnectionIdleWatchdog();
+        this._clearPeerConnectionIdleTimeout();
         const peerConnection = this._peerConnection;
         if (peerConnection) {
             this._peerConnection = undefined;
@@ -264,12 +264,12 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                 switch (connectionState) {
                     case 'connected':
                     case 'connecting':
-                        this._clearPeerConnectionIdleWatchdog();
+                        this._clearPeerConnectionIdleTimeout();
                         break;
                     case 'disconnected':
                     case 'failed':
                         this.log(`Peer connection state: ${connectionState}`).warn();
-                        this._startPeerConnectionIdleWatchdog();
+                        this._startPeerConnectionIdleTimeout();
                         break;
                     case 'closed':
                         this.log(`Peer connection state: ${connectionState}`).warn();
@@ -368,7 +368,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         this.onOpen(this._stream);
     }
 
-    private _startPeerConnectionIdleWatchdog() {
+    private _startPeerConnectionIdleTimeout() {
         if (!this._peerConnectionIdleTimeout) {
             this._peerConnectionIdleTimeout = setTimeout(() => {
                 this.log('Peer connection idle timeout!').error();
@@ -377,7 +377,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         }
     }
 
-    private _clearPeerConnectionIdleWatchdog() {
+    private _clearPeerConnectionIdleTimeout() {
         if (this._peerConnectionIdleTimeout) {
             clearTimeout(this._peerConnectionIdleTimeout);
             this._peerConnectionIdleTimeout = undefined;
