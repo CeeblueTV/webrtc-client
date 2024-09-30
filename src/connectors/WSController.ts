@@ -158,22 +158,22 @@ export class WSController extends SIPConnector implements IController {
 
         switch (ev.type) {
             case 'on_answer_sdp': {
-                if (ev.result === true) {
-                    if (this._promise) {
-                        this._promise(ev.answer_sdp);
-                    }
-                } else {
+                if (ev.result !== true) {
                     this.close({ type: 'ConnectorError', name: 'Access denied' });
+                    return;
+                }
+                if (this._promise) {
+                    this._promise(ev.answer_sdp);
                 }
                 break;
             }
             case 'on_error': {
-                if (this.opened) {
-                    this.log(Util.stringify(ev)).warn();
-                } else {
+                if (!this.opened) {
                     // error on start or offer/answer => irrecoverable error!
                     this.close({ type: 'ConnectorError', name: 'Connection failed', detail: Util.stringify(ev) });
+                    return;
                 }
+                this.log(Util.stringify(ev)).warn();
                 break;
             }
             case 'on_video_bitrate': {
@@ -184,7 +184,7 @@ export class WSController extends SIPConnector implements IController {
                 this.log('on_stop').info();
                 // Close the signaling channel when live stream on_stop
                 this.close();
-                break;
+                return;
             }
             case 'on_track_drop': {
                 const mediatype = ev.mediatype ?? '?';
