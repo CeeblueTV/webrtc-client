@@ -1,6 +1,6 @@
 {
     "name": "@ceeblue/webrtc-client",
-    "version": "3.0.1",
+    "version": "4.0.0",
     "description": "Ceeblue WebRTC Client",
     "keywords": [
         "webrtc",
