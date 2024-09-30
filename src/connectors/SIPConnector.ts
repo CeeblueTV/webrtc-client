@@ -8,6 +8,8 @@ import { Connect, EventEmitter, NetAddress, Util } from '@ceeblue/web-utils';
 import { ConnectionInfos, ConnectorError, IConnector } from './IConnector';
 import * as sdpTransform from 'sdp-transform';
 
+const PEER_CONNECTION_IDLE_TIMEOUT = 15000;
+
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 /**
@@ -119,6 +121,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     private _connectionInfos?: ConnectionInfos;
     private _connectionInfosTime: number;
     private _codecs: Set<string>;
+    private _peerConnectionIdleTimeout?: NodeJS.Timeout;
     /**
      * Create a new SIPConnector instance. The RTCPeerConnection is created only when calling _open().
      *
@@ -206,6 +209,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             return;
         } // Already closed!
         this._closed = true;
+        this._clearPeerConnectionIdleTimeout();
         const peerConnection = this._peerConnection;
         if (peerConnection) {
             this._peerConnection = undefined;
@@ -251,6 +255,30 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             this.close({ type: 'ConnectorError', name: 'RTCPeerConnection failed', detail: Util.stringify(e) });
             return;
         }
+
+        this._peerConnection.onconnectionstatechange = (ev: Event) => {
+            const target = <unknown>ev.target;
+            if (target) {
+                const connectionState = (target as Record<string, unknown>)?.['connectionState'];
+                this.log(`Peer connection state: ${connectionState}`).debug();
+                switch (connectionState) {
+                    case 'connected':
+                    case 'connecting':
+                        this._clearPeerConnectionIdleTimeout();
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                        this.log(`Peer connection state: ${connectionState}`).warn();
+                        this._startPeerConnectionIdleTimeout();
+                        break;
+                    case 'closed':
+                        this.log(`Peer connection state: ${connectionState}`).warn();
+                        this.close();
+                        break;
+                }
+            }
+        };
+
         if (this._stream) {
             // streamer
             for (const track of this._stream.getTracks()) {
@@ -338,5 +366,21 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         }
         this._peerConnection.ontrack = Util.EMPTY_FUNCTION; // Just once!
         this.onOpen(this._stream);
+    }
+
+    private _startPeerConnectionIdleTimeout() {
+        if (!this._peerConnectionIdleTimeout) {
+            this._peerConnectionIdleTimeout = setTimeout(() => {
+                this.log('Peer connection idle timeout!').error();
+                this.close({ type: 'ConnectorError', name: 'Connection idle' });
+            }, PEER_CONNECTION_IDLE_TIMEOUT);
+        }
+    }
+
+    private _clearPeerConnectionIdleTimeout() {
+        if (this._peerConnectionIdleTimeout) {
+            clearTimeout(this._peerConnectionIdleTimeout);
+            this._peerConnectionIdleTimeout = undefined;
+        }
     }
 }

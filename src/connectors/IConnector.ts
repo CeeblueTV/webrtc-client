@@ -39,7 +39,7 @@ export type ConnectorError =
     /**
      * Represents a Connection idle error.
      */
-    | { type: 'ConnectorError'; name: 'Connection idle error' }
+    | { type: 'ConnectorError'; name: 'Connection idle' }
     /**
      * Represents a RTCPeerConnection creation error.
      */
