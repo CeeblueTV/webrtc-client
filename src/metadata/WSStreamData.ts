@@ -12,7 +12,7 @@ import { IStreamData } from './IStreamData';
  * @example
  * const streamData = new WSStreamData({endPoint, streamName});
  * streamData.tracks = [0, 1]; // subscribe to data tracks 0 and 1
- * streamData.onData = time, track, data => {
+ * streamData.onData = track, time, data => {
  *    console.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
  * }
  */
@@ -30,7 +30,7 @@ export class WSStreamData extends EventEmitter implements IStreamData {
      * @event
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onData(time: number, track: number, data: any) {
+    onData(track: number, time: number, data: any) {
         this.log(`Data received on track ${track} at ${time}: ${Util.stringify(data)}`).info();
     }
 
