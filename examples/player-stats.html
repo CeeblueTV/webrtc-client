@@ -155,15 +155,16 @@
              * - telemetryURL=<URL> : Use a custom telemetry server URL
              */
 
-            import { Player, HTTPConnector, WSController, utils, VERSION, PlayerStats, Telemetry } from "../dist/webrtc-client.js";
+            import { Player, HTTPConnector, WSController, utils, VERSION, PlayerStats, Telemetry } from "../dist/webrtc-client.min.js";
             // development version, includes helpful console warnings
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-            console.log('webrtc-client version:', VERSION);
-            console.log('web-utils version:', utils.VERSION);
 
-            const { Util, NetAddress } = utils;
+            const { Util, NetAddress, log } = utils;
+
+            log('webrtc-client version:', VERSION).info();
+            log('web-utils version:', utils.VERSION).info();
 
             const PlayState = {
                 PLAYING: 'PLAYING',
@@ -273,77 +274,46 @@
                     this.accessToken = options.accessToken;
                     this.connectorType = options.whep || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
                     this.telemetryURL = options.telemetryURL;
+
+                    log.on = this.addLog.bind(this);
                 },
                 methods: {
-                    addLog(log, level="info") {
+                    addLog(level,args) {
                         // if logs are more than 100000, remove the latest
                         if (this.logs.length > 100000) {
                             this.logs.shift();
                         }
-                        console.log(log);
-                        log = {msg : '[' + new Date().toISOString() + '] ' + log, level: level};
-                        this.logs.push(log);
+                        let message = {msg : '[' + new Date().toISOString() + '] ' + [...args], level: level};
+                        this.logs.push(message);
+                        console[level](...args.splice(0)); // args is empty after this call = final interception
                     },
-                    startPlayback() {
-
+                    play() {
+                        if (this.player) {
+                            this.player.stop();
+                            return;
+                        }
+                        this.streamErrorMessage = null;
+                        if (!this.streamName) {
+                            this.streamErrorMessage = "Enter a non-empty stream name to play";
+                            return;
+                        }
                         this.playState = PlayState.STARTING;
 
                         const videoElement = this.$refs.video;
                         videoElement.muted = this.muted;
                         videoElement.autoplay = true;
                         videoElement.onloadeddata = () => {
-                            console.log('WebRTC loadeddata');
+                            log('WebRTC loadeddata').info();
                             videoElement.play();
                         };
 
                         this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                        this.player.onLog = log => this.addLog(log);
-                        this.player.onError = error => {
-                            console.warn(error);
-                            this.streamErrorMessage = error;
-                            if (this.telemetry) {
-                                this.telemetry.report(new ErrorStats(error, this.telemetryStats.sessionId), 0);
-                            }
-                        }
-                        this.player.onStart = stream => {
-                            console.log('WebRTCPlayer => PlayerStarted');
-                            this.playState = PlayState.PLAYING;
-                            videoElement.srcObject = stream;
-                        };
-                        this.player.onStop = (error) => {
-                            console.log('WebRTCPlayer => PlayerStopped', error);
-                            videoElement.srcObject = null;
-                            videoElement.onloadeddata = null;
-                            this.stopPlayback();
-                        };
-                        this.player.onPlaying = () => {
-
-                            if (this.oldVideoTrackId !== this.player.videoTrack) {
-                                // Send a new stats report when the video track changes
-                                // then every 60 seconds
-                                if (this.telemetry) {
-                                    this.telemetry.report(this.telemetryStats);
-                                    this.telemetry.report(this.telemetryStats, 60);
-                                }
-
-                                // if not AUTO update the current video track
-                                if(this.videoTrackId != null) {
-                                    this.videoTrackId = this.player.videoTrack;
-                                }
-                                this.oldVideoTrackId = this.player.videoTrack;
-                            }
-                            this.videoTrack = this.videoTracks.get(this.player.videoTrack);
-
-                            // if not AUTO update the current audio track
-                            if(this.audioTrackId != null) {
-                                this.audioTrackId = this.player.audioTrack;
-                            }
-                            this.audioTrack = this.audioTracks.get(this.player.audioTrack);
-                        };
-                        this.player.onMetadata = metadata => {
-                            this.updateStreamMetadata(metadata);
-                        };
-                        this.player.start({
+                        this.player.onStart = this.onStart.bind(this);
+                        this.player.onStop = this.onStop.bind(this);
+                        this.player.onPlaying = this.onPlaying.bind(this);
+                        this.player.onMetadata = this.onMetadata.bind(this);
+                        this.player.start(
+                            {
                                 endPoint:this.host.toString(),
                                 streamName: this.streamName,
                                 accessToken: this.accessToken,
@@ -351,18 +321,16 @@
                                     urls: ['turn:' + this.host.domain + ':3478?transport=tcp', 'turn:' + this.host.domain + ':3478'],
                                     username: 'csc_demo', credential: 'UtrAFClFFO'
                                 }
-                        });
+                            });
 
                         // Metrics
                         if (this.telemetryURL) {
                             try {
                                 this.telemetry = new Telemetry(this.telemetryURL);
-                                this.telemetry.onLog = log => console.log('Telemetry:', log);
-                                this.telemetry.onError = error => console.error('Telemetry:', error);
                                 this.telemetryStats = new PlayerStats(this.player, videoElement);
                                 // (The first report will be in the next track change)
                             } catch (error) {
-                                console.error('Telemetry:', error);
+                                log('Telemetry:', error).error();
                                 this.telemetry = null;
                             }
                         }
@@ -373,12 +341,28 @@
                         this.renderTimer = setInterval(() => {
                             renderStats.serialize().then(data => {
                                 this.metrics = writeMetrics(data);
-                                this.addLog('Metrics: ' + this.metrics.join(', '), "debug");
+                                log('Metrics: ' + this.metrics.join(', ')).debug();
                             });
                         }, 2000); // Every 2 second
                     },
-                    stopPlayback() {
-                        console.log('StopPlayback');
+                    onStart(stream) {
+                        log('onStart').info();
+                        this.playState = PlayState.PLAYING;
+                        this.$refs.video.srcObject = stream;
+                    },
+                    onStop(error) {
+                        if(error) {
+                            log('onStop', error).error();
+                            this.streamErrorMessage = error.name;
+                            if (this.telemetry) {
+                                this.telemetry.report(new ErrorStats(error.name, this.telemetryStats.sessionId), 0);
+                            }
+                        } else {
+                            log('onStop').info();
+                        }
+                        const videoElement = this.$refs.video;
+                        videoElement.srcObject = null;
+                        videoElement.onloadeddata = null;
 
                         if (this.player) {
                             this.player.stop();
@@ -397,11 +381,41 @@
 
                         this.playState = PlayState.STOPPED;
                     },
-                    mutePlayback() {
-                        console.log('MutePlayback');
-                        this.$refs.video.muted = this.muted;
+                    onPlaying(playing) {
+                        if (this.oldVideoTrackId !== this.player.videoTrack) {
+                            // Send a new stats report when the video track changes
+                            // then every 60 seconds
+                            if (this.telemetry) {
+                                this.telemetry.report(this.telemetryStats);
+                                this.telemetry.report(this.telemetryStats, 60);
+                            }
+
+                            // if not AUTO update the current video track
+                            if(this.videoTrackId != null) {
+                                this.videoTrackId = this.player.videoTrack;
+                            }
+                            this.oldVideoTrackId = this.player.videoTrack;
+                        }
+                        this.videoTrack = this.videoTracks.get(this.player.videoTrack);
+
+                        // if not AUTO update the current audio track
+                        if(this.audioTrackId != null) {
+                            this.audioTrackId = this.player.audioTrack;
+                        }
+                        this.audioTrack = this.audioTracks.get(this.player.audioTrack);
+
+                        log(
+                            'Position ' + playing.begin + '>>[' + playing.current + ']>>' + playing.end,
+                            {
+                                Buff:(playing.end - playing.current) + 'ms',
+                                audioTrack: this.audioTrackId,
+                                videoTrack: this.videoTrackId
+                            }
+                        ).debug();
                     },
-                    updateStreamMetadata(metadata) {
+                    onMetadata(metadata) {
+                        log(`onMetadata ${Util.stringify(metadata)}`).info();
+
                         this.audioTracks = new Map();
                         this.videoTracks = new Map();
 
@@ -420,33 +434,19 @@
                             }
                         }
                     },
-                    play() {
-                        this.streamErrorMessage = null;
-                        if(this.playState === PlayState.STOPPED) {
-                            if (!this.streamName) {
-                                this.streamErrorMessage = "Enter a non-empty stream name to play";
-                                return;
-                            }
-                            this.startPlayback();
-                        } else {
-                            this.stopPlayback();
-                        }
-                    },
                     mute() {
                         this.muted = !this.muted;
-                        this.mutePlayback();
+                        log('MutePlayback').info();
+                        this.$refs.video.muted = this.muted;
                     },
 
                     playButtonCaption() {
-                        if (this.isStopped()) {
+                        if (this.isStopped())
                             return 'Play';
-                        }
-                        if (this.isStarting()) {
+                        if (this.isStarting())
                             return 'Starting... ';
-                        } 
-                        if (this.isPlaying()) {
+                        if (this.isPlaying())
                             return 'Stop';
-                        }
                     },
                     isPlaying() {
                         return this.playState === PlayState.PLAYING;

@@ -204,10 +204,11 @@
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-            console.log('webrtc-client version:', VERSION);
-            console.log('web-utils version:', utils.VERSION);
 
-            const { NetAddress, Util } = utils;
+            const { NetAddress, Util, log } = utils;
+
+            log('webrtc-client version:', VERSION).info();
+            log('web-utils version:', utils.VERSION).info();
 
             const DEFAULT_STREAMING_BITRATE = 3000000;
             const DEFAULT_STREAMING_WIDTH = 1280;
@@ -333,6 +334,8 @@
                     this.adaptiveBitrate = options.adaptive !== false;
                     this.overlayTimestamp = options.timestamp? true : false;
                     this.telemetryURL = options.telemetryURL;
+
+                    log.on = this.addLog.bind(this);
                 },
                 mounted() {
                     this.$refs.canvas.setAttribute('width', this.streaming.width);
@@ -390,7 +393,7 @@
                         this.streaming.muted = !this.streaming.muted;
                     },
                     captureMediaStream() {
-                        console.log('Capturing media stream ...');
+                        log('Capturing media stream ...').info();
 
                         return navigator.mediaDevices
                             .getUserMedia({
@@ -422,18 +425,19 @@
                                 return stream;
                             })
                             .catch((e) => {
-                                console.error('Failed to capture media stream', e);
-                                this.showErrorMessage('Failed to capture media stream'+ e.toString());
+                                log(
+                                    this.showErrorMessage(`Failed to capture media stream ${Util.stringify(e)}`)
+                                ).error();
                             });
                     },
-                    addLog(log, level="info") {
+                    addLog(level,args) {
                         // if logs are more than 100000, remove the latest
                         if (this.logs.length > 100000) {
                             this.logs.shift();
                         }
-                        console.log(log);
-                        log = {msg : '[' + new Date().toISOString() + '] ' + log, level: level};
-                        this.logs.push(log);
+                        let message = {msg : '[' + new Date().toISOString() + '] ' + [...args], level: level};
+                        this.logs.push(message);
+                        console[level](...args.splice(0)); // args is empty after this call = final interception
                     },
                     startStreaming() {
                         if (!(this.streamName && (this.streamName.length > 0))) {
@@ -444,18 +448,16 @@
 
                         this.captureMediaStream()
                             .then(stream => {
-                                console.log('Start streaming...');
+                                log('Start streaming...').info();
                                 if (!stream) {
                                     this.state = StreamingState.IDLE;
                                     return;
                                 }
                                 this.streamer = new Streamer(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                                this.streamer.onLog = log => this.addLog(log);
                                 this.streamer.onStart = this.onStreamingStart.bind(this);
                                 this.streamer.onStop = this.onStreamingStop.bind(this);
-                                this.streamer.onError = this.onStreamingError.bind(this);
                                 this.streamer.onRTPProps = this.onRTPProps.bind(this);
-                                this.streamer.onMediaReport = (report) => this.addLog('Media report: ' + Util.stringify(report, { recursion: 2 }));
+                                this.streamer.onMediaReport = (report) => log('Media report: ', Util.stringify(report, { recursion: 2 })).info();
 
                                 this.streamer.start(stream,
                                     {
@@ -474,12 +476,10 @@
                                 if (this.telemetryURL) {
                                     try {
                                         this.telemetry = new Telemetry(this.telemetryURL);
-                                        this.telemetry.onLog = log => console.log('Telemetry:', log);
-                                        this.telemetry.onError = error => console.error('Telemetry:', error);
                                         this.telemetryStats = new StreamerStats(this.streamer);
                                         this.telemetry.report(this.telemetryStats, 60);
                                     } catch (error) {
-                                        console.error('Telemetry:', error);
+                                        log('Telemetry:', error).error();
                                         this.telemetry = null;
                                     }
                                 }
@@ -489,14 +489,14 @@
                                 this.renderTimer = setInterval(() => {
                                     renderStats.serialize().then(data => {
                                         this.metrics = writeMetrics(data);
-                                        this.addLog('Metrics: ' + this.metrics.join(', '), "debug");
+                                        log('Metrics: ' + this.metrics.join(', ')).debug();
                                     });
                                 }, 2000); // Every 2 second
                             });
                     },
                     stopStreaming() {
                         if (this.streamer) {
-                            console.log('Stop streaming...');
+                            log('Stop streaming...').info();
                             this.streamer.stop();
                         }
                         clearInterval(this.telemetryTimer);
@@ -504,15 +504,24 @@
                         this.telemetryTimer = this.renderTimer = null;
                     },
                     onStreamingStart() {
-                        console.log('onStreamingStart');
+                        log('onStreamingStart').info();
                         this.state = StreamingState.STREAMING;
                         if (this.streamer.controller) {
                             // to get current values!
                             this.streamer.setRTPProps();
                         }
                     },
-                    onStreamingStop() {
-                        console.log('onStreamingStop');
+                    onStreamingStop(error) {
+                        if(error) {
+                            log('onStreamingStop', error).error();
+                            this.showErrorMessage(error.name, true);
+
+                            if (this.telemetry) {
+                                this.telemetry.report(new ErrorStats(error.name, this.stats.sessionId), 0);
+                            }
+                        } else {
+                            log('onStreamingStop').info();
+                        }
                         this.state = StreamingState.IDLE;
 
                         this.$refs.camera.pause();
@@ -531,28 +540,13 @@
                             this.restarting = false;
 
                             setTimeout(() => {
-                                console.log('Planned restarting...');
+                                log('Planned restarting...').info();
                                 this.startStreaming();
                             }, 100);
                         }
                     },
-                    onStreamingError(error) {
-                        error = Util.stringify(error);
-                        console.warn('* OnStreamingError :', error);
-
-                        this.showErrorMessage(error, true);
-                        if (this.telemetry) {
-                            this.telemetry.report(new ErrorStats(error, this.stats.sessionId), 0);
-                        }
-
-                        // setTimeout(() => {
-                        //   console.log('Stopping on restarting...');
-                        //   this.restarting = true;
-                        //   this.stopStreaming();
-                        // }, 0);
-                    },
                     onRTPProps(nack, drop) {
-                        console.log('* onRTPProps');
+                        log('* onRTPProps').info();
 
                         if (nack) {
                             this.streaming.rtp.nack = nack;
@@ -563,11 +557,11 @@
                         }
                     },
                     setupLandscapeAnimation(cameraStream) {
-                        console.log('* SetupLandscapeAnimation');
+                        log('* SetupLandscapeAnimation').info();
                         const videoTrack = cameraStream.getVideoTracks()[0];
 
                         const capabilities = videoTrack.getCapabilities();
-                        console.log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings()));
+                        log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
 
                         try {
                             if (capabilities.frameRate && capabilities.frameRate.max) {
@@ -580,7 +574,7 @@
                                 });
                             }
                         } catch (e) {
-                            console.error('Constraint error (ignoring):', e);
+                            log('Constraint error (ignoring):', e).error();
                         }
 
                         // Create a stream which captures canvas image + has the same audio tracks that original media-stream
@@ -713,6 +707,7 @@
                         }, timeOut);
 
                         this.errorNotifications.push(errorNotification);
+                        return message;
                     },
                     closeErrorMessage(notification) {
                         this.errorNotifications = this.errorNotifications.filter(e => e.timestamp !== notification.timestamp);
