@@ -4,14 +4,23 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { Util, ILog, Connect, EventEmitter } from '@ceeblue/web-utils';
-import { ConnectionInfos, IConnector } from './connectors/IConnector';
+import { Util, ILog, Connect, EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
+import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { WSController } from './connectors/WSController';
 import { HTTPConnector } from './connectors/HTTPConnector';
 import { IController, IsController, RTPProps, MediaReport } from './connectors/IController';
 import { ABRAbstract, ABRParams } from './abr/ABRAbstract';
 import { ABRLinear } from './abr/ABRLinear';
 
+export type StreamerError =
+    /**
+     * Represents a {@link ConnectorError} error
+     */
+    | ConnectorError
+    /**
+     * Represents a {@link WebSocketReliableError} error
+     */
+    | WebSocketReliableError;
 /**
  * Use Streamer to broadcast to a WebRTC server.
  *
@@ -39,49 +48,40 @@ import { ABRLinear } from './abr/ABRLinear';
  *    streamer.stop();
  * });
  */
-export class Streamer extends EventEmitter implements ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class Streamer extends EventEmitter {
     /**
      * Event fired when the stream has started
      * @param stream
+     * @event
      */
     onStart(stream: MediaStream) {
-        this.onLog('onStart');
+        this.log('onStart').info();
     }
 
     /**
      * Event fired when the stream has stopped
+     * @param error error description on an improper stop
+     * @event
      */
-    onStop() {
-        this.onLog('onStop');
+    onStop(error?: StreamerError) {
+        if (error) {
+            this.log('onStop', error).error();
+        } else {
+            this.log('onStop').info();
+        }
     }
 
     /**
      * Event fired when an RTP setting change occurs
      * @param props
      */
-    onRTPProps(props: RTPProps) {
-        this.onLog('onRTPProps ' + Util.stringify(props));
-    }
+    onRTPProps(props: RTPProps) {}
 
     /**
      * Event fired to report media statistics
      * @param mediaReport
      */
-    onMediaReport(mediaReport: MediaReport) {
-        console.debug('onMediaReport ' + Util.stringify(mediaReport));
-    }
+    onMediaReport(mediaReport: MediaReport) {}
 
     /**
      * Event fired when a video bitrate change occurs
@@ -89,7 +89,7 @@ export class Streamer extends EventEmitter implements ILog {
      * @param videoBitrateConstraint
      */
     onVideoBitrate(videoBitrate: number, videoBitrateConstraint: number) {
-        this.onLog('onVideoBitrate ' + Util.stringify({ videoBitrate, videoBitrateConstraint }));
+        this.log(`onVideoBitrate ${Util.stringify({ videoBitrate, videoBitrateConstraint })}`).info();
     }
 
     /**
@@ -247,21 +247,22 @@ export class Streamer extends EventEmitter implements ILog {
             params,
             stream
         );
-        this._connector.onLog = log => this.onLog('Signaling: ' + log);
-        this._connector.onError = error => this.onError('Signaling: ' + error);
+
+        this._connector.log = this.log.bind(this, 'Signaling:') as ILog;
+
         this._connector.onOpen = stream => this.onStart(stream);
-        this._connector.onClose = () => {
-            abr?.reset(); // reset to release resources!
-            this.stop(); // Stop the streamer if signaling fails!
+        this._connector.onClose = (error?: ConnectorError) => {
+            // reset to release resources!
+            abr?.reset();
+            // Stop the streamer if signaling fails!
+            this.stop(error);
         };
 
         if (!IsController(this._connector)) {
             if (adaptiveBitrate) {
-                this.onLog(
-                    'Cannot use an adaptive bitrate without a controller: Connector ' +
-                        this._connector.constructor.name +
-                        " doesn't implements IController"
-                );
+                this.log(
+                    `Cannot use an adaptive bitrate without a controller: Connector ${this._connector.constructor.name} doesn't implement IController`
+                ).error();
             }
             return;
         }
@@ -272,7 +273,7 @@ export class Streamer extends EventEmitter implements ILog {
                 abr = adaptiveBitrate;
             } else {
                 abr = new ABRLinear(adaptiveBitrate);
-                abr.onLog = log => this.onLog('AdaptiveBitrate: ' + log);
+                abr.log = this.log.bind(this, 'AdaptiveBitrate:') as ILog;
             }
         }
 
@@ -299,8 +300,9 @@ export class Streamer extends EventEmitter implements ILog {
 
     /**
      * Stop streaming the stream
+     * @param error error description on an improper stop
      */
-    stop() {
+    stop(error?: StreamerError) {
         const connector = this._connector;
         if (!connector) {
             return;
@@ -312,7 +314,8 @@ export class Streamer extends EventEmitter implements ILog {
         this._videoBitrate = 0;
         this._videoBitrateConstraint = 0;
         this._rtpProps = undefined;
-        this.onStop();
+        // User event (always in last)
+        this.onStop(error);
     }
 
     private _computeVideoBitrate(abr: ABRAbstract) {

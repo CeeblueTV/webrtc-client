@@ -5,13 +5,13 @@
  */
 
 import { Player } from '../Player';
-import { ILog, Util, EventEmitter } from '@ceeblue/web-utils';
+import { Util, EventEmitter } from '@ceeblue/web-utils';
 import { IStats } from './IStats';
 
 /**
  * PlayerStats implements the statistics serialization for a {@link Player} instance.
  */
-export class PlayerStats extends EventEmitter implements IStats, ILog {
+export class PlayerStats extends EventEmitter implements IStats {
     /**
      * @override{@inheritDoc ILog.onLog}
      * @event
@@ -75,7 +75,7 @@ export class PlayerStats extends EventEmitter implements IStats, ILog {
         try {
             connectionInfos = await this._player.connectionInfos();
         } catch (e) {
-            this.onLog('Report stats without connection infos, ' + Util.stringify(e));
+            this.log(`Report stats without connection infos, ${Util.stringify(e)}`).error();
             return metrics;
         }
 

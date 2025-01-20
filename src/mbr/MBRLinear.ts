@@ -36,13 +36,13 @@ export class MBRLinear extends MBRAbstract {
         const lost = stats.packetsLost;
         const nack = stats.nackCount;
         if (lost == null) {
-            this.onLog('No packetsLost information in ' + Util.stringify(stats));
+            this.log(`No packetsLost information in ${Util.stringify(stats)}`).warn();
             return false; // can't compute congestion!
         }
         // Lost increasing?
         // NACK is used to check that it's really a congestion, and not a user track change
         const congested = elapsed > 0 && lost > this._lost && (nack ? nack > this._nackCount : true);
-        //console.log('DOWN', elapsed, this._lost, lost, 'nack=' +stats.nackCount);
+        //this.log('DOWN', elapsed, this._lost, lost, 'nack=' +stats.nackCount).debug();
         this._lost = lost;
         this._nackCount = nack || 0;
         return congested;
@@ -73,7 +73,7 @@ export class MBRLinear extends MBRAbstract {
             }
             this._keyFramesDecoded = 0;
         }
-        //console.log('UP', elapsed, this._keyFramesDecoded, keyFramesDecoded);
+        //this.log('UP', elapsed, this._keyFramesDecoded, keyFramesDecoded).debug();
         return false;
     }
 }

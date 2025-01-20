@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog, WebSocketReliable, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Loggable, ILog, Util } from '@ceeblue/web-utils';
 import { IStats } from './IStats';
 
 /**
@@ -15,21 +15,7 @@ import { IStats } from './IStats';
  * const telemetry = new Telemetry('wss://address/metrics');
  * telemetry.report(new StreamerStats(streamer), 1);
  */
-export class Telemetry extends EventEmitter implements ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class Telemetry extends Loggable {
     /**
      * URL of connection
      */
@@ -73,16 +59,15 @@ export class Telemetry extends EventEmitter implements ILog {
      * @param stats {@link IStats} implementation
      * @param frequency set report interval (in seconds), if it is undefined it reports only one time the stats, if it is 0 it stops the reporting
      */
-    report(stats: IStats, frequency?: number) {
-        stats.onError = (error: string) => this.onError(stats.constructor.name + ' error, ' + error);
-        stats.onLog = (log: string) => this.onLog(stats.constructor.name + ', ' + log);
+    report(stats: IStats, frequency: number) {
+        stats.log = this.log.bind(this, stats.constructor.name) as ILog;
 
         const stop = () => {
             const timer = this._reporting.get(stats);
             if (timer == null) {
                 return;
             }
-            this.onLog('Stop ' + stats.constructor.name + ' reporting');
+            this.log(`Stop ${stats.constructor.name} reporting`).info();
 
             clearInterval(timer);
             stats.off('release', stop);
@@ -108,13 +93,13 @@ export class Telemetry extends EventEmitter implements ILog {
         // start sending if required
         if (frequency == null) {
             this._report(stats);
-            this.onLog('Send ' + stats.constructor.name + ' report');
+            this.log(`Send ${stats.constructor.name} report`).info();
             return;
         } else if (frequency > 0) {
             const timer = setInterval(() => this._report(stats), frequency * 1000);
             this._reporting.set(stats, timer);
             stats.on('release', stop);
-            this.onLog('Start ' + stats.constructor.name + ' reporting every ' + frequency + ' seconds');
+            this.log(`Start ${stats.constructor.name} reporting every ${frequency} seconds`).info();
         }
     }
 
@@ -122,7 +107,7 @@ export class Telemetry extends EventEmitter implements ILog {
         try {
             await this._send(stats);
         } catch (e) {
-            this.onError(stats.constructor.name + ' error, ' + Util.stringify(e));
+            this.log(`${stats.constructor.name} error, ${Util.stringify(e)}`).error();
         }
     }
 

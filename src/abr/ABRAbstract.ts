@@ -5,7 +5,7 @@
  */
 
 import { MediaReport } from '../connectors/IController';
-import { EventEmitter, ILog } from '@ceeblue/web-utils';
+import { EventEmitter } from '@ceeblue/web-utils';
 
 const HD_Pixels = 1280 * 720;
 const HD_Bitrate = 1.2 * 1000000;
@@ -35,20 +35,7 @@ export type ABRParams = {
  * ABRAbstract is the base class for adaptive bitrate algorithm used by {@link Streamer}
  * when it has a controller connector.
  */
-export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
-     */
-    onLog(log: string) {}
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export abstract class ABRAbstract extends EventEmitter implements ABRParams {
     /**
      * Get the configured initial bitrate
      */
@@ -182,11 +169,11 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
         this._bitrateConstraint = bitrateConstraint;
         // log changes
         if (firstTime) {
-            this.onLog('Set startup bitrate to ' + newBitrate);
+            this.log(`Set startup bitrate to ${newBitrate}`).info();
         } else if (newBitrate > bitrate) {
-            this.onLog('Increase bitrate ' + bitrate + ' => ' + newBitrate);
+            this.log(`Increase bitrate ${bitrate} => ${newBitrate}`).info();
         } else if (newBitrate < bitrate) {
-            this.onLog('Decrease bitrate ' + bitrate + ' => ' + newBitrate);
+            this.log(`Decrease bitrate ${bitrate} => ${newBitrate}`).info();
         }
         return newBitrate;
     }
@@ -245,16 +232,7 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams, ILo
             constraint.height = cameraHeight * factor;
         }
 
-        this.onLog(
-            'Resolution change ' +
-                cameraWidth +
-                'X' +
-                cameraHeight +
-                ' => ' +
-                constraint.width +
-                'X' +
-                constraint.height
-        );
+        this.log(`Resolution change ${cameraWidth}X${cameraHeight} => ${constraint.width}X${constraint.height}`).info();
         track.applyConstraints(constraint);
     }
 }

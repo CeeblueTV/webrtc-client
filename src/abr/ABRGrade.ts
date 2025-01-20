@@ -68,7 +68,7 @@ export class ABRGrade extends ABRAbstract {
         const stableBitrate = vars.stableBitrates.average;
         const stableBitrateMin = vars.stableBitrates.minimum;
         const stableBitrateMax = vars.stableBitrates.maximum;
-        // this.onLog(`[${this._formatBitrate(stableVideoBitrate * 0.8)}> ${this._formatBitrate(stableVideoBitrateMin)}...${this._formatBitrate(stableVideoBitrateMax)} <${this._formatBitrate(stableVideoBitrate * 1.2)}] ${this._formatBitrate(stableVideoBitrate)}`);
+        // this.log(`[${this._formatBitrate(stableVideoBitrate * 0.8)}> ${this._formatBitrate(stableVideoBitrateMin)}...${this._formatBitrate(stableVideoBitrateMax)} <${this._formatBitrate(stableVideoBitrate * 1.2)}] ${this._formatBitrate(stableVideoBitrate)}`).info();
         // When bitrate is stable (+-20%), then try to change camera constraints
         if (stableBitrateMin >= stableBitrate * 0.8 && stableBitrateMax <= stableBitrate * 1.2) {
             this._updateVideoConstraints(stableBitrate);
@@ -76,12 +76,12 @@ export class ABRGrade extends ABRAbstract {
 
         // If constraint decreased
         if (bitrateConstraint != null && this.constraint != null && bitrateConstraint < this.constraint) {
-            this.onLog(`onVideoBitrateConstraint: ${this._formatBitrate(bitrateConstraint - this.constraint)}`);
+            this.log(`onVideoBitrateConstraint: ${this._formatBitrate(bitrateConstraint - this.constraint)}`).info();
 
             // If it is first constraint
             if (!vars.bitrateConstraintTime) {
                 if (!vars.bitrateRecoveryTime) {
-                    this.onLog('VideoBitrateConstraint: First constrain! Halve bitrate!');
+                    this.log('VideoBitrateConstraint: First constrain! Halve bitrate!').info();
 
                     // Reduce the target video bitrate
                     bitrate = Math.round(bitrate / 2);
@@ -113,7 +113,7 @@ export class ABRGrade extends ABRAbstract {
                 if (!newBitrate) {
                     // reprogram timer!
                     vars.bitrateRecoveryNextTime = now + vars.bitrateRecoveryTimeout;
-                    this.onLog('startVideoBitrateRecoveryTimer ' + vars.bitrateRecoveryTimeout);
+                    this.log(`startVideoBitrateRecoveryTimer ${vars.bitrateRecoveryTimeout}`).info();
                 } else {
                     // stop timer, done!
                     vars.bitrateRecoveryTimeout = now;
@@ -129,7 +129,7 @@ export class ABRGrade extends ABRAbstract {
         const vars = this._vars;
         const lossAvg = vars.lossPercents.average;
 
-        this.onLog('videoBitrateRecoveryHandler loss: ' + lossAvg.toFixed(2));
+        this.log(`videoBitrateRecoveryHandler loss: ${lossAvg.toFixed(2)}`).info();
         if (lossAvg < 0.2) {
             let bitrate = this._increaseTargetBitrate(bitrateConstraint);
             if (vars.bitrateConstraintTime && bitrate > vars.stableBitrates.average) {
@@ -139,14 +139,14 @@ export class ABRGrade extends ABRAbstract {
             // Decrease recovery timeout
             this._decreaseRecoveryTimeout();
 
-            this.onLog('videoBitrateRecoveryHandler increase bitrate to ' + this._formatBitrate(bitrate));
+            this.log(`videoBitrateRecoveryHandler increases bitrate to ${this._formatBitrate(bitrate)}`).info();
             return bitrate;
         }
         if (lossAvg < 5.0) {
             this._increaseRecoveryTimeout();
 
             const bitrate = this._decreaseTargetBitrate(bitrateConstraint);
-            this.onLog('videoBitrateRecoveryHandler decrease bitrate to ' + this._formatBitrate(bitrate));
+            this.log(`videoBitrateRecoveryHandler decreases bitrate to ${this._formatBitrate(bitrate)}`).info();
             return bitrate;
         }
     }

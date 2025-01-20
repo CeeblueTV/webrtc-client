@@ -4,9 +4,9 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { StreamMetadata } from './metadata/StreamMetadata';
-import { ILog, Connect, Util, EventEmitter } from '@ceeblue/web-utils';
-import { ConnectionInfos, IConnector } from './connectors/IConnector';
+import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
+import { ILog, Connect, Util, EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
+import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
 import { WSController } from './connectors/WSController';
 import { HTTPConnector } from './connectors/HTTPConnector';
@@ -16,8 +16,22 @@ import { WSStreamData } from './metadata/WSStreamData';
 import { MBRAbstract, MBRParams } from './mbr/MBRAbstract';
 import { MBRLinear } from './mbr/MBRLinear';
 
-const RECONNECTION_TIMEOUT: number = 1000;
+// Reconnection timeout, 2 seconds
+const RECONNECTION_TIMEOUT: number = 2000;
 
+export type PlayerError =
+    /**
+     * Represents a {@link ConnectorError} error
+     */
+    | ConnectorError
+    /**
+     * Represents a {@link WebSocketReliableError} error
+     */
+    | WebSocketReliableError
+    /**
+     * Represents a {@link StreamMetadataError} error
+     */
+    | StreamMetadataError;
 /**
  * Use Player to start playing a WebRTC stream.
  * You can use a controllable version using a `WSController` as connector, or change it to use a `HTTPConnector` (HTTP WHEP).
@@ -55,48 +69,53 @@ const RECONNECTION_TIMEOUT: number = 1000;
  * player.stop();
  *
  */
-export class Player extends EventEmitter implements ILog {
-    /**
-     * @override{@inheritDoc ILog.onLog}
-     */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
-    }
-
+export class Player extends EventEmitter {
     /**
      * Event fired when streaming starts
      * @param stream
+     * @event
      */
     onStart(stream: MediaStream) {
-        this.onLog('onStart');
+        this.log('onStart').info();
     }
 
     /**
      * Event fired when streaming stops
+     * @param error error description on an improper stop
+     * @event
      */
-    onStop() {
-        this.onLog('onStop');
+    onStop(error?: PlayerError) {
+        if (error) {
+            this.log('onStop', error).error();
+        } else {
+            this.log('onStop').info();
+        }
+    }
+
+    /**
+     * Event fired when stream state is changing
+     * @param state
+     */
+    onState(state: StreamState) {
+        this.log('onState', state).info();
     }
 
     /**
      * Event fired every second to report information while content plays
      * @param playing
+     * @event
      */
     onPlaying(playing: PlayingInfos) {
-        console.debug('onPlaying ' + Util.stringify(playing));
+        this.log(`onPlaying ${Util.stringify(playing)}`).debug();
     }
 
     /**
      * Event fired when metadata is present in the stream
      * @param metadata
+     * @event
      */
     onMetadata(metadata: Metadata) {
-        this.onLog(Util.stringify(metadata));
+        this.log(Util.stringify(metadata)).info();
     }
 
     /**
@@ -104,10 +123,11 @@ export class Player extends EventEmitter implements ILog {
      * @param time
      * @param track
      * @param data
+     * @event
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any) {
-        this.onLog(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`);
+        this.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`).info();
     }
 
     /**
@@ -144,6 +164,13 @@ export class Player extends EventEmitter implements ILog {
      */
     get connector(): IConnector | undefined {
         return this._connector;
+    }
+
+    /**
+     * State of the stream as indicated by the server
+     */
+    get streamState(): StreamState {
+        return this._streamMetadata?.streamState || StreamState.UNKNOWN;
     }
 
     /**
@@ -356,8 +383,7 @@ export class Player extends EventEmitter implements ILog {
         this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
-        this._connector.onLog = log => this.onLog('Signaling: ' + log);
-        this._connector.onError = error => this.onError('Signaling: ' + error);
+        this._connector.log = this.log.bind(this, 'Signaling:') as ILog;
         this._connector.onOpen = stream => {
             this.onStart(stream);
             // metadata in first!
@@ -369,9 +395,26 @@ export class Player extends EventEmitter implements ILog {
                 this._controller.onPlaying(playing);
             }
         };
-        this._connector.onClose = () => {
-            mbr?.reset(); // reset to release resources!
-            this.stop(); // Stop the player if signaling fails!
+        this._connector.onClose = (error?: ConnectorError) => {
+            // reset to release resources!
+            mbr?.reset();
+            // Stop the player if signaling fails!
+            if (this.streamState === StreamState.OFFLINE) {
+                // if stream-state was offine on disconnection, shows this error!
+                this.stop({
+                    type: 'StreamMetadataError',
+                    name: StreamState.OFFLINE,
+                    stream: (params as Connect.Params).streamName
+                });
+            } else if (error?.type === 'WebSocketReliableError' && error.name === 'Socket disconnection') {
+                this.stop({
+                    type: 'StreamMetadataError',
+                    name: 'Resource not available',
+                    stream: (params as Connect.Params).streamName
+                });
+            } else {
+                this.stop(error);
+            }
         };
 
         // Timed Metadatas
@@ -379,11 +422,9 @@ export class Player extends EventEmitter implements ILog {
 
         if (!IsController(this._connector)) {
             if (multiBitrate) {
-                this.onLog(
-                    'Cannot use a multiple bitrate without a controller: Connector ' +
-                        this._connector.constructor.name +
-                        " doesn't implements IController"
-                );
+                this.log(
+                    `Cannot use a multiple bitrate without a controller: Connector ${this._connector.constructor.name} doesn't implement IController`
+                ).warn();
             }
             return;
         }
@@ -395,7 +436,7 @@ export class Player extends EventEmitter implements ILog {
             } else {
                 // MBRParams
                 mbr = new MBRLinear(multiBitrate);
-                mbr.onLog = log => this.onLog('MultiBitrate: ' + log);
+                mbr.log = this.log.bind(this, 'MultiBitrate:') as ILog;
             }
         }
 
@@ -438,15 +479,16 @@ export class Player extends EventEmitter implements ILog {
                     this._controller.setTracks(tracks);
                 }
             } catch (e) {
-                this.onError("Can't compute MBR, " + Util.stringify(e));
+                this.log(`Can't compute MBR, ${Util.stringify(e)}`).error();
             }
         };
     }
 
     /**
      * Stops playing the stream
+     * @param error error description on an improper stop
      */
-    stop() {
+    stop(error?: PlayerError) {
         const connector = this._connector;
         if (!connector) {
             return;
@@ -454,11 +496,13 @@ export class Player extends EventEmitter implements ILog {
         this._connector = undefined;
         // Stream metadata
         if (this._streamMetadata) {
+            this._streamMetadata.onClose = Util.EMPTY_FUNCTION; // to avoid reconnection
             this._streamMetadata.close();
             this._streamMetadata = undefined;
         }
         // Stream data
         if (this._streamData) {
+            this._streamData.onClose = Util.EMPTY_FUNCTION; // to avoid reconnection
             this._streamData.close();
             this._streamData = undefined;
         }
@@ -471,7 +515,7 @@ export class Player extends EventEmitter implements ILog {
         this._playingInfos = undefined;
         this._metadata = undefined;
         // User event (always in last)
-        this.onStop();
+        this.onStop(error);
     }
 
     private _updateTracks() {
@@ -504,8 +548,8 @@ export class Player extends EventEmitter implements ILog {
 
     private _initStreamMetadata(params: Connect.Params, streamMetadata: StreamMetadata) {
         this._streamMetadata = streamMetadata;
-        streamMetadata.onLog = log => this.onLog('StreamMetadata: ' + log);
-        streamMetadata.onError = error => this.onError('StreamMetadata: ' + error);
+        streamMetadata.log = this.log.bind(this, 'StreamMetadata:') as ILog;
+        streamMetadata.onState = (state: StreamState) => this.onState(state);
         streamMetadata.onMetadata = metadata => {
             if (!this._connector || !this._connector.opened) {
                 return;
@@ -514,9 +558,18 @@ export class Player extends EventEmitter implements ILog {
             this._updateTracks();
             this.onMetadata(this._metadata);
         };
-        streamMetadata.onClose = () => {
-            this.onLog('StreamMetadata closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
+        streamMetadata.onClose = (error?: StreamMetadataError) => {
+            if (error?.type === 'StreamMetadataError') {
+                // unrecoverable!
+                this.stop(error);
+                return;
+            }
             // Manage reconnection!
+            streamMetadata
+                .log(
+                    `${error || 'disconnection'}, try to reconnect to ${params.endPoint} in ${RECONNECTION_TIMEOUT} ms`
+                )
+                .warn();
             setTimeout(() => {
                 if (this._streamMetadata === streamMetadata) {
                     this._initStreamMetadata(params, new StreamMetadata(params));
@@ -527,14 +580,17 @@ export class Player extends EventEmitter implements ILog {
 
     private _newStreamData(params: Connect.Params) {
         const streamData = (this._streamData = new WSStreamData(params));
-        streamData.onLog = log => this.onLog('Timed Metadatas: ' + log);
-        streamData.onError = error => this.onError('Timed Metadatas: ' + error);
+        streamData.log = this.log.bind('Timed Metadatas:');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         streamData.onData = (time: number, track: number, data: any) => this.onData(track, time, data);
         streamData.tracks = this._dataTracks; // initialize data tracks
-        streamData.onClose = () => {
-            this.onLog('Timed Metadatas closed, trying to reconnect in ' + RECONNECTION_TIMEOUT + 'ms');
+        streamData.onClose = (error?: WebSocketReliableError) => {
             // Manage reconnection!
+            streamData
+                .log(
+                    `${error || 'disconnection'}, try to reconnect to ${params.endPoint} in ${RECONNECTION_TIMEOUT} ms`
+                )
+                .warn();
             setTimeout(() => {
                 if (this._streamData === streamData) {
                     this._newStreamData(params);

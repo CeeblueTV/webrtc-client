@@ -1,6 +1,6 @@
 {
     "name": "@ceeblue/webrtc-client",
-    "version": "3.0.1",
+    "version": "4.0.1",
     "description": "Ceeblue WebRTC Client",
     "keywords": [
         "webrtc",
@@ -42,6 +42,8 @@
         "npm": ">=7"
     },
     "devDependencies": {
+        "@commitlint/cli": "^19.5.0",
+        "@commitlint/config-conventional": "^19.5.0",
         "@html-eslint/eslint-plugin": "~0.22.0",
         "@html-eslint/parser": "~0.22.0",
         "@rollup/plugin-commonjs": "^26.0.1",
@@ -56,7 +58,6 @@
         "@types/sdp-transform": "^2.4.9",
         "@typescript-eslint/eslint-plugin": "~6.19.0",
         "@typescript-eslint/parser": "~6.19.0",
-        "cz-conventional-changelog": "~3.3.0",
         "eslint": "~8.56.0",
         "eslint-plugin-headers": "~1.0.4",
         "husky": "~8.0.3",
@@ -71,16 +72,16 @@
         "typescript": "~5.2.2",
         "undici-types": "~6.3.0"
     },
-    "config": {
-        "commitizen": {
-            "path": "./node_modules/cz-conventional-changelog"
-        }
+    "commitlint": {
+        "extends": [
+            "@commitlint/config-conventional"
+        ]
     },
     "publishConfig": {
         "access": "public"
     },
     "dependencies": {
-        "@ceeblue/web-utils": "^2.2.0",
+        "@ceeblue/web-utils": "^2.6.0",
         "sdp-transform": "^2.14.2"
     }
 }

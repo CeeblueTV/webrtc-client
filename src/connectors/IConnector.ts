@@ -4,7 +4,7 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { ILog } from '@ceeblue/web-utils';
+import { EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
 
 export type CandidateInfos = RTCIceCandidatePairStats & {
     localCandidateProtocol?: string;
@@ -36,12 +36,38 @@ export type ConnectionInfos = {
     candidate?: CandidateInfos;
 };
 
+export type ConnectorError =
+    /**
+     * Represents a Connection error.
+     */
+    | { type: 'ConnectorError'; name: 'Connection failed'; detail: string }
+    /**
+     * Represents a Connection idle error.
+     */
+    | { type: 'ConnectorError'; name: 'Connection idle' }
+    /**
+     * Represents a RTCPeerConnection creation error.
+     */
+    | { type: 'ConnectorError'; name: 'RTCPeerConnection failed'; detail: string }
+    /**
+     * Represents a SIP handshake error.
+     */
+    | { type: 'ConnectorError'; name: 'SIP failed'; detail: string }
+    /**
+     * Represents access denied error.
+     */
+    | { type: 'ConnectorError'; name: 'Access denied' }
+    /**
+     * Represents a {@link WebSocketReliableError} error
+     */
+    | WebSocketReliableError;
+
 /**
  * IConnector is a common interface for representing a stream connection with the server.
  *
  * This interface can serve the both roles: player or streamer.
  */
-export interface IConnector extends ILog {
+export interface IConnector extends EventEmitter {
     /**
      * Call when connector is open
      * @param stream MediaStream description provided from the server if we are the player,
@@ -51,9 +77,10 @@ export interface IConnector extends ILog {
     onOpen(stream: MediaStream): void;
     /**
      * Call when connector is closed
+     * @param error error description on an improper closure
      * @event
      */
-    onClose(): void;
+    onClose(error?: ConnectorError): void;
     /**
      * True when connector is opened, in other words when {@link onOpen} event is fired
      */
@@ -85,5 +112,5 @@ export interface IConnector extends ILog {
      *  Close the connector
      * @param error the error reason if is not a proper close
      */
-    close(error?: string): void;
+    close(error?: ConnectorError): void;
 }

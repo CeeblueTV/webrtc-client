@@ -4,11 +4,29 @@
  * See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
  */
 
-import { WebSocketReliable, Connect, EventEmitter, Util } from '@ceeblue/web-utils';
+import { WebSocketReliable, Connect, EventEmitter, Util, WebSocketReliableError } from '@ceeblue/web-utils';
 import { MTrack, MType, Metadata } from './Metadata';
 
 const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.maxbps;
 
+export enum StreamState {
+    UNKNOWN = '',
+    ONLINE = 'Stream is online',
+    OFFLINE = 'Stream is offline',
+    INITIALIZING = 'Stream is initializing',
+    BOOTING = 'Stream is booting',
+    WAITING = 'Stream is waiting for data'
+}
+
+export type StreamMetadataError =
+    /**
+     * Represents a Stream metadata error.
+     */
+    | { type: 'StreamMetadataError'; name: string; stream: string }
+    /**
+     * Represents a {@link WebSocketReliableError} error
+     */
+    | WebSocketReliableError;
 /**
  * Use StreamMetadata to get real-time information on a server stream, including:
  *  - the list of tracks and their properties,
@@ -18,28 +36,23 @@ const sortByMAXBPS = (track1: MTrack, track2: MTrack) => track2.maxbps - track1.
  * streamMetadata.onMetadata = metadata => {
  *    console.log(metadata);
  * }
+ *
  */
 export class StreamMetadata extends EventEmitter {
     /**
-     * @override{@inheritDoc ILog.onLog}
-     * @event
+     * Event fired when stream state is changing
+     * @param state
      */
-    onLog(log: string) {}
-
-    /**
-     * @override{@inheritDoc ILog.onError}
-     * @event
-     */
-    onError(error: string = 'unknown') {
-        console.error(error);
+    onState(state: StreamState) {
+        this.log('onState', state).info();
     }
-
     /**
      * Event fired when the stream is closed
+     * @param error error description on an improper closure
      * @event
      */
-    onClose() {
-        this.onLog('onClose');
+    onClose(error?: StreamMetadataError) {
+        this.log('onClose').info();
     }
 
     /**
@@ -48,7 +61,7 @@ export class StreamMetadata extends EventEmitter {
      * @event
      */
     onMetadata(metadata: Metadata) {
-        this.onLog(Util.stringify(metadata));
+        this.log(Util.stringify(metadata)).info();
     }
 
     /**
@@ -56,6 +69,13 @@ export class StreamMetadata extends EventEmitter {
      */
     get url(): string {
         return this._ws.url;
+    }
+
+    /**
+     * State of the stream as indicated by the server
+     */
+    get streamState(): StreamState {
+        return this._streamState;
     }
 
     /**
@@ -81,59 +101,73 @@ export class StreamMetadata extends EventEmitter {
     private _ws: WebSocketReliable;
     private _metadata?: Metadata;
     private _connectParams: Connect.Params;
+    private _streamState: StreamState;
     /**
      * Create a new StreamMetadata instance, connects to the server using WebSocket and
      * listen to metadata events.
      */
     constructor(connectParams: Connect.Params) {
         super();
+
+        const states = new Map<string, StreamState>();
+        for (const state of Object.values(StreamState)) {
+            states.set(state, state);
+        }
+        // Server can server the following text to indicate a unknown status
+        states.set('Stream status is unknown?!', StreamState.UNKNOWN);
+
         this._connectParams = connectParams;
+        this._streamState = StreamState.UNKNOWN;
         this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.META, connectParams));
-        this._ws.onClose = (error?: string) => {
-            this._metadata = new Metadata(); // reset metadata
-            if (error) {
-                this.onError(error);
-            }
-            this.onClose();
-        };
+        this._ws.onClose = (error?: WebSocketReliableError) => this.close(error);
         this._ws.onMessage = (message: string) => {
             try {
                 const data = JSON.parse(message);
                 if (data.error) {
-                    throw data.error;
-                } // Mist issue
+                    const state = states.get(data.error);
+                    if (state) {
+                        this.onState((this._streamState = state));
+                    } else {
+                        // Unrecoverable issue!
+                        this.close({ type: 'StreamMetadataError', name: data.error, stream: connectParams.streamName });
+                    }
+                    return;
+                }
 
+                // Metadata
                 this._metadata = new Metadata();
                 this._metadata.type = data.type;
                 this._metadata.width = data.width;
                 this._metadata.height = data.height;
 
                 this._metadata.sources.clear();
-                for (const source of data.source) {
+                for (const source of data.source || []) {
                     this._metadata.sources.set(source.hrn, source);
                 }
 
                 const tracks = [];
 
                 this._metadata.tracks.clear();
-                for (const [name, track] of Util.objectEntries(data.meta.tracks)) {
-                    track.name = name;
-                    track.type = track.type.toLowerCase();
-                    switch (track.type) {
-                        case 'audio':
-                            this._metadata.audios.push(track);
-                            continue;
-                        case 'video':
-                            this._metadata.videos.push(track);
-                            continue;
-                        case 'meta':
-                            track.type = MType.DATA; // Fix meta string to explicit DATA type
-                            this._metadata.datas.push(track);
-                            break;
-                        default:
-                            this.onLog('Unknown track type' + track.type);
+                if (data.meta?.tracks) {
+                    for (const [name, track] of Util.objectEntries(data.meta.tracks)) {
+                        track.name = name;
+                        track.type = track.type.toLowerCase();
+                        switch (track.type) {
+                            case 'audio':
+                                this._metadata.audios.push(track);
+                                continue;
+                            case 'video':
+                                this._metadata.videos.push(track);
+                                continue;
+                            case 'meta':
+                                track.type = MType.DATA; // Fix meta string to explicit DATA type
+                                this._metadata.datas.push(track);
+                                break;
+                            default:
+                                this.log(`Unknown track type ${track.type}`).warn();
+                        }
+                        tracks.push(track);
                     }
-                    tracks.push(track);
                 }
 
                 // Sorts audios/videos by descending BPS
@@ -142,8 +176,10 @@ export class StreamMetadata extends EventEmitter {
                 for (const track of tracks) {
                     this._metadata.tracks.set(track.idx, track);
                 }
+                // SUCCESS
+                this.onState((this._streamState = StreamState.ONLINE));
             } catch (e) {
-                this.onError(Util.stringify(e));
+                this.log(Util.stringify(e)).error();
                 return;
             }
 
@@ -154,9 +190,16 @@ export class StreamMetadata extends EventEmitter {
 
     /**
      * Close the stream metadata channel
+     * @param error error description on an improper closure
      */
-    close(error?: string) {
-        this._ws.close(error);
+    close(error?: StreamMetadataError) {
+        if (this._ws.onClose === Util.EMPTY_FUNCTION) {
+            return;
+        }
+        this._ws.onClose = Util.EMPTY_FUNCTION;
+        this._ws.close();
+        this._metadata = new Metadata(); // reset metadata
+        this.onClose(error);
     }
 
     private _addSortedTrack(medias: Array<MTrack>, tracks: Map<number, MTrack>) {
