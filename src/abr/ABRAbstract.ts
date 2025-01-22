@@ -29,6 +29,12 @@ export type ABRParams = {
      * @defaultValue 3000000
      */
     maximum?: number;
+    /**
+     * The initial number of steps before to set maximum bandwidth
+     * @warning only used by ABRLinear
+     * @defaultValue 2
+     */
+    recoveryFactor?: number;
 };
 
 /**
@@ -96,6 +102,20 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
     }
 
     /**
+     * Get recovery factor
+     */
+    get recoveryFactor(): number {
+        return this._recoveryFactor;
+    }
+
+    /**
+     * Get recovery factor
+     */
+    set recoveryFactor(value: number) {
+        this._recoveryFactor = value;
+    }
+
+    /**
      * Get the current bitrate
      */
     get value(): number | undefined {
@@ -122,6 +142,7 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
     private _startup: number;
     private _maximum: number;
     private _minimum: number;
+    private _recoveryFactor: number;
     private _stream?: MediaStream;
     /**
      * Build the ABR implementation, call {@link compute} to use it
@@ -134,13 +155,15 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
             {
                 startup: 2000000, // Default 2Mbps
                 maximum: 3000000, // Default 3Mbps
-                minimum: 200000 // Default 200Kbps
+                minimum: 200000, // Default 200Kbps
+                recoveryFactor: 2 // Default 2
             },
             params
         );
         this._startup = init.startup;
         this._minimum = init.minimum;
         this._maximum = init.maximum;
+        this._recoveryFactor = init.recoveryFactor;
         this._stream = stream;
     }
 
