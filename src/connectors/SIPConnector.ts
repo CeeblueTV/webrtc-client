@@ -260,7 +260,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             const target = <unknown>ev.target;
             if (target) {
                 const connectionState = (target as Record<string, unknown>)?.['connectionState'];
-                this.log(`Peer connection state: ${connectionState}`).debug();
+                this.log(`Peer connection state: ${connectionState}`).info();
                 switch (connectionState) {
                     case 'connected':
                     case 'connecting':
