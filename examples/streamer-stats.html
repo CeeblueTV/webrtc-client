@@ -315,6 +315,11 @@
                         telemetryStats: null,
                         telemetryURL: null,
 
+                        lastPacketsTime: Date.now(),
+                        lastAudioPackets: 0,
+                        lastVideoPackets: 0,
+                        lastBitsSent: 0,
+
                         /* UI */
                         streamingButtonCaption: '',
                         errorNotifications: []
@@ -492,8 +497,32 @@
                                 const renderStats = new StreamerStats(this.streamer);
                                 this.renderTimer = setInterval(() => {
                                     renderStats.serialize().then(data => {
-                                        this.metrics = writeMetrics(data);
-                                        log('Metrics: ' + this.metrics.join(', ')).debug();
+                                        // Compute packet/s
+                                        const now = Date.now();
+                                        const duration = (now - this.lastPacketsTime) / 1000;
+                                        this.lastPacketsTime = now;
+                                        const audioPackets = (data.audio ? data.audio.packetsSent : 0);
+                                        const videoPackets = (data.video? data.video.packetsSent : 0);
+                                        const bitsSent = data.bytesSent * 8;
+                                        const audioPacketsRate = Math.round((audioPackets - this.lastAudioPackets) / duration);
+                                        const videoPacketsRate = Math.round((videoPackets - this.lastVideoPackets) / duration);
+                                        const bitrate = Math.round((bitsSent - this.lastBitsSent) / duration);
+                                        this.lastAudioPackets = audioPackets;
+                                        this.lastVideoPackets = videoPackets;
+                                        this.lastBitsSent = bitsSent;
+
+                                        this.metrics = [];
+                                        this.metrics.push("RTT : " + (data.currentRoundTripTime? data.currentRoundTripTime * 1000 + "ms" : "unknown"));
+                                        this.metrics.push("Bitrate : " + toHuman(bitrate) + " (target=" + toHuman(data.vbt)+ ")");
+                                        this.metrics.push("Nack : " + toHuman(data.server.nackNum));
+                                        this.metrics.push("Loss : " + toHuman(data.server.lossNum));
+                                        this.metrics.push(`Packets : audio=${toHuman(audioPackets)} (${audioPacketsRate} p/s) video=${toHuman(videoPackets)} (${videoPacketsRate} p/s)`);
+                                        this.metrics.push("Frames : " + toHuman(!data.video ? 0 : data.video.framesSent));
+                                        this.metrics.push("Resolution : " + data.video.frameWidth + "x" + data.video.frameHeight);
+                                        this.metrics.push("Protocol : " + data.localCandidateProtocol);
+
+                                        let logs = writeMetrics(data);
+                                        log('Metrics: ' + logs.join(', ')).debug();
                                     });
                                 }, 2000); // Every 2 second
                             });
