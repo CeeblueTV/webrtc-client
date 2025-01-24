@@ -96,7 +96,7 @@
 
                 <div class="row">
                     <div class="form-group col-sm-2">
-                        <select class="custom-select" id="connector-selection"
+                        <select class="form-select" id="connector-selection"
                             :disabled="!isIdle()" v-model="connectorType">
                             <option v-bind:value="option" v-for="option in connectorTypes">
                                 {{ option }}
@@ -115,7 +115,7 @@
                     <div class="col-sm p-2">
                         <div class="row">
                             <div class="col-sm">
-                                <select :disabled="!isIdle()" class="custom-select" v-model="streaming.bitrate">
+                                <select :disabled="!isIdle()" class="form-select" v-model="streaming.bitrate">
                                     <option disabled selected>Target bitrate</option>
                                     <option value="700000">0.7 Mbps</option>
                                     <option value="1000000">1 Mbps</option>
@@ -131,7 +131,7 @@
                                 </select>
                             </div>
                             <div class="col-sm">
-                                <!--            <select :disabled="!isIdle()" class="custom-select" v-model="streaming.resolution">-->
+                                <!--            <select :disabled="!isIdle()" class="form-select" v-model="streaming.resolution">-->
                                 <!--              <option disabled selected>Target resolution</option>-->
                                 <!--              <option value="1">640x480</option>-->
                                 <!--            </select>-->
@@ -162,7 +162,7 @@
                 </div>
 
                 <div class="d-flex justify-content-center">
-                    <button :disabled="isProcessing()" class="btn" id="streaming" type="button" v-bind:class="{ 'btn-danger': isStreaming(), 'btn-success': isIdle(), 'btn-secondary': isProcessing() }" v-on:click="changeState()">
+                    <button :disabled="isProcessing()" class="btn" id="streaming" type="button" v-bind:class="{ 'btn-outline-danger': isStreaming(), 'btn-outline-success': isIdle(), 'btn-secondary': isProcessing() }" v-on:click="changeState()">
                         <i class="fas fa-spinner fa-pulse" v-if="isProcessing()"></i>
                         <span v-else>{{ getStreamingButtonCaption() }}</span>
                     </button>
@@ -252,6 +252,10 @@
                     this.diagnostics = options.diagnostics || options.debug;
                     this.permanentLandscape = options.landscape? true : false;
                     this.overlayTimestamp = options.timestamp? true : false;
+
+                    // Automatically set the theme mode to system prefered mode or the one set in the options
+                    const color = !options.colorMode? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : options.colorMode;
+                    document.documentElement.setAttribute('data-bs-theme', color);
                 },
                 mounted() {
                     this.$refs.canvas.setAttribute('width', this.streaming.width);

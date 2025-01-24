@@ -57,9 +57,9 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
+                    <div class="row mb-3">
                         <div class="form-group col-sm">
-                            <select id="video-track-selection" class="custom-select text-center"
+                            <select id="video-track-selection" class="form-select text-center"
                                 :disabled="!player || !player.controller" v-model="videoTrackId" @change="onVideoTrackChange()">
                                 <option :value="undefined" :key="videoTrack">AUTO - {{videoTrack}}</option>
                                 <option v-for="[idx, track] of videoTracks" v-bind:value="idx">
@@ -69,7 +69,7 @@
                         </div>
 
                         <div class="form-group col-sm">
-                            <select id="audio-track-selection" class="custom-select text-center"
+                            <select id="audio-track-selection" class="form-select text-center"
                                 :disabled="!player || !player.controller" v-model="audioTrackId" @change="onAudioTrackChange()">
                                 <option :value="undefined" :key="audioTrack">AUTO - {{audioTrack}}</option>
                                 <option v-for="[idx, track] of audioTracks" v-bind:value="idx">
@@ -79,7 +79,7 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
+                    <div class="row mb-3">
                         <div class="form-group col-2 col-sm-1">
                             <button class="btn btn-light" type="button" v-on:click="mute">
                                 <i class="fas" v-bind:class="{ 'fa-volume-up': !muted, 'fa-volume-off': muted }"></i>
@@ -87,7 +87,7 @@
                         </div>
 
                         <div class="form-group col-10 col-sm">
-                            <select class="custom-select"
+                            <select class="form-select"
                                 :disabled="isPlaying()" v-model="connectorType">
                                 <option v-bind:value="option" v-for="option in connectorTypes">
                                     {{ option }}
@@ -107,15 +107,15 @@
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-center" v-cloak>
-                        <button class="btn" type="button"
-                            v-bind:class="{ 'btn-danger': isPlaying(), 'btn-success': isStopped(), 'btn-secondary': isStarting() }"
+                    <div class="text-center" v-cloak>
+                        <button class="btn mx-2" type="button"
+                            v-bind:class="{ 'btn-outline-danger': isPlaying(), 'btn-outline-success': isStopped(), 'btn-secondary': isStarting() }"
                             v-on:click="play">
                             <span>
                                 {{ playButtonCaption() }} <i class="fas fa-spinner fa-pulse" v-if="isStarting()"></i>
                             </span>
                         </button>
-                        <button :disabled="logs.length === 0" class="btn btn-primary ml-3" id="btnReport" type="button" v-on:click="getReport()">
+                        <button :disabled="logs.length === 0" class="btn btn-secondary mx-2" id="btnReport" type="button" v-on:click="getReport()">
                             <span>Get report</span>
                         </button>
                     </div>
@@ -160,7 +160,6 @@
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-
             const { Util, NetAddress, log } = utils;
 
             log('webrtc-client version:', VERSION).info();
@@ -278,6 +277,10 @@
                     this.accessToken = options.accessToken;
                     this.connectorType = options.whep || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
                     this.telemetryURL = options.telemetryURL;
+
+                    // Automatically set the theme mode to system prefered mode or the one set in the options
+                    const color = !options.colorMode? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : options.colorMode;
+                    document.documentElement.setAttribute('data-bs-theme', color);
 
                     log.on = this.addLog.bind(this);
                 },
