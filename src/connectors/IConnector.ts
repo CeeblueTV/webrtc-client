@@ -6,6 +6,11 @@
 
 import { EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
 
+export type CandidateInfos = RTCIceCandidatePairStats & {
+    localCandidateProtocol?: string;
+    localCandidateRelayProtocol?: string;
+};
+
 /**
  * This is the structure returned by the connectionInfos() method
  * to get statistics about current connection
@@ -28,7 +33,7 @@ export type ConnectionInfos = {
     /**
      * Selected candidate pair
      */
-    candidate?: RTCIceCandidatePairStats;
+    candidate?: CandidateInfos;
 };
 
 export type ConnectorError =
@@ -99,7 +104,7 @@ export interface IConnector extends EventEmitter {
     readonly codecs: Set<string>;
     /**
      * Request connections infos with caching option to save loading cost
-     * @param cacheDuration indicate how many time we can cache the last connection informations
+     * @param cacheDuration indicate how much milliseconds we can cache the last connection informations
      * @returns Promise with a ConnectionInfos on success
      */
     connectionInfos(cacheDuration?: number): Promise<ConnectionInfos>;

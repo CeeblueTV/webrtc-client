@@ -148,7 +148,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
         if (!this._peerConnection) {
             return Promise.reject('Not connected');
         }
-        // update only evey seconds!
+        // update only every seconds!
         if (!this._connectionInfos || Util.time() - cacheDuration > this._connectionInfosTime) {
             const infos = await this._peerConnection.getStats(null);
             this._connectionInfos = {
@@ -175,7 +175,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                         this._connectionInfos.inputs[(info.kind || info.mediaType) === 'audio' ? 'audio' : 'video'] =
                             info;
                         break;
-                    case 'candidate-pair':
+                    case 'candidate-pair': {
                         if (info.selected != null) {
                             if (!info.selected) {
                                 continue;
@@ -185,8 +185,15 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
                                 continue;
                             }
                         }
+                        // Get the local and remote candidates
+                        if (info.localCandidateId) {
+                            const localCandidate = infos.get(info.localCandidateId);
+                            info.localCandidateProtocol = localCandidate?.protocol;
+                            info.localCandidateRelayProtocol = localCandidate?.relayProtocol;
+                        }
                         this._connectionInfos.candidate = info;
                         break;
+                    }
                 }
             }
             // Report track infos with inbound/outbound-rtp (safari requirement!)
