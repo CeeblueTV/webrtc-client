@@ -262,6 +262,10 @@
                         telemetryStats: null,
                         telemetryURL: null,
 
+                        _lastPacketsTime: Date.now(),
+                        _lastAudioPackets: 0,
+                        _lastVideoPackets: 0,
+
                         player: null
                     }
                 },
@@ -340,8 +344,31 @@
                         const renderStats = new PlayerStats(this.player, videoElement);
                         this.renderTimer = setInterval(() => {
                             renderStats.serialize().then(data => {
-                                this.metrics = writeMetrics(data);
-                                log('Metrics: ' + this.metrics.join(', ')).debug();
+                                this.metrics = [];
+                                this.metrics.push("Buffer : " + (data.streamEnd - data.streamCurrent + "ms"));
+                                this.metrics.push("RTT : " + (data.currentRoundTripTime? data.currentRoundTripTime * 1000 + "ms" : "unknown"));
+                                this.metrics.push("Bitrate : " + readableBitrate(data.incomingBitrate));
+                                this.metrics.push("Nack : audio=" + toHuman(!data.audio ? 0 : data.audio.nackCount) + " video=" + toHuman(!data.video ? 0 : data.video.nackCount));
+                                this.metrics.push("Loss : audio=" + toHuman(!data.audio ? 0 : data.audio.packetsLost) + " video=" + toHuman(!data.video ? 0 : data.video.packetsLost));
+                                this.metrics.push("Jitter : audio="+ Math.round(!data.audio ? 0 : data.audio.jitter * 1000) + "ms video=" + Math.round(!data.video ? 0 : data.video.jitter * 1000) + "ms");
+
+                                // Compute packet/s
+                                const now = Date.now();
+                                const duration = (now - this._lastPacketsTime) / 1000;
+                                this._lastPacketsTime = now;
+                                const audioPackets = (data.audio ? data.audio.packetsReceived : 0);
+                                const videoPackets = (data.video? data.video.packetsReceived : 0);
+                                const audioPacketsRate = Math.round((audioPackets - this._lastAudioPackets) / duration);
+                                const videoPacketsRate = Math.round((videoPackets - this._lastVideoPackets) / duration);
+                                this._lastAudioPackets = audioPackets;
+                                this._lastVideoPackets = videoPackets;
+
+                                this.metrics.push(`Packets : audio=${toHuman(audioPackets)} (${audioPacketsRate} p/s) video=${toHuman(videoPackets)} (${videoPacketsRate} p/s)`);
+                                this.metrics.push("Frames : " + toHuman(!data.video ? 0 : data.video.framesReceived) + " dropped=" + toHuman(!data.video ? 0 : data.video.framesDropped));
+                                this.metrics.push("Protocol : " + data.localCandidateProtocol);
+
+                                let logs = writeMetrics(data);
+                                log('Metrics: ' + logs.join(', ')).debug();
                             });
                         }, 2000); // Every 2 second
                     },
