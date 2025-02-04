@@ -30,11 +30,20 @@ export type ABRParams = {
      */
     maximum?: number;
     /**
-     * The initial number of steps before to set maximum bandwidth
-     * @warning only used by ABRLinear
+     * The `recoveryFactor` parameter defines the step size used to gradually restore the bitrate
+     * towards the ideal bandwidth, aiming to approach the {@link ABRParams.maximum} limit.
+     *
+     * Initially set to the configured value (default: 2), this factor determines the number of steps
+     * taken to adapt the bitrate based on network conditions :
+     * - If network congestion is detected, the step count increases to avoid overshooting.
+     * - Once the network stabilizes, the step count decreases, returning gradually to its initial value.
+     *
+     * In essence, `recoveryFactor` controls the initial speed at which the system recovers a high transfer rate.
+     *
+     * @warning Only used by ABRLinear
      * @defaultValue 2
      */
-    recoveryFactor?: number;
+    recoveryFactoer?: number;
 };
 
 /**
@@ -109,7 +118,7 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
     }
 
     /**
-     * Get recovery factor
+     * Set recovery factor
      */
     set recoveryFactor(value: number) {
         this._recoveryFactor = value;

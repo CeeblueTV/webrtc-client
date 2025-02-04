@@ -79,6 +79,7 @@ export class ABRLinear extends ABRAbstract {
                     // Stable => try to increase
                     this._updateVideoConstraints(bitrate);
                     bitrate += Math.ceil((this.maximum - vars.stableBitrate) / vars.recoveryFactor);
+                    // restore recovery factor to its initial value
                     vars.recoveryFactor = Math.max(vars.recoveryFactor - 1, this.recoveryFactor);
                 } else {
                     // After a congestion (or the first time)
