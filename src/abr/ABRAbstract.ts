@@ -43,7 +43,7 @@ export type ABRParams = {
      * @warning Only used by ABRLinear
      * @defaultValue 2
      */
-    recoveryFactoer?: number;
+    recoveryFactor?: number;
 };
 
 /**
