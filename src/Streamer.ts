@@ -143,47 +143,50 @@ export class Streamer extends EventEmitter {
     }
 
     /**
-     * Video bitrate configured by the server
-     * A null value is returned if the video bitrate is undefined
-     * NOTE: Use {@link connectionInfos} to get the current precise audio or video bitrate
+     * Video bitrate configured by the server,
+     * can be undefined on start or when there is no controllable connector
+     * @note Use {@link connectionInfos} to get the current precise audio or video bitrate
      */
-    get videoBitrate(): number {
+    get videoBitrate(): number | undefined {
         return this._videoBitrate;
     }
 
     /**
-     * Configure the video bitrate on the server side,
+     * Configure the video bitrate from the server,
      * possible only if your {@link Streamer} instance is built with a controllable connector
+     * Set undefined to remove this configuration
      */
-    set videoBitrate(value: number) {
+    set videoBitrate(value: number | undefined) {
+        if (value === this._videoBitrate) {
+            return;
+        }
         if (!this._controller) {
             throw Error('Cannot set videoBitrate without start a controllable session');
         }
-        this._videoBitrateFixed = value != null;
-        if (!this._videoBitrateFixed) {
+        if (value == null) {
+            this._videoBitrateFixed = false;
             return;
         }
-        if (value !== this._videoBitrate) {
-            // send a video bitrate command to controller only if different of current value otherwise it creates
-            // an infinite loop with onVideoBitrate command
-            this._controller.setVideoBitrate(value);
-        }
+        this._videoBitrateFixed = true;
+        this._videoBitrate = value;
+        this._controller.setVideoBitrate(value);
     }
 
     /**
-     * Video bitrate constraint configured by the server
-     * NOTE: Use {@link connectionInfos} to get the current precise audio or video bitrate
+     * Video bitrate constraint configured by the server,
+     * can be undefined on start or when there is no controllable connector
+     * @note Use {@link connectionInfos} to get the current precise audio or video bitrate
      */
-    get videoBitrateConstraint(): number {
+    get videoBitrateConstraint(): number | undefined {
         return this._videoBitrateConstraint;
     }
 
     private _connector?: IConnector;
     private _controller?: IController;
     private _mediaReport?: MediaReport;
-    private _videoBitrate: number;
-    private _videoBitrateConstraint: number;
-    private _videoBitrateFixed?: boolean;
+    private _videoBitrate?: number;
+    private _videoBitrateConstraint?: number;
+    private _videoBitrateFixed: boolean;
     private _rtpProps?: RTPProps;
     /**
      * Constructs a new Streamer instance, optionally with a custom connector
@@ -192,8 +195,7 @@ export class Streamer extends EventEmitter {
      */
     constructor(private Connector?: { new (connectParams: Connect.Params, stream: MediaStream): IConnector }) {
         super();
-        this._videoBitrate = 0;
-        this._videoBitrateConstraint = 0;
+        this._videoBitrateFixed = false;
     }
 
     /**
@@ -310,8 +312,8 @@ export class Streamer extends EventEmitter {
         connector.close();
         this._controller = undefined;
         this._mediaReport = undefined;
-        this._videoBitrate = 0;
-        this._videoBitrateConstraint = 0;
+        this._videoBitrate = undefined;
+        this._videoBitrateConstraint = undefined;
         this._rtpProps = undefined;
         // User event (always in last)
         this.onStop(error);
@@ -321,9 +323,9 @@ export class Streamer extends EventEmitter {
         if (!this._controller || this._videoBitrateFixed) {
             return;
         }
-        const videoBitrate =
-            abr.compute(this._videoBitrate, this.videoBitrateConstraint, this.mediaReport) ?? this._videoBitrate;
+        const videoBitrate = abr.compute(this._videoBitrate, this.videoBitrateConstraint, this.mediaReport);
         if (videoBitrate !== this._videoBitrate) {
+            this._videoBitrate = videoBitrate;
             this._controller.setVideoBitrate(videoBitrate);
         }
     }

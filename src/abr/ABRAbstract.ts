@@ -30,7 +30,7 @@ export type ABRParams = {
      */
     maximum?: number;
     /**
-     * The `recoveryFactor` parameter defines the step size used to gradually restore the bitrate
+     * The `recoverySteps` parameter defines the step size used to gradually restore the bitrate
      * towards the ideal bandwidth, aiming to approach the {@link ABRParams.maximum} limit.
      *
      * Initially set to the configured value (default: 2), this factor determines the number of steps
@@ -38,12 +38,20 @@ export type ABRParams = {
      * - If network congestion is detected, the step count increases to avoid overshooting.
      * - Once the network stabilizes, the step count decreases, returning gradually to its initial value.
      *
-     * In essence, `recoveryFactor` controls the initial speed at which the system recovers a high transfer rate.
+     * In essence, `recoverySteps` controls the initial speed at which the system recovers a high transfer rate.
      *
      * @warning Only used by ABRLinear
      * @defaultValue 2
      */
-    recoveryFactor?: number;
+    recoverySteps?: number;
+    /**
+     * The `appreciationDuration` parameter defines the duration (in milliseconds) for recognizing a stable network
+     * condition. By default it is set to 4 seconds, which is longer than the typical GOP unit, usually set to 2 seconds.
+     *
+     * @warning Only used by ABRLinear.
+     * @defaultValue 4000
+     */
+    appreciationDuration?: number;
 };
 
 /**
@@ -111,17 +119,31 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
     }
 
     /**
-     * Get recovery factor
+     * Get {@link ABRParams.recoverySteps}
      */
-    get recoveryFactor(): number {
-        return this._recoveryFactor;
+    get recoverySteps(): number {
+        return this._recoverySteps;
     }
 
     /**
-     * Set recovery factor
+     * Set {@link ABRParams.recoverySteps}
      */
-    set recoveryFactor(value: number) {
-        this._recoveryFactor = value;
+    set recoverySteps(value: number) {
+        this._recoverySteps = Math.max(1, value);
+    }
+
+    /**
+     * Get {@link ABRParams.appreciationDuration}
+     */
+    get appreciationDuration(): number {
+        return this._appreciationDuration;
+    }
+
+    /**
+     * Set {@link ABRParams.appreciationDuration}
+     */
+    set appreciationDuration(value: number) {
+        this._appreciationDuration = value;
     }
 
     /**
@@ -151,7 +173,8 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
     private _startup: number;
     private _maximum: number;
     private _minimum: number;
-    private _recoveryFactor: number;
+    private _recoverySteps: number;
+    private _appreciationDuration: number;
     private _stream?: MediaStream;
     /**
      * Build the ABR implementation, call {@link compute} to use it
@@ -165,15 +188,18 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
                 startup: 2000000, // Default 2Mbps
                 maximum: 3000000, // Default 3Mbps
                 minimum: 200000, // Default 200Kbps
-                recoveryFactor: 2 // Default 2
+                recoverySteps: 2, // Default 2
+                appreciationDuration: 4000 // Default 4000
             },
             params
         );
         this._startup = init.startup;
         this._minimum = init.minimum;
         this._maximum = init.maximum;
-        this._recoveryFactor = init.recoveryFactor;
+        this._appreciationDuration = init.appreciationDuration;
         this._stream = stream;
+        this._recoverySteps = 0;
+        this.recoverySteps = init.recoverySteps;
     }
 
     /**
@@ -182,31 +208,28 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
      * @param bitrate the current bitrate
      * @param bitrateConstraint the current bitrate constraint
      * @param mediaReport the media report structure received from the server
-     * @returns the wanted bitrate or undefined to not change the current bitrate
+     * @returns the wanted bitrate
      */
-    compute(bitrate: number | undefined, bitrateConstraint?: number, mediaReport?: MediaReport): number | undefined {
-        if (bitrate == null) {
-            return (this._bitrate = bitrate);
-        } // disabled (reset _bitrate)
-        const firstTime = this._bitrate == null;
+    compute(bitrate: number | undefined, bitrateConstraint?: number, mediaReport?: MediaReport): number {
         // compute required bitrate
-        const newBitrate = firstTime
-            ? this.startup
-            : Math.max(
-                  this.minimum,
-                  Math.min(this._computeBitrate(bitrate, bitrateConstraint, mediaReport), this.maximum)
-              );
-        // assign current bitrate
-        this._bitrate = bitrate;
-        this._bitrateConstraint = bitrateConstraint;
+        const newBitrate =
+            bitrate == null
+                ? this.startup
+                : Math.max(
+                      this.minimum,
+                      Math.min(this._computeBitrate(bitrate, bitrateConstraint, mediaReport), this.maximum)
+                  );
         // log changes
-        if (firstTime) {
+        if (bitrate == null) {
             this.log(`Set startup bitrate to ${newBitrate}`).info();
         } else if (newBitrate > bitrate) {
             this.log(`Increase bitrate ${bitrate} => ${newBitrate}`).info();
         } else if (newBitrate < bitrate) {
             this.log(`Decrease bitrate ${bitrate} => ${newBitrate}`).info();
         }
+        // assign current bitrate
+        this._bitrate = bitrate;
+        this._bitrateConstraint = bitrateConstraint;
         return newBitrate;
     }
 
@@ -214,7 +237,8 @@ export abstract class ABRAbstract extends EventEmitter implements ABRParams {
      * Reset the ABR algorithm to its initial state
      */
     reset() {
-        this._bitrate = this._bitrateConstraint = undefined;
+        this._bitrate = undefined;
+        this._bitrateConstraint = undefined;
     }
 
     /**

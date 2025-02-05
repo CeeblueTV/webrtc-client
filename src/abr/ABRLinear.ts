@@ -8,12 +8,11 @@ import { MediaReport } from '../connectors/IController';
 import { Util } from '@ceeblue/web-utils';
 import { ABRAbstract, ABRParams } from './ABRAbstract';
 
-const STABLE_TIMEOUT_MS = 11000; // > 10 sec = maximum window between 2 key frames
 class Vars {
     stableTime: number = 0;
     stableBitrate: number = 0;
     lastLoss: number = Number.POSITIVE_INFINITY;
-    constructor(public recoveryFactor: number) {}
+    constructor(public recoverySteps: number) {}
 }
 
 /**
@@ -27,9 +26,9 @@ export class ABRLinear extends ABRAbstract {
      */
     constructor(params: ABRParams, stream?: MediaStream) {
         super(params, stream);
-        // Set initial recoveryFactor to the value configured minus 1
-        // to cancel the first incrementation (see ++vars.recoveryFactor )
-        this._vars = new Vars(this.recoveryFactor - 1);
+        // Set initial recoverySteps to the value configured minus 1
+        // to cancel the first incrementation (see ++vars.recoverySteps )
+        this._vars = new Vars(this.recoverySteps - 1);
     }
 
     /**
@@ -37,7 +36,7 @@ export class ABRLinear extends ABRAbstract {
      */
     reset() {
         super.reset();
-        this._vars = new Vars(this.recoveryFactor - 1);
+        this._vars = new Vars(this.recoverySteps - 1);
     }
 
     /**
@@ -48,9 +47,9 @@ export class ABRLinear extends ABRAbstract {
         // this.log({
         //     bitrate,
         //     bitrateConstraint,
-        // 	lost:mediaReport && mediaReport.stats && mediaReport.stats.loss_perc,
-        // 	recoveryFactor: this._vars.recoveryFactor,
-        // 	stableTime: this._vars.stableTime,
+        //     lost: mediaReport && mediaReport.stats && mediaReport.stats.loss_perc,
+        //     recoverySteps: this._vars.recoverySteps,
+        //     stableTime: this._vars.stableTime,
         //     stableBitrate: this._vars.stableBitrate
         // }).info();
 
@@ -78,17 +77,17 @@ export class ABRLinear extends ABRAbstract {
                 if (vars.stableTime) {
                     // Stable => try to increase
                     this._updateVideoConstraints(bitrate);
-                    bitrate += Math.ceil((this.maximum - vars.stableBitrate) / vars.recoveryFactor);
-                    // restore recovery factor to its initial value
-                    vars.recoveryFactor = Math.max(vars.recoveryFactor - 1, this.recoveryFactor);
+                    bitrate += Math.ceil((this.maximum - vars.stableBitrate) / vars.recoverySteps);
+                    // restore recovery steps to its initial value
+                    vars.recoverySteps = Math.max(vars.recoverySteps - 1, this.recoverySteps);
                 } else {
                     // After a congestion (or the first time)
                     // => store stable bitrate
-                    // => increase recoveryFactor
+                    // => increase recoverySteps
                     vars.stableBitrate = bitrate;
-                    ++vars.recoveryFactor;
+                    ++vars.recoverySteps;
                 }
-                vars.stableTime = now + STABLE_TIMEOUT_MS;
+                vars.stableTime = now + this.appreciationDuration;
             }
         }
         return bitrate;
