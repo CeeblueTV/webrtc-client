@@ -198,6 +198,12 @@ export class WSController extends SIPConnector implements IController {
             }
             case 'on_media_receive': {
                 this._reportReceivedTimestamp = Util.time();
+                if (ev.stats.loss_perc && !ev.stats.loss_num) {
+                    // Fix an abnormal loss_perc=100% whereas loss_num=0
+                    // happen general on start
+                    // WIP => would be fixed on server side
+                    ev.stats.loss_perc = 0;
+                }
                 this.onMediaReport(ev);
                 break;
             }
