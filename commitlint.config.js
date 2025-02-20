@@ -5,5 +5,5 @@
  */
 export default {
     extends: ['@commitlint/config-conventional'],
-    ignores: [commit => commit.trim().endsWith('[skip ci]')]
+    ignores: [commit => /^[^\r\n]*\[skip ci\]/.test(commit)]
 };
