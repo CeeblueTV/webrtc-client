@@ -66,7 +66,7 @@ streamer.start(stream, {
    streamName: <streamName>,
    iceServer: {
       urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
-      username: 'csc_demo', credential: 'UtrAFClFFO'
+      username: 'ceeblue', credential: 'ceeblue'
    }
 });
 ```
@@ -92,7 +92,7 @@ player.start({
    streamName: <streamName>,
    iceServer: {
       urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
-      username: 'csc_demo', credential: 'UtrAFClFFO'
+      username: 'ceeblue', credential: 'ceeblue'
    }
 });
 ```

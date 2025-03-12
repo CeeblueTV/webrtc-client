@@ -244,8 +244,8 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             const domain = new NetAddress(this._endPoint, 443).domain;
             iceServer = {
                 urls: ['turn:' + domain + ':3478?transport=tcp', 'turn:' + domain + ':3478'],
-                username: 'csc_demo',
-                credential: 'UtrAFClFFO'
+                username: 'ceeblue',
+                credential: 'ceeblue'
             };
         }
         // Start the RTCPeerConnection and create an offer
