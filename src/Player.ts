@@ -5,7 +5,7 @@
  */
 
 import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
-import { ILog, Connect, Util, EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
+import { ILog, Connect, Util, EventEmitter, WebSocketReliableError, NetAddress } from '@ceeblue/web-utils';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
 import { WSController } from './connectors/WSController';
@@ -362,14 +362,15 @@ export class Player extends EventEmitter {
         // Connector
         let mbr: MBRAbstract;
         let playing: PlayingInfos;
-        // Init Metadata channel
+
+        // Deserialize params
+        let streamMetadata;
         if ('connectParams' in params) {
             // params is StreamMetadata
-            this._initStreamMetadata({ ...params.connectParams }, params); // copy connect params to become immutable on reconnection
+            streamMetadata = params;
             params = params.connectParams;
-        } else {
-            this._initStreamMetadata({ ...params }, new StreamMetadata(params)); // copy connect params to become immutable on reconnection
         }
+
         // Add initial tracks query params
         if (this._audioTrack != null) {
             params.query = Object.assign({ audio: this._audioTrack.toFixed() }, params.query);
@@ -379,6 +380,7 @@ export class Player extends EventEmitter {
         }
         this._audioTrackFixed = false;
         this._videoTrackFixed = false;
+        // params will be normalized in this call
         this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
@@ -415,6 +417,12 @@ export class Player extends EventEmitter {
                 this.stop(error);
             }
         };
+
+        // normalize enpoint
+        params.endPoint = new NetAddress(params.endPoint).host;
+
+        // Init Metadata channel
+        this._initStreamMetadata({ ...params }, streamMetadata ?? new StreamMetadata(params)); // copy connect params to become immutable on reconnection
 
         // Timed Metadatas
         this._newStreamData({ ...params }); // copy connect params to be immutable on reconnection

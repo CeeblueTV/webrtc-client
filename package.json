@@ -42,7 +42,6 @@
         "npm": ">=7"
     },
     "devDependencies": {
-        "@ceeblue/web-utils": "^3.0.0",
         "@commitlint/cli": "^19.5.0",
         "@commitlint/config-conventional": "^19.5.0",
         "@html-eslint/eslint-plugin": "~0.22.0",
@@ -77,6 +76,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@ceeblue/web-utils": "^5.0.0",
         "sdp-transform": "^2.14.2"
     }
 }
