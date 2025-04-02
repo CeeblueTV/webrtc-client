@@ -364,7 +364,7 @@ export class Player extends EventEmitter {
         let playing: PlayingInfos;
 
         // Deserialize params
-        let streamMetadata;
+        let streamMetadata: StreamMetadata | undefined;
         if ('connectParams' in params) {
             // params is StreamMetadata
             streamMetadata = params;
