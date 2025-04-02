@@ -372,11 +372,12 @@ export class Player extends EventEmitter {
         }
 
         // Add initial tracks query params
+        params.query = new URLSearchParams(params.query);
         if (this._audioTrack != null) {
-            params.query = Object.assign({ audio: this._audioTrack.toFixed() }, params.query);
+            params.query.set('audio', this._audioTrack.toFixed());
         }
         if (this._videoTrack != null) {
-            params.query = Object.assign({ video: this._videoTrack.toFixed() }, params.query);
+            params.query.set('video', this._videoTrack.toFixed());
         }
         this._audioTrackFixed = false;
         this._videoTrackFixed = false;
