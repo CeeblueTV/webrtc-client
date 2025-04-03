@@ -179,7 +179,7 @@
                             return;
                         }
                         this.streamErrorMessage = null;
-                        if (!this.streamName) {
+                        if (!this.streamName && !this.host.toString()) {
                             this.streamErrorMessage = "Enter a non-empty stream name to play";
                             return;
                         }

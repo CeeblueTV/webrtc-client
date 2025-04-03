@@ -149,7 +149,7 @@ export class StreamMetadata extends EventEmitter {
 
                 this._metadata.tracks.clear();
                 if (data.meta?.tracks) {
-                    for (const [name, track] of Util.objectEntries(data.meta.tracks)) {
+                    for (const [name, track] of Util.iterableEntries(data.meta.tracks)) {
                         track.name = name;
                         track.type = track.type.toLowerCase();
                         switch (track.type) {
