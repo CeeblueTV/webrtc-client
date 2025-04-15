@@ -19,21 +19,6 @@ const input = 'index.ts';
 const output = 'dist/webrtc-client';
 
 export default args => {
-    let target;
-    let format = args.format;
-    // Determine the target and format based on provided arguments
-    if (format) {
-        if (format.toLowerCase().startsWith('es')) {
-            target = format;
-            format = 'es';
-        } else {
-            target = 'es5';
-        }
-    } else {
-        format = 'es';
-        target = 'es6';
-    }
-    // Determine the package version by using the 'version' environment variable (for CI/CD processes) or fallback to the version specified in the 'package.json' file.
     let version = process.env.version ?? process.env.npm_package_version;
     // Validate the version format
     if (typeof version === 'string') {
@@ -50,41 +35,79 @@ export default args => {
         throw new Error('Version is undefined or not a string.');
     }
 
-    return [
+    const basePlugins = [
+        replace({
+            __lib__version__: "'" + version + "'",
+            preventAssignment: true
+        }),
+        eslint(),
+        typescript(),
+        commonjs()
+    ];
+
+    const configs = [
+        // CommonJS build
         {
-            // Transpile and bundle the code
             input,
             output: {
-                name: process.env.npm_package_name,
-                format, // iife, es, cjs, umd, amd, system
+                name: 'CeeblueWebRTCClient',
+                format: 'cjs',
                 compact: true,
                 sourcemap: true,
-                file: output + '.js'
+                file: output + '.cjs.js'
             },
-            plugins: [
-                replace({
-                    __lib__version__: "'" + version + "'",
-                    preventAssignment: true
-                }),
-                eslint(),
-                typescript({ target }),
-                nodeResolve(),
-                commonjs()
-            ]
+            plugins: basePlugins
         },
+        // ES Module build
         {
-            // Minify the bundled code
-            input: output + '.js',
+            input,
             output: {
+                name: 'CeeblueWebRTCClient',
+                format: 'es',
                 compact: true,
                 sourcemap: true,
-                file: output + '.min.js'
+                file: output + '.es.js'
             },
-            plugins: [terser()],
-            context: 'window' // Useful for ES5 builds, ensures 'this' refers to 'window' in a browser context
+            plugins: basePlugins
         },
+        // Browser bundle (IIFE)
         {
-            // Generate type definitions
+            input,
+            output: {
+                name: 'CeeblueWebRTCClient',
+                format: 'iife',
+                compact: true,
+                sourcemap: true,
+                file: output + '.bundle.js'
+            },
+            plugins: [...basePlugins, nodeResolve()]
+        },
+        // Browser ES Module bundle
+        {
+            input,
+            output: {
+                name: 'CeeblueWebRTCClient',
+                format: 'es',
+                compact: true,
+                sourcemap: true,
+                file: output + '.bundle.es.js'
+            },
+            plugins: [...basePlugins, nodeResolve()]
+        },
+        // Minified browser bundle
+        {
+            input,
+            output: {
+                name: 'CeeblueWebRTCClient',
+                format: 'iife',
+                compact: true,
+                sourcemap: true,
+                file: output + '.bundle.min.js'
+            },
+            plugins: [...basePlugins, nodeResolve(), terser()]
+        },
+        // Type definitions
+        {
             input,
             output: {
                 compact: true,
@@ -93,4 +116,6 @@ export default args => {
             plugins: [dts()]
         }
     ];
+
+    return configs;
 };

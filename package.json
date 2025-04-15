@@ -20,12 +20,13 @@
     "bugs": {
         "url": "https://github.com/ceebluetv/webrtc-client/issues"
     },
-    "main": "dist/webrtc-client.js",
+    "main": "dist/webrtc-client.cjs.js",
+    "module": "dist/webrtc-client.es.js",
+    "browser": "dist/webrtc-client.bundle.js",
     "types": "dist/webrtc-client.d.ts",
     "type": "module",
     "scripts": {
         "build": "rollup -c",
-        "build:es5": "rollup -c --format umd",
         "build:docs": "typedoc index.ts",
         "lint": "eslint . && prettier --check .",
         "eslint": "eslint --fix .",

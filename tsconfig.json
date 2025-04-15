@@ -6,6 +6,7 @@
         "esModuleInterop": true,
         "strict": true,
         "target": "ES6",
-        "moduleResolution": "Node"
+        "moduleResolution": "Node",
+        "sourceMap": true
     }
 }
