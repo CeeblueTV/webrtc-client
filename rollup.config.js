@@ -16,6 +16,10 @@ import { dts } from 'rollup-plugin-dts';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import autoExternal from 'rollup-plugin-auto-external';
 
+const input = 'index.ts';
+const output = 'dist/webrtc-client';
+const name = 'CeeblueWebRTCClient';
+
 export default args => {
     // Determine the package version by using the 'version' environment variable (for CI/CD processes) or fallback to the version specified in the 'package.json' file.
     let version = process.env.version ?? process.env.npm_package_version;
@@ -44,23 +48,32 @@ export default args => {
         preventAssignment: true
     });
 
-    function createOutput(input, output, ...plugins) {
+    function createOutput(input, outputName, ...plugins) {
         return {
             // Transpile the code for NPM usage
             input,
-            output: {
-                name: 'CeeblueWebRTCClient',
-                format: args.format, // iife, es, cjs, umd, amd, system
-                compact: true,
-                sourcemap: true,
-                file: output
-            },
+            output: [
+                {
+                    // normal
+                    name,
+                    format: args.format, // iife, es, cjs, umd, amd, system
+                    compact: true,
+                    sourcemap: true,
+                    file: outputName + '.js'
+                },
+                {
+                    // minified
+                    name,
+                    format: args.format, // iife, es, cjs, umd, amd, system
+                    compact: true,
+                    sourcemap: true,
+                    plugins: [terser()],
+                    file: outputName + '.min.js'
+                }
+            ],
             plugins
         };
     }
-
-    const input = 'index.ts';
-    const output = 'dist/webrtc-client';
 
     return [
         // Generate type definitions
@@ -72,11 +85,9 @@ export default args => {
             },
             plugins: [dts()]
         },
-        // NPM need
-        createOutput(input, output + '.js', replace, eslint(), ts, commonjs(), autoExternal()),
-        createOutput(output + '.js', output + '.min.js', autoExternal(), terser()),
-        // Browser
-        createOutput(input, output + '.bundle.js', replace, eslint(), ts, commonjs(), nodeResolve()),
-        createOutput(output + '.bundle.js', output + '.bundle.min.js', terser())
+        // NPM binaries
+        createOutput(input, output, replace, eslint(), ts, commonjs(), autoExternal()),
+        // Browser binaries
+        createOutput(input, output + '.bundle', replace, eslint(), ts, commonjs(), nodeResolve())
     ];
 };
