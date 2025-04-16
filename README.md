@@ -131,12 +131,16 @@ To understand how to use the library through examples, we provide three illustra
 
 1. [Clone](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) this repository
 2. Enter the `webrtc-client` folder and run `npm install` to install packages dependencies.
-3. Execute `npm run build`. The output will be five files placed in the **/dist/** folder:
+3. Execute `npm run build`. The output will be the following files placed in the **/dist/** folder:
    - **webrtc-client.d.ts** Typescript definitions file
-   - **webrtc-client.js**: Bundled JavaScript library
-   - **webrtc-client.js.map**: Source map that associates the bundled library with the original source files
-   - **webrtc-client.min.js** Minified version of the library, optimized for size
-   - **webrtc-client.min.js.map** Source map that associates the minified library with the original source files
+   - **NPM binaries**
+      - **webrtc-client.js**: NPM JavaScript library
+      - **webrtc-client.js.map**: Source map that associates the NPM library with the original source files
+      - **webrtc-client.min.js** Minified version of the NPM library, optimized for size
+   - **Browser binaries**
+      - **webrtc-client.bundle.js**: Browser JavaScript library
+      - **webrtc-client.bundle.js.map**: Source map that associates the browser library with the original source files
+      - **webrtc-client.bundle.min.js** Minified version of the browser library, optimized for size
 
 ```
 git clone https://github.com/CeeblueTV/webrtc-client.git
@@ -147,18 +151,23 @@ npm run build
 
 > 💡 **TIP**
 >
-> - To build a UMD (Universal Module Definition) version compatible with older browsers, you can run the following command:
+> - By default, the project targets ES6. However, you can build the project for the supported module systems—esnext, cjs, or iife—using the following commands:
 >   ```
->   npm run build:es5
+>   npm run build:esnext
+>   npm run build:cjs
+>   npm run build:iife
 >   ```
+>   Other systems can be tested by manually modifying the scripts, although they are not officially supported.
 >
-> - To automatically build bundles when any modification has been applied, you can run a watch command. The watch command will continuously monitor your project files for changes and rebuild the bundles accordingly.
+> - To automatically rebuild the bundles whenever changes are made, run the watch command. This command continuously monitors your project files and rebuilds the bundles as needed:
 >   ```
 >   npm run watch
 >   ```
->   Or for ES5 (UMD):
+>   If you prefer to watch and build for a specific target, use one of these commands:
 >   ```
->   npm run watch:es5
+>   npm run watch:esnext
+>   npm run watch:cjs
+>   npm run watch:iife
 >   ```
 
 ## Documentation
