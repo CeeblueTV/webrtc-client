@@ -132,15 +132,15 @@ To understand how to use the library through examples, we provide three illustra
 1. [Clone](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) this repository
 2. Enter the `webrtc-client` folder and run `npm install` to install packages dependencies.
 3. Execute `npm run build`. The output will be the following files placed in the **/dist/** folder:
-   - **webrtc-client.d.ts** Typescript definitions file
+   - **webrtc-client.d.ts:** Typescript definitions file
    - **NPM binaries**
-      - **webrtc-client.js**: NPM JavaScript library
-      - **webrtc-client.js.map**: Source map that associates the NPM library with the original source files
-      - **webrtc-client.min.js** Minified version of the NPM library, optimized for size
+      - **webrtc-client.js:** NPM JavaScript library
+      - **webrtc-client.js.map:** Source map that associates the NPM library with the original source files
+      - **webrtc-client.min.js:** Minified version of the NPM library, optimized for size
    - **Browser binaries**
-      - **webrtc-client.bundle.js**: Browser JavaScript library
-      - **webrtc-client.bundle.js.map**: Source map that associates the browser library with the original source files
-      - **webrtc-client.bundle.min.js** Minified version of the browser library, optimized for size
+      - **webrtc-client.bundle.js:** Browser JavaScript library
+      - **webrtc-client.bundle.js.map:** Source map that associates the browser library with the original source files
+      - **webrtc-client.bundle.min.js:** Minified version of the browser library, optimized for size
 
 ```
 git clone https://github.com/CeeblueTV/webrtc-client.git
