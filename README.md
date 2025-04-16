@@ -157,7 +157,7 @@ npm run build
 >   npm run build:iife
 >   ```
 >  
-> - The default target is ES6. If you want to manually test other targets (although they are not officially supported), use these commands:
+> - The default target is ES6. If you want to manually test other targets (although they are not officially supported), you can always experiment it with:
 >   ```
 >   npm run build -- --target esnext
 >   npm run build:cjs -- --target esnext
