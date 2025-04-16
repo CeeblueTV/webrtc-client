@@ -151,13 +151,17 @@ npm run build
 
 > 💡 **TIP**
 >
-> - By default, the project targets ES6. However, you can build the project for the supported module systems—esnext, cjs, or iife—using the following commands:
+> - By default, the project format is ES module. However, you can build the project for the supported module systems—cjs or iife—using the following commands:
 >   ```
->   npm run build:esnext
 >   npm run build:cjs
 >   npm run build:iife
 >   ```
->   Other systems can be tested by manually modifying the scripts, although they are not officially supported.
+>  
+> - The default target is ES6. If you want to manually test other targets (although they are not officially supported), use these commands:
+>   ```
+>   npm run build -- --target esnext
+>   npm run build:cjs -- --target esnext
+>   ```
 >
 > - To automatically rebuild the bundles whenever changes are made, run the watch command. This command continuously monitors your project files and rebuilds the bundles as needed:
 >   ```
@@ -165,7 +169,6 @@ npm run build
 >   ```
 >   If you prefer to watch and build for a specific target, use one of these commands:
 >   ```
->   npm run watch:esnext
 >   npm run watch:cjs
 >   npm run watch:iife
 >   ```

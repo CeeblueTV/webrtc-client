@@ -17,37 +17,28 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import autoExternal from 'rollup-plugin-auto-external';
 
 export default args => {
-    let target;
-    // Determine the target and format based on provided arguments
-    if (args.format) {
-        if (args.format.toLowerCase().startsWith('es')) {
-            target = args.format;
-            args.format = 'es';
-        } else {
-            target = 'es5';
-        }
-    } else {
-        args.format = 'es';
-        target = 'es6';
-    }
-
     // Determine the package version by using the 'version' environment variable (for CI/CD processes) or fallback to the version specified in the 'package.json' file.
     let version = process.env.version ?? process.env.npm_package_version;
     // Validate the version format
-    if (typeof version === 'string') {
-        // https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-        const versionRegex =
-            /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
-        if (!versionRegex.test(version)) {
-            throw new Error(
-                'The provided version string does not comply with the Semantic Versioning (SemVer) format required. Please refer to https://semver.org/ for more details on the SemVer specification.'
-            );
-        }
-        console.info(`Building ${target} version ${version}`);
-    } else {
+    if (typeof version !== 'string') {
         throw new Error('Version is undefined or not a string.');
     }
+    // https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+    const versionRegex =
+        /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+    if (!versionRegex.test(version)) {
+        throw new Error(
+            'The provided version string does not comply with the Semantic Versioning (SemVer) format required. Please refer to https://semver.org/ for more details on the SemVer specification.'
+        );
+    }
+    if (!args.target) {
+        // ES6 by default
+        args.target = 'es6';
+    }
+    console.info(`Building${args.format ? ' ' + args.format : ''} in ${args.target} version ${version}`);
 
+    const ts = typescript({ target: args.target });
+    delete args.target; // remove the target argument because it not valid for rollup
     const replace = replacer({
         __lib__version__: "'" + version + "'",
         preventAssignment: true
@@ -83,18 +74,10 @@ export default args => {
             plugins: [dts()]
         },
         // NPM need
-        createOutput(input, output + '.js', replace, eslint(), typescript({ target }), commonjs(), autoExternal()),
+        createOutput(input, output + '.js', replace, eslint(), ts, commonjs(), autoExternal()),
         createOutput(output + '.js', output + '.min.js', autoExternal(), terse),
         // Browser
-        createOutput(
-            input,
-            output + '.bundle.js',
-            replace,
-            eslint(),
-            typescript({ target }),
-            commonjs(),
-            nodeResolve()
-        ),
+        createOutput(input, output + '.bundle.js', replace, eslint(), ts, commonjs(), nodeResolve()),
         createOutput(output + '.bundle.js', output + '.bundle.min.js', terse)
     ];
 };
