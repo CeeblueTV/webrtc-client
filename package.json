@@ -21,6 +21,7 @@
         "url": "https://github.com/ceebluetv/webrtc-client/issues"
     },
     "main": "dist/webrtc-client.js",
+    "browser": "dist/webrtc-client.bundle.js",
     "types": "dist/webrtc-client.d.ts",
     "type": "module",
     "scripts": {
