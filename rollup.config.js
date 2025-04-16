@@ -43,7 +43,6 @@ export default args => {
         __lib__version__: "'" + version + "'",
         preventAssignment: true
     });
-    const terse = terser();
 
     function createOutput(input, output, ...plugins) {
         return {
@@ -53,7 +52,7 @@ export default args => {
                 name: 'CeeblueWebRTCClient',
                 format: args.format, // iife, es, cjs, umd, amd, system
                 compact: true,
-                sourcemap: !plugins.includes(terse),
+                sourcemap: true,
                 file: output
             },
             plugins
@@ -75,9 +74,9 @@ export default args => {
         },
         // NPM need
         createOutput(input, output + '.js', replace, eslint(), ts, commonjs(), autoExternal()),
-        createOutput(output + '.js', output + '.min.js', autoExternal(), terse),
+        createOutput(output + '.js', output + '.min.js', autoExternal(), terser()),
         // Browser
         createOutput(input, output + '.bundle.js', replace, eslint(), ts, commonjs(), nodeResolve()),
-        createOutput(output + '.bundle.js', output + '.bundle.min.js', terse)
+        createOutput(output + '.bundle.js', output + '.bundle.min.js', terser())
     ];
 };

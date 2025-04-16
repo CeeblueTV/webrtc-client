@@ -137,10 +137,12 @@ To understand how to use the library through examples, we provide three illustra
       - **webrtc-client.js:** NPM JavaScript library
       - **webrtc-client.js.map:** Source map that associates the NPM library with the original source files
       - **webrtc-client.min.js:** Minified version of the NPM library, optimized for size
+      - **webrtc-client.min.js.map:** Source map that associates the NPM minified library with the original source files
    - **Browser binaries**
       - **webrtc-client.bundle.js:** Browser JavaScript library
       - **webrtc-client.bundle.js.map:** Source map that associates the browser library with the original source files
       - **webrtc-client.bundle.min.js:** Minified version of the browser library, optimized for size
+      - **webrtc-client.bundle.min.js.map:** Source map that associates the browser minified library with the original source files
 
 ```
 git clone https://github.com/CeeblueTV/webrtc-client.git
