@@ -22,7 +22,7 @@ const name = 'CeeblueWebRTCClient';
 
 export default args => {
     // Determine the package version by using the 'version' environment variable (for CI/CD processes) or fallback to the version specified in the 'package.json' file.
-    let version = process.env.version ?? process.env.npm_package_version;
+    const version = process.env.version ?? process.env.npm_package_version;
     // Validate the version format
     if (typeof version !== 'string') {
         throw new Error('Version is undefined or not a string.');
@@ -50,7 +50,6 @@ export default args => {
 
     function createOutput(input, outputName, ...plugins) {
         return {
-            // Transpile the code for NPM usage
             input,
             output: [
                 {
