@@ -601,7 +601,9 @@ export class Player extends EventEmitter {
                 .warn();
             setTimeout(() => {
                 if (this._streamData === streamData) {
-                    this._newStreamData(params);
+                    // Re-initialize data tracks
+                    // This will generate a reconnection to the server
+                    streamData.tracks = this._dataTracks;
                 } // else has changed! or player is closed!
             }, RECONNECTION_TIMEOUT);
         };
