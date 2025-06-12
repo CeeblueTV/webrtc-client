@@ -30,7 +30,10 @@ The client library addresses common challenges faced by developers:
 ```
 [wss|https]://<endPoint>/webrtc/<streamName>
 ```
+
 The `<endPoint>` is the host part of this URL, and `<streamName>` is the unique identifier for your stream.
+
+The signalling protocol can be either `wss` (WebSocket Secure) or `https` (for WHIP/WHEP). We recommend `wss` for WebRTC because it unlocks additional features, such as adaptive bitrate (ABR).
 
 ## Usage
 
