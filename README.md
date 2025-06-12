@@ -80,7 +80,7 @@ streamer.start(stream, {
 });
 ```
 
-> The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, you can omit `<streamName>` parameter.
+> The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, `<streamName>` parameter becomes an output parameter and is assigned after being extracted from the URL.
 
 ### Play a stream
 
@@ -108,7 +108,7 @@ player.start({
 });
 ```
 
-> The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, you can omit `<streamName>` parameter.
+> The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, `<streamName>` parameter becomes an output parameter and is assigned after being extracted from the URL.
 
 ## Examples
 
