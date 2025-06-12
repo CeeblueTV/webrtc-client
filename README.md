@@ -30,7 +30,7 @@ The client library addresses common challenges faced by developers:
 ```
 [wss|https]://<endPoint>/webrtc/<streamName>
 ```
-The `<endPoint>` is the endpoint of the Ceeblue Streaming Cloud, and `<streamName>` is the unique identifier for your stream.
+The `<endPoint>` is the host part of this URL, and `<streamName>` is the unique identifier for your stream.
 
 ## Usage
 
@@ -81,6 +81,7 @@ streamer.start(stream, {
 ```
 
 > The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, `<streamName>` parameter becomes an output parameter and is assigned after being extracted from the URL.
+> See the type `Params` in the file [Connect.ts from web-utils](https://github.com/CeeblueTV/web-utils/blob/main/src/Connect.ts) for more details about the parameters of connection.
 
 ### Play a stream
 
@@ -109,6 +110,7 @@ player.start({
 ```
 
 > The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, `<streamName>` parameter becomes an output parameter and is assigned after being extracted from the URL.
+> See the type `Params` in the file [Connect.ts from web-utils](https://github.com/CeeblueTV/web-utils/blob/main/src/Connect.ts) for more details about the parameters of connection.
 
 ## Examples
 
