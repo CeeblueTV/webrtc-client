@@ -5,7 +5,10 @@
         "noImplicitAny": true,
         "esModuleInterop": true,
         "strict": true,
-        "target": "ES6",
-        "moduleResolution": "Node"
+        "moduleResolution": "Node",
+        "sourceMap": true,
+        "target": "ES6", // ES6 by default
+        "lib": ["dom", "dom.iterable"], // usefull to make working 'npm build:iife'
+        "downlevelIteration": true // usefull to make working 'npm build:iife'
     }
 }

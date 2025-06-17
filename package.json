@@ -1,6 +1,6 @@
 {
     "name": "@ceeblue/webrtc-client",
-    "version": "4.0.1",
+    "version": "4.1.2",
     "description": "Ceeblue WebRTC Client",
     "keywords": [
         "webrtc",
@@ -21,17 +21,20 @@
         "url": "https://github.com/ceebluetv/webrtc-client/issues"
     },
     "main": "dist/webrtc-client.js",
+    "browser": "dist/webrtc-client.bundle.js",
     "types": "dist/webrtc-client.d.ts",
     "type": "module",
     "scripts": {
         "build": "rollup -c",
-        "build:es5": "rollup -c --format umd",
+        "build:cjs": "rollup -c --format cjs",
+        "build:iife": "rollup -c --format iife",
         "build:docs": "typedoc index.ts",
+        "watch": "rollup -c -w",
+        "watch:cjs": "rollup -c -w --format cjs",
+        "watch:iife": "rollup -c -w --format iife",
         "lint": "eslint . && prettier --check .",
         "eslint": "eslint --fix .",
         "prettier": "prettier --write --ignore-unknown .",
-        "watch": "rollup -c -w",
-        "watch:es5": "rollup -c -w --format umd",
         "semantic-release": "semantic-release",
         "prepare": "is-ci || husky install"
     },
@@ -65,6 +68,7 @@
         "lint-staged": "~15.2.0",
         "prettier": "3.2.4",
         "rollup": "~3.29.3",
+        "rollup-plugin-auto-external": "^2.0.0",
         "rollup-plugin-dts": "~6.0.2",
         "semantic-release": "~21.0.0",
         "tslib": "~2.6.2",
@@ -72,16 +76,11 @@
         "typescript": "~5.2.2",
         "undici-types": "~6.3.0"
     },
-    "commitlint": {
-        "extends": [
-            "@commitlint/config-conventional"
-        ]
-    },
     "publishConfig": {
         "access": "public"
     },
     "dependencies": {
-        "@ceeblue/web-utils": "^2.6.0",
+        "@ceeblue/web-utils": "^5.0.0",
         "sdp-transform": "^2.14.2"
     }
 }

@@ -121,7 +121,7 @@
         </div>
 
         <script type="module">
-            import { Player, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.min.js";
+            import { Player, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.bundle.js";
             // development version, includes helpful console warnings
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
@@ -183,7 +183,7 @@
                             return;
                         }
                         this.streamErrorMessage = null;
-                        if (!this.streamName) {
+                        if (!this.streamName && !this.host.toString()) {
                             this.streamErrorMessage = "Enter a non-empty stream name to play";
                             return;
                         }
@@ -209,7 +209,7 @@
                                 accessToken: this.accessToken,
                                 iceServer: {
                                     urls: ['turn:' + this.host.domain + ':3478?transport=tcp', 'turn:' + this.host.domain + ':3478'],
-                                    username: 'csc_demo', credential: 'UtrAFClFFO'
+                                    username: 'ceeblue', credential: 'ceeblue'
                                 }
                             });
 

@@ -1,0 +1,55 @@
+name: Sync Branches
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    branches: [main]
+
+permissions:
+  contents: read # for checkout
+
+jobs:
+  sync-branches:
+    name: sync dev branch with main
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private_key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0 # Need full history for branch operations
+          token: ${{ steps.generate_token.outputs.token }}
+      - name: sync dev with main
+        run: |
+          git config --global user.name '${{ vars.RELEASE_BOT_GIT_AUTHOR_NAME }}'
+          git config --global user.email '${{ vars.RELEASE_BOT_GIT_AUTHOR_EMAIL }}'
+          
+          # Fetch all branches
+          git fetch origin
+          
+          # Get the latest release tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 origin/main)
+          
+          # Check if dev branch exists
+          if git ls-remote --heads origin dev | grep -q 'dev'; then
+            # Checkout dev branch
+            git checkout dev
+            
+            # Merge main into dev with release version in commit message
+            # Add --strategy-option=theirs to automatically resolve conflicts in favor of main
+            git merge --no-edit main -m "Merge 'main' into 'dev' after release $LATEST_TAG"
+            
+            # Push the merged changes
+            git push origin dev
+          else
+            # If dev doesn't exist, create it from main
+            git checkout -b dev
+            git push origin dev
+          fi

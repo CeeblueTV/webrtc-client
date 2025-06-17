@@ -5,7 +5,7 @@
  */
 
 import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
-import { ILog, Connect, Util, EventEmitter, WebSocketReliableError } from '@ceeblue/web-utils';
+import { ILog, Connect, Util, EventEmitter, WebSocketReliableError, NetAddress } from '@ceeblue/web-utils';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
 import { WSController } from './connectors/WSController';
@@ -363,23 +363,26 @@ export class Player extends EventEmitter {
         // Connector
         let mbr: MBRAbstract;
         let playing: PlayingInfos;
-        // Init Metadata channel
+
+        // Deserialize params
+        let streamMetadata: StreamMetadata | undefined;
         if ('connectParams' in params) {
             // params is StreamMetadata
-            this._initStreamMetadata({ ...params.connectParams }, params); // copy connect params to become immutable on reconnection
+            streamMetadata = params;
             params = params.connectParams;
-        } else {
-            this._initStreamMetadata({ ...params }, new StreamMetadata(params)); // copy connect params to become immutable on reconnection
         }
+
         // Add initial tracks query params
+        params.query = new URLSearchParams(params.query);
         if (this._audioTrack != null) {
-            params.query = Object.assign({ audio: this._audioTrack.toFixed() }, params.query);
+            params.query.set('audio', this._audioTrack.toFixed());
         }
         if (this._videoTrack != null) {
-            params.query = Object.assign({ video: this._videoTrack.toFixed() }, params.query);
+            params.query.set('video', this._videoTrack.toFixed());
         }
         this._audioTrackFixed = false;
         this._videoTrackFixed = false;
+        // params will be normalized in this call
         this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
@@ -416,6 +419,12 @@ export class Player extends EventEmitter {
                 this.stop(error);
             }
         };
+
+        // normalize enpoint
+        params.endPoint = new NetAddress(params.endPoint).host;
+
+        // Init Metadata channel
+        this._initStreamMetadata({ ...params }, streamMetadata ?? new StreamMetadata(params)); // copy connect params to become immutable on reconnection
 
         // Timed Metadatas
         this._newStreamData({ ...params }); // copy connect params to be immutable on reconnection
@@ -593,7 +602,9 @@ export class Player extends EventEmitter {
                 .warn();
             setTimeout(() => {
                 if (this._streamData === streamData) {
-                    this._newStreamData(params);
+                    // Re-initialize data tracks
+                    // This will generate a reconnection to the server
+                    streamData.tracks = this._dataTracks;
                 } // else has changed! or player is closed!
             }, RECONNECTION_TIMEOUT);
         };

@@ -8,12 +8,11 @@ import { MediaReport } from '../connectors/IController';
 import { Util } from '@ceeblue/web-utils';
 import { ABRAbstract, ABRParams } from './ABRAbstract';
 
-const STABLE_TIMEOUT = 11; // > 10 sec = maximum window between 2 key frames
 class Vars {
     stableTime: number = 0;
     stableBitrate: number = 0;
-    attempts: number = 1;
     lastLoss: number = Number.POSITIVE_INFINITY;
+    constructor(public recoverySteps: number) {}
 }
 
 /**
@@ -27,7 +26,9 @@ export class ABRLinear extends ABRAbstract {
      */
     constructor(params: ABRParams, stream?: MediaStream) {
         super(params, stream);
-        this._vars = new Vars();
+        // Set initial recoverySteps to the value configured minus 1
+        // to cancel the first incrementation (see ++vars.recoverySteps )
+        this._vars = new Vars(this.recoverySteps - 1);
     }
 
     /**
@@ -35,7 +36,7 @@ export class ABRLinear extends ABRAbstract {
      */
     reset() {
         super.reset();
-        this._vars = new Vars();
+        this._vars = new Vars(this.recoverySteps - 1);
     }
 
     /**
@@ -43,40 +44,50 @@ export class ABRLinear extends ABRAbstract {
      * @override{@inheritDoc ABRAbstract._computeBitrate}
      */
     protected _computeBitrate(bitrate: number, bitrateConstraint?: number, mediaReport?: MediaReport): number {
-        /*this.log({
-			bitrate,
-			lost:mediaReport && mediaReport.stats && mediaReport.stats.loss_perc,
-			attempts: this._attempts,
-			stableTime: this._stableTime,
-			stableVideoBitrate: this._stableVideoBitrate
-		}).info();*/
+        // this.log({
+        //     bitrate,
+        //     bitrateConstraint,
+        //     lost: mediaReport && mediaReport.stats && mediaReport.stats.loss_perc,
+        //     recoverySteps: this._vars.recoverySteps,
+        //     stableTime: this._vars.stableTime,
+        //     stableBitrate: this._vars.stableBitrate
+        // }).info();
 
         const stats = mediaReport && mediaReport.stats;
         const vars = this._vars;
-        if (stats && stats.loss_perc) {
+
+        if (bitrateConstraint && bitrate > bitrateConstraint) {
+            // BitrateConstraint reached!
+            // Decrease bitrate to listen server advisement
+            vars.stableTime = 0;
+            bitrate = bitrateConstraint;
+        } else if (stats && stats.loss_perc) {
+            // Loss few packets, decrease bitrate!
             if (stats.loss_perc >= vars.lastLoss) {
                 // lost => decrease bitrate
-                //	- decrease recoveryFactor
-                if (vars.stableTime) {
-                    ++vars.attempts;
-                }
-                vars.stableTime = 0;
                 bitrate = Math.round((1 - stats.loss_perc / 100) * bitrate);
             }
+            vars.stableTime = 0;
             vars.lastLoss = stats.loss_perc;
         } else {
+            // Network OK => Search stability close to videoBitrateMax
             vars.lastLoss = Number.POSITIVE_INFINITY;
-            // Search stability close to videoBitrateMax
             const now = Util.time();
             if (now >= vars.stableTime) {
                 if (vars.stableTime) {
                     // Stable => try to increase
                     this._updateVideoConstraints(bitrate);
-                    bitrate += Math.ceil((this.maximum - vars.stableBitrate) / vars.attempts);
+                    bitrate += Math.ceil((this.maximum - vars.stableBitrate) / vars.recoverySteps);
+                    // restore recovery steps to its initial value
+                    vars.recoverySteps = Math.max(vars.recoverySteps - 1, this.recoverySteps);
                 } else {
+                    // After a congestion (or the first time)
+                    // => store stable bitrate
+                    // => increase recoverySteps
                     vars.stableBitrate = bitrate;
+                    ++vars.recoverySteps;
                 }
-                vars.stableTime = now + STABLE_TIMEOUT;
+                vars.stableTime = now + this.appreciationDuration;
             }
         }
         return bitrate;

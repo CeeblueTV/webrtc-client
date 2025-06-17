@@ -251,8 +251,8 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             const domain = new NetAddress(this._endPoint, 443).domain;
             iceServer = {
                 urls: ['turn:' + domain + ':3478?transport=tcp', 'turn:' + domain + ':3478'],
-                username: 'csc_demo',
-                credential: 'UtrAFClFFO'
+                username: 'ceeblue',
+                credential: 'ceeblue'
             };
         }
         // Start the RTCPeerConnection and create an offer
@@ -267,7 +267,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             const target = <unknown>ev.target;
             if (target) {
                 const connectionState = (target as Record<string, unknown>)?.['connectionState'];
-                this.log(`Peer connection state: ${connectionState}`).debug();
+                this.log(`Peer connection state: ${connectionState}`).info();
                 switch (connectionState) {
                     case 'connected':
                     case 'connecting':
