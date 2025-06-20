@@ -19,9 +19,21 @@ The client library addresses common challenges faced by developers:
 | Item | Description |
 | --- | --- |
 | **Ceeblue Account** | To create a Stream, you will need an active account with [Ceeblue Streaming Cloud](https://dashboard.ceeblue.tv).<br>A trial account is sufficient. If you do not have one yet, you can request one on the [Ceeblue website](https://ceeblue.net/free-trial/). |
-| **Stream** | To use this library, you'll first need to create a stream either through our Rest API or on the dashboard.<br><br>Use the following steps:<ol><li><a href="https://docs.ceeblue.net/reference/create-a-new-stream" target="_blank">Create a new stream</a></li><li>Copy the **Stream name (UUID)**</li><li>Copy the **Endpoint**</li></ol> |
+| **Stream** | To use this library, you'll first need to create a stream either through [our Rest API](https://docs.ceeblue.net/reference) or on [the dashboard](https://dashboard.ceeblue.tv).<br><br>Use the following steps:<ol><li><a href="https://docs.ceeblue.net/reference/create-a-new-stream" target="_blank">Create a new stream</a></li><li>Copy the **Stream name (UUID)**</li><li>Copy the **Endpoint**</li></ol> |
 | **Node Package Manager (npm)** | Download and install from https://nodejs.org/en/download |
 | **http-server** | (Optional) Simple, zero-configuration command-line static HTTP server<br><br>The <a href="https://www.npmjs.com/package/http-server" target="_blank">http-server</a> is useful to explore the WebRTC client [examples](#examples) or the [documentation](#documentation) locally when you do not have a host.<br><br>To start the server, use the following command: `http-server . -p 8081`|
+
+### WebRTC URL format
+
+**Stream name (UUID)** and **Endpoint** are part of the URL used to access the stream that will be given by Ceeblue either from [the API](https://docs.ceeblue.net/reference) or [the dashboard](https://dashboard.ceeblue.tv), and they are required to publish or play a stream. The WebRTC signalling URL format is as follows:
+
+```
+[wss|https]://<endPoint>/webrtc/<streamName>
+```
+
+The `<endPoint>` is the host part of this URL, and `<streamName>` is the unique identifier for your stream.
+
+The signalling protocol can be either `wss` (WebSocket Secure) or `https` (for WHIP/WHEP). We recommend `wss` for WebRTC because it unlocks additional features, such as adaptive bitrate (ABR).
 
 ## Usage
 
@@ -48,7 +60,7 @@ import * as WebRTC from '@ceeblue/webrtc-client';
 
 ### Publish a stream
 
-To publish the stream `<streamName>` to `<endPoint>`, use the [Streamer](./src/Streamer.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see push.html in [Examples](#examples).
+To publish the stream `<streamName>` to `<endPoint>`, use the [Streamer](./src/Streamer.ts) class and the variables you noted in the [Requirements](#requirements) section when you created the stream. For a full example, see streamer.html in [Examples](#examples).
 
 ```javascript
 import { Streamer } from '@ceeblue/webrtc-client';
@@ -71,9 +83,12 @@ streamer.start(stream, {
 });
 ```
 
+> The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, `<streamName>` parameter becomes an output parameter and is assigned after being extracted from the URL.
+> See the type `Params` in the file [Connect.ts from web-utils](https://github.com/CeeblueTV/web-utils/blob/main/src/Connect.ts) for more details about the parameters of connection.
+
 ### Play a stream
 
-To play the stream `<streamName>` from `<endPoint>`, use the [Player](./src/Player.ts) class and the variables you saved while setting up the stream in the dashboard [Requirements](#requirements). For a full example, see play.html in [Examples](#examples).
+To play the stream `<streamName>` from `<endPoint>`, use the [Player](./src/Player.ts) class and the variables you noted in the [Requirements](#requirements) section when you created the stream. For a full example, see player.html in [Examples](#examples).
 
 ```javascript
 import { Player } from '@ceeblue/webrtc-client';
@@ -96,6 +111,9 @@ player.start({
    }
 });
 ```
+
+> The `<endPoint>` field can be either the hostname part of [the WebRTC URL](#webrtc-url-format) or the full URL itself. For example, if your WebRTC URL is `wss://example.com/webrtc/1234`, you can use either `example.com` or `wss://example.com/webrtc/1234` as the `<endPoint>`. If you pass the full URL, `<streamName>` parameter becomes an output parameter and is assigned after being extracted from the URL.
+> See the type `Params` in the file [Connect.ts from web-utils](https://github.com/CeeblueTV/web-utils/blob/main/src/Connect.ts) for more details about the parameters of connection.
 
 ## Examples
 
