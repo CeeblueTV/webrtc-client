@@ -199,7 +199,7 @@
         </div>
 
         <script type="module">
-            import { Streamer, HTTPConnector, WSController, VERSION, utils, StreamerStats, Telemetry } from "../dist/webrtc-client.js";
+            import { Streamer, HTTPConnector, WSController, VERSION, utils, StreamerStats, Telemetry } from "../dist/webrtc-client.bundle.js";
             // development version, includes helpful console warnings
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
@@ -475,7 +475,7 @@
                                         accessToken: this.accessToken,
                                         iceServer: {
                                             urls: ['turn:' + this.host.domain + ':3478?transport=tcp', 'turn:' + this.host.domain + ':3478'],
-                                            username: 'csc_demo', credential: 'UtrAFClFFO'
+                                            username: 'ceeblue', credential: 'ceeblue'
                                         }
                                     },
                                     this.adaptiveBitrate ? { maximum: this.streaming.bitrate, startup: this.streaming.bitrate * 0.7 } : null
