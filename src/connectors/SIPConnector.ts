@@ -131,7 +131,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     constructor(connectParams: Connect.Params, stream?: MediaStream) {
         super();
         this._closed = false;
-        this._streamName = connectParams.streamName;
+        this._streamName = connectParams.streamName ?? '';
         this._endPoint = connectParams.endPoint;
         this._stream = stream;
         this._connectionInfosTime = 0;

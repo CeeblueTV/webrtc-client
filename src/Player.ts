@@ -406,13 +406,13 @@ export class Player extends EventEmitter {
                 this.stop({
                     type: 'StreamMetadataError',
                     name: StreamState.OFFLINE,
-                    stream: (params as Connect.Params).streamName
+                    stream: (params as Connect.Params).streamName ?? ''
                 });
             } else if (error?.type === 'WebSocketReliableError' && error.name === 'Socket disconnection') {
                 this.stop({
                     type: 'StreamMetadataError',
                     name: 'Resource not available',
-                    stream: (params as Connect.Params).streamName
+                    stream: (params as Connect.Params).streamName ?? ''
                 });
             } else {
                 this.stop(error);
