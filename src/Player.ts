@@ -16,8 +16,8 @@ import { WSStreamData } from './metadata/WSStreamData';
 import { MBRAbstract, MBRParams } from './mbr/MBRAbstract';
 import { MBRLinear } from './mbr/MBRLinear';
 
-// Reconnection timeout, 2 seconds
-const RECONNECTION_TIMEOUT: number = 2000;
+// Reconnection timeout, 3 seconds
+const RECONNECTION_TIMEOUT: number = 3000;
 
 export type PlayerError =
     /**
@@ -266,6 +266,7 @@ export class Player extends EventEmitter {
     private _connector?: IConnector;
     private _controller?: IController;
     private _streamMetadata?: StreamMetadata;
+    private _streamMetadataReconnectTimeout?: NodeJS.Timeout;
     private _audioTrack?: number;
     private _videoTrack?: number;
     private _audioTrackFixed?: boolean;
@@ -273,6 +274,7 @@ export class Player extends EventEmitter {
     private _dataTracks: Array<number>;
     private _playingInfos?: PlayingInfos;
     private _streamData?: IStreamData;
+    private _streamDataReconnectTimeout?: NodeJS.Timeout;
     private _metadata?: Metadata;
     /**
      * Constructs a new Player instance, optionally with a custom connector
@@ -503,12 +505,14 @@ export class Player extends EventEmitter {
         }
         this._connector = undefined;
         // Stream metadata
+        clearTimeout(this._streamMetadataReconnectTimeout);
         if (this._streamMetadata) {
             this._streamMetadata.onClose = Util.EMPTY_FUNCTION; // to avoid reconnection
             this._streamMetadata.close();
             this._streamMetadata = undefined;
         }
         // Stream data
+        clearTimeout(this._streamDataReconnectTimeout);
         if (this._streamData) {
             this._streamData.onClose = Util.EMPTY_FUNCTION; // to avoid reconnection
             this._streamData.close();
@@ -578,10 +582,9 @@ export class Player extends EventEmitter {
                     `${error || 'disconnection'}, try to reconnect to ${params.endPoint} in ${RECONNECTION_TIMEOUT} ms`
                 )
                 .warn();
-            setTimeout(() => {
-                if (this._streamMetadata === streamMetadata) {
-                    this._initStreamMetadata(params, new StreamMetadata(params));
-                } // else has changed! or player is closed!
+            this._streamMetadataReconnectTimeout = setTimeout(() => {
+                // Re-initialize stream metadata
+                this._initStreamMetadata(params, new StreamMetadata(params));
             }, RECONNECTION_TIMEOUT);
         };
     }
@@ -599,12 +602,9 @@ export class Player extends EventEmitter {
                     `${error || 'disconnection'}, try to reconnect to ${params.endPoint} in ${RECONNECTION_TIMEOUT} ms`
                 )
                 .warn();
-            setTimeout(() => {
-                if (this._streamData === streamData) {
-                    // Re-initialize data tracks
-                    // This will generate a reconnection to the server
-                    streamData.tracks = this._dataTracks;
-                } // else has changed! or player is closed!
+            this._streamDataReconnectTimeout = setTimeout(() => {
+                // Re-initialize data tracks, set tracks will generate a reconnection to the server
+                streamData.tracks = this._dataTracks;
             }, RECONNECTION_TIMEOUT);
         };
     }
