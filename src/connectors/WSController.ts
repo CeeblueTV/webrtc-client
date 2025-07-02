@@ -207,10 +207,9 @@ export class WSController extends SIPConnector implements IController {
                 this.onMediaReport(ev);
                 break;
             }
-            case 'on_seek': {
-                // ignore on_seek, no need!
+            case 'set_speed': // ignore on_speed report
+            case 'on_seek': // ignore on_seek report
                 break;
-            }
             case 'on_time': {
                 this._reportReceivedTimestamp = Util.time();
                 this.onPlaying(ev);
