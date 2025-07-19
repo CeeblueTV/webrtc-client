@@ -216,13 +216,14 @@ export class Streamer extends EventEmitter {
      * Returns connection info, such as round trip time, requests sent and received,
      * bytes sent and received, and bitrates
      * NOTE: This call is resource-intensive for the CPU.
+     * @param cacheDuration indicate how much milliseconds we can cache the last connection informations
      * @returns {Promise<ConnectionInfos>} A promise for a ConnectionInfos
      */
-    connectionInfos(): Promise<ConnectionInfos> {
+    connectionInfos(cacheDuration?: number): Promise<ConnectionInfos> {
         if (!this._connector) {
             return Promise.reject('Start streamer before to request connection infos');
         }
-        return this._connector.connectionInfos();
+        return this._connector.connectionInfos(cacheDuration);
     }
 
     /**

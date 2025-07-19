@@ -34,7 +34,7 @@ export class StreamerStats extends EventEmitter implements IStats {
     }
 
     /**
-     * Return streamer stats into a JSON representation
+     * Return streamer stats into a Object representation
      * @override
      */
     async serialize(): Promise<object> {
@@ -90,6 +90,10 @@ export class StreamerStats extends EventEmitter implements IStats {
             metrics.bytesSent = candidate.bytesSent;
             metrics.bytesReceived = candidate.bytesReceived;
 
+            metrics.localCandidateProtocol =
+                candidate.localCandidateProtocol +
+                (candidate.localCandidateRelayProtocol ? '/' + candidate.localCandidateRelayProtocol : '');
+
             if (candidate.availableOutgoingBitrate == null) {
                 const diff = metrics.bytesSent - this._lastBytesSend;
                 this._lastBytesSend = metrics.bytesSent;
@@ -113,7 +117,7 @@ export class StreamerStats extends EventEmitter implements IStats {
             };
         }
 
-        const video = connectionInfos.outputs.audio;
+        const video = connectionInfos.outputs.video;
         if (video) {
             metrics.video = {
                 bytesSent: video.bytesSent,

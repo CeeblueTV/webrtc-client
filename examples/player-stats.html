@@ -1,0 +1,514 @@
+<!doctype html>
+<!--
+    Copyright 2023 Ceeblue B.V.
+    This file is part of https://github.com/CeeblueTV/webrtc-client which is released under GNU Affero General Public License.
+    See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
+-->
+<html lang="en" class="h-100">
+    <head>
+        <title>Ceeblue WebRTC Player Example</title>
+        <meta charset="utf-8">
+        <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+        <link rel="icon" href="./assets/ceeblue-logo-32x32.png" sizes="32x32">
+        <link rel="icon" href="./assets/ceeblue-logo-192x192.png" sizes="192x192">
+
+        <link href="./css/bootstrap.css" rel="stylesheet">
+        <link href="./css/solid.css" rel="stylesheet">
+        <link href="./css/fontawesome.css" rel="stylesheet">
+
+        <style>
+            body {
+                margin-top: 1em;
+                margin-bottom: 3em;
+            }
+
+            video {
+                background-color: #333333;
+                max-width: 100%;
+                max-height: 60vh;
+            }
+
+            .nav .nav-item .nav-link {
+                padding: .5rem .8rem;
+            }
+
+            [v-cloak] {
+                display: none;
+            }
+        </style>
+    </head>
+    <body class="container-fluid h-100" id="main">
+        <div class="row h-100">
+            <div class="col-md-8" id="player">
+                <div class="col-md-12">
+                    <img alt="CEEBLUE Media Services" class="rounded mx-auto d-block" src="./assets/ceeblue-logo.png">
+                    <h3 class="text-center">WebRTC Client Player Example</h3>
+                </div>
+
+                <div class="col-md-12">
+                    <div class="card text-center border-0">
+                        <div class="card-body">
+                            <div class="alert alert-warning" role="alert" v-if="streamErrorMessage">
+                                {{ streamErrorMessage }}
+                            </div>
+
+                            <video autoplay id="video" ref="video" playsinline></video>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="form-group col-sm">
+                            <select id="video-track-selection" class="form-select text-center"
+                                :disabled="!player || !player.controller" v-model="videoTrackId" @change="onVideoTrackChange()">
+                                <option :value="undefined" :key="videoTrack">AUTO - {{videoTrack}}</option>
+                                <option v-for="[idx, track] of videoTracks" v-bind:value="idx">
+                                    {{ track }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-sm">
+                            <select id="audio-track-selection" class="form-select text-center"
+                                :disabled="!player || !player.controller" v-model="audioTrackId" @change="onAudioTrackChange()">
+                                <option :value="undefined" :key="audioTrack">AUTO - {{audioTrack}}</option>
+                                <option v-for="[idx, track] of audioTracks" v-bind:value="idx">
+                                    {{ track }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="form-group col-2 col-sm-1">
+                            <button class="btn btn-light" type="button" v-on:click="mute">
+                                <i class="fas" v-bind:class="{ 'fa-volume-up': !muted, 'fa-volume-off': muted }"></i>
+                            </button>
+                        </div>
+
+                        <div class="form-group col-10 col-sm">
+                            <select class="form-select"
+                                :disabled="isPlaying()" v-model="connectorType">
+                                <option v-bind:value="option" v-for="option in connectorTypes">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-sm">
+                            <input :disabled="isPlaying()" class="form-control"
+                                placeholder="Stream name as+30189afc-541d-49b7-9ae0-468d15f62059" type="text"
+                                v-model="streamName">
+                        </div>
+
+                        <div class="form-group col-sm">
+                            <input :disabled="isPlaying()" class="form-control"
+                                placeholder="Access token cc0f52bb-92bb-462b-8218-88c3febe8533" type="text" v-model="accessToken">
+                        </div>
+                    </div>
+
+                    <div class="text-center" v-cloak>
+                        <button class="btn mx-2" type="button"
+                            v-bind:class="{ 'btn-outline-danger': isPlaying(), 'btn-outline-success': isStopped(), 'btn-secondary': isStarting() }"
+                            v-on:click="play">
+                            <span>
+                                {{ playButtonCaption() }} <i class="fas fa-spinner fa-pulse" v-if="isStarting()"></i>
+                            </span>
+                        </button>
+                        <button :disabled="logs.length === 0" class="btn btn-secondary mx-2" id="btnReport" type="button" v-on:click="getReport()">
+                            <span>Get report</span>
+                        </button>
+                    </div>
+
+                    <div class="card border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">Last 5 logs</h5>
+                            <ul class="list-group overflow-auto">
+                                <li v-for="item in logs.filter(log => log.level === 'info').slice(-5)" :key="item" class="list-group-item p-2">
+                                    {{ item.msg }}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4" id="metrics-container">
+                <div class="card border-0">
+                    <div class="card-body">
+                        <ul class="list-group overflow-auto">
+                            <li v-for="item in metrics" :key="item" class="list-group-item p-2">
+                                {{ item }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="module">
+            /**
+             * This example demonstrates how to use the WebRTC Player and report metrics to a telemetry server.
+             * It also allows to visualize the metrics in real-time to analyze the stream quality.
+             * 
+             * Special query options :
+             * - telemetryURL=<URL> : Use a custom telemetry server URL
+             */
+
+            import { Player, HTTPConnector, WSController, utils, VERSION, PlayerStats, Telemetry } from "../dist/webrtc-client.bundle.js";
+            // development version, includes helpful console warnings
+            // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
+            // production version, optimized for size and speed
+            import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
+            const { Util, NetAddress, log } = utils;
+
+            log('webrtc-client version:', VERSION).info();
+            log('web-utils version:', utils.VERSION).info();
+
+            const PlayState = {
+                PLAYING: 'PLAYING',
+                STARTING: 'STARTING',
+                STOPPED: 'STOPPED'
+            };
+
+            function readableBitrate(bytes) {
+                if (bytes === 0) {
+                    return '';
+                }
+                const i = Math.floor(Math.log(bytes) / Math.log(1000));
+                const sizes = ['bps', 'kbps', 'mbps', 'gbps'];
+                return (bytes / Math.pow(1000, i)).toFixed(1) + ' ' + sizes[i];
+            }
+
+            function toHuman(value) {
+                if (!value || typeof value !== 'number' || value % 1 !== 0) {
+                    return value;
+                }
+                const i = Math.floor(Math.log(value) / Math.log(1000));
+                const sizes = ['', ' K', ' M', ' G'];
+                if (!i || i >= sizes.length) {
+                    return value;
+                }
+                return ((value / Math.pow(1000, i)).toFixed(3) + sizes[i]);
+            }
+
+            // Convert metrics to one line strings (recursive method)
+            function writeMetrics(metrics, lines=[], prefix = '') {
+                for (let [key, value] of Object.entries(metrics)) {
+                    key = (prefix.length? (prefix + '.') : '') + key;
+                    if (typeof value === 'number' || typeof value === 'string') {
+                        lines.push(`${key}: ${toHuman(value)}`);
+                    } else if (typeof value === 'object') {
+                        writeMetrics(value, lines, key);
+                    }
+                }
+                return lines;
+            }
+
+            /**
+             * ErrorStats implements the {@link IStats} interface
+             * to send error messages to the telemetry server
+             * 
+             * Known errors are:
+             *   StreamMetadata: Stream is offline
+             *   Signaling: <stream URL> disconnection (1006)
+             *   Signaling: client rejected
+             *   StreamMetadata: Stream is waiting for data
+             */
+            class ErrorStats {
+                constructor(error, sessionId) {
+                    this._error = error;
+                    this._sessionId = sessionId;
+                }
+
+                async serialize(){
+                    return {
+                        sessionId: this._sessionId,
+                        timestamp: this.timestamp,
+                        currentTime: Date(),
+                        error: this._error
+                    }
+                }
+            }
+
+            const vueApp = {
+                data() {
+                    return {
+                        PlayState: PlayState,
+                        playState: PlayState.STOPPED,
+
+                        streamName: '',
+                        accessToken: null,
+                        muted: true,
+                        host: null,
+
+                        streamMetadata: null,
+                        videoTracks: new Map(),
+                        videoTrack: 'Video',
+                        videoTrackId: undefined,
+                        oldVideoTrackId: undefined,
+                        connectorType:'WebSocket (WS)',
+                        connectorTypes:['WebSocket (WS)', 'WHEP (HTTP)'],
+                        audioTracks: new Map(),
+                        audioTrack: 'Audio',
+                        audioTrackId: undefined,
+                        streamErrorMessage: null,
+
+                        logs: [], // Logs to display
+                        metrics: null, // Metrics to display
+                        telemetryTimer: null,
+                        telemetry: null,
+                        telemetryStats: null,
+                        telemetryURL: null,
+
+                        lastPacketsTime: Date.now(),
+                        lastAudioPackets: 0,
+                        lastVideoPackets: 0,
+
+                        player: null
+                    }
+                },
+                created() {
+                    const options = Util.options();
+                    // init values
+                    const host = options.host;
+                    this.host = new NetAddress(host || location.host, 443);
+                    this.streamName = options.stream;
+                    this.accessToken = options.accessToken;
+                    this.connectorType = options.whep || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
+                    this.telemetryURL = options.telemetryURL;
+
+                    // Automatically set the theme mode to system prefered mode or the one set in the options
+                    const color = !options.colorMode? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : options.colorMode;
+                    document.documentElement.setAttribute('data-bs-theme', color);
+
+                    log.on = this.addLog.bind(this);
+                },
+                methods: {
+                    addLog(level,args) {
+                        // if logs are more than 100000, remove the latest
+                        if (this.logs.length > 100000) {
+                            this.logs.shift();
+                        }
+                        let message = {msg : '[' + new Date().toISOString() + '] ' + [...args], level: level};
+                        this.logs.push(message);
+                        console[level](...args.splice(0)); // args is empty after this call = final interception
+                    },
+                    play() {
+                        if (this.player) {
+                            this.player.stop();
+                            return;
+                        }
+                        this.streamErrorMessage = null;
+                        if (!this.streamName && !this.host.toString()) {
+                            this.streamErrorMessage = "Enter a non-empty stream name to play";
+                            return;
+                        }
+                        this.playState = PlayState.STARTING;
+
+                        const videoElement = this.$refs.video;
+                        videoElement.muted = this.muted;
+                        videoElement.autoplay = true;
+                        videoElement.onloadeddata = () => {
+                            log('WebRTC loadeddata').info();
+                            videoElement.play();
+                        };
+
+                        this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
+                        this.player.onStart = this.onStart.bind(this);
+                        this.player.onStop = this.onStop.bind(this);
+                        this.player.onPlaying = this.onPlaying.bind(this);
+                        this.player.onMetadata = this.onMetadata.bind(this);
+                        this.player.start(
+                            {
+                                endPoint:this.host.toString(),
+                                streamName: this.streamName,
+                                accessToken: this.accessToken,
+                                iceServer: {
+                                    urls: ['turn:' + this.host.domain + ':3478?transport=tcp', 'turn:' + this.host.domain + ':3478'],
+                                    username: 'ceeblue', credential: 'ceeblue'
+                                }
+                            });
+
+                        // Metrics
+                        if (this.telemetryURL) {
+                            try {
+                                this.telemetry = new Telemetry(this.telemetryURL);
+                                this.telemetryStats = new PlayerStats(this.player, videoElement);
+                                // (The first report will be in the next track change)
+                            } catch (error) {
+                                log('Telemetry:', error).error();
+                                this.telemetry = null;
+                            }
+                        }
+
+                        // Start the metrics rendering
+                        // We create a new PlayerStats instance to avoid conflicts with the telemetry
+                        const renderStats = new PlayerStats(this.player, videoElement);
+                        this.renderTimer = setInterval(() => {
+                            renderStats.serialize().then(data => {                                
+                                // Compute packet/s
+                                const now = Date.now();
+                                const duration = (now - this.lastPacketsTime) / 1000;
+                                this.lastPacketsTime = now;
+                                const audioPackets = (data.audio ? data.audio.packetsReceived : 0);
+                                const videoPackets = (data.video? data.video.packetsReceived : 0);
+                                const audioPacketsRate = Math.round((audioPackets - this.lastAudioPackets) / duration);
+                                const videoPacketsRate = Math.round((videoPackets - this.lastVideoPackets) / duration);
+                                this.lastAudioPackets = audioPackets;
+                                this.lastVideoPackets = videoPackets;
+
+                                this.metrics = [];
+                                this.metrics.push("Buffer : " + (data.streamEnd - data.streamCurrent + "ms"));
+                                this.metrics.push("RTT : " + (data.currentRoundTripTime? data.currentRoundTripTime * 1000 + "ms" : "unknown"));
+                                this.metrics.push("Bitrate : " + readableBitrate(data.incomingBitrate));
+                                this.metrics.push("Nack : audio=" + toHuman(!data.audio ? 0 : data.audio.nackCount) + " video=" + toHuman(!data.video ? 0 : data.video.nackCount));
+                                this.metrics.push("Loss : audio=" + toHuman(!data.audio ? 0 : data.audio.packetsLost) + " video=" + toHuman(!data.video ? 0 : data.video.packetsLost));
+                                this.metrics.push("Jitter : audio="+ Math.round(!data.audio ? 0 : data.audio.jitter * 1000) + "ms video=" + Math.round(!data.video ? 0 : data.video.jitter * 1000) + "ms");
+                                this.metrics.push(`Packets : audio=${toHuman(audioPackets)} (${audioPacketsRate} p/s) video=${toHuman(videoPackets)} (${videoPacketsRate} p/s)`);
+                                this.metrics.push("Frames : " + toHuman(!data.video ? 0 : data.video.framesReceived) + " dropped=" + toHuman(!data.video ? 0 : data.video.framesDropped));
+                                this.metrics.push("Protocol : " + data.localCandidateProtocol);
+
+                                let logs = writeMetrics(data);
+                                log('Metrics: ' + logs.join(', ')).debug();
+                            });
+                        }, 2000); // Every 2 second
+                    },
+                    onStart(stream) {
+                        log('onStart').info();
+                        this.playState = PlayState.PLAYING;
+                        this.$refs.video.srcObject = stream;
+                    },
+                    onStop(error) {
+                        if(error) {
+                            log('onStop', error).error();
+                            this.streamErrorMessage = error.name;
+                            if (this.telemetry) {
+                                this.telemetry.report(new ErrorStats(error.name, this.telemetryStats.sessionId), 0);
+                            }
+                        } else {
+                            log('onStop').info();
+                        }
+                        const videoElement = this.$refs.video;
+                        videoElement.srcObject = null;
+                        videoElement.onloadeddata = null;
+
+                        if (this.player) {
+                            this.player.stop();
+                            this.player = null;
+                        }
+                        clearInterval(this.telemetryTimer);
+                        clearInterval(this.renderTimer);
+                        this.telemetryTimer = this.renderTimer = null;
+
+                        this.audioTracks = new Map();
+                        this.audioTrack = 'Audio';
+                        this.audioTrackId = undefined;
+                        this.videoTracks = new Map();
+                        this.videoTrack = 'Video';
+                        this.videoTrackId = undefined;
+
+                        this.playState = PlayState.STOPPED;
+                    },
+                    onPlaying(playing) {
+                        if (this.oldVideoTrackId !== this.player.videoTrack) {
+                            // Send a new stats report when the video track changes
+                            // then every 60 seconds
+                            if (this.telemetry) {
+                                this.telemetry.report(this.telemetryStats);
+                                this.telemetry.report(this.telemetryStats, 60);
+                            }
+
+                            // if not AUTO update the current video track
+                            if(this.videoTrackId != null) {
+                                this.videoTrackId = this.player.videoTrack;
+                            }
+                            this.oldVideoTrackId = this.player.videoTrack;
+                        }
+                        this.videoTrack = this.videoTracks.get(this.player.videoTrack);
+                        if(this.audioTrackId != null) {
+                            this.audioTrackId = this.player.audioTrack;
+                        }
+                        this.audioTrack = this.audioTracks.get(this.player.audioTrack);
+
+                        log(
+                            'Position ' + playing.begin + '>>[' + playing.current + ']>>' + playing.end,
+                            {
+                                Buff:(playing.end - playing.current) + 'ms',
+                                audioTrack: this.audioTrackId,
+                                videoTrack: this.videoTrackId
+                            }
+                        ).debug();
+                    },
+                    onMetadata(metadata) {
+                        log(`onMetadata ${Util.stringify(metadata)}`).info();
+
+                        this.audioTracks = new Map();
+                        this.videoTracks = new Map();
+
+                        for (const [id, track] of metadata.tracks) {
+
+                            if (track.type === 'video') {
+                                this.videoTracks.set(
+                                    id,
+                                    `${track.codec} ${track.width}x${track.height} ${readableBitrate(track.bps * 8)}`
+                                );
+                            } else if (track.type === 'audio') {
+                                this.audioTracks.set(
+                                    id,
+                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${readableBitrate(track.bps * 8)}`
+                                );
+                            }
+                        }
+                    },
+                    mute() {
+                        this.muted = !this.muted;
+                        log('MutePlayback').info();
+                        this.$refs.video.muted = this.muted;
+                    },
+
+                    playButtonCaption() {
+                        if (this.isStopped())
+                            return 'Play';
+                        if (this.isStarting())
+                            return 'Starting... ';
+                        if (this.isPlaying())
+                            return 'Stop';
+                    },
+                    isPlaying() {
+                        return this.playState === PlayState.PLAYING;
+                    },
+                    isStarting() {
+                        return this.playState === PlayState.STARTING;
+                    },
+                    isStopped() {
+                        return this.playState === PlayState.STOPPED;
+                    },
+                    onVideoTrackChange() {
+                        if (this.player) {
+                            this.player.videoTrack = this.videoTrackId;
+                        }
+                    },
+                    onAudioTrackChange() {
+                        if (this.player) {
+                            this.player.audioTrack = this.audioTrackId;
+                        }
+                    },
+                    getReport() {
+                        // Download a report of all logs since the start of the session
+                        const report = this.logs.map(log => log.msg).join('\n');
+                        const blob = new Blob([report], {type: 'text/plain'});
+                        const url = URL.createObjectURL(blob);
+                        const tempLink = document.createElement('a');
+                        tempLink.href = url;
+                        tempLink.download = 'report.txt';
+                        tempLink.click();
+                    }
+                },
+            }
+
+            // Create the main app
+            createApp(vueApp).mount('#main');
+        </script>
+    </body>
+</html>
