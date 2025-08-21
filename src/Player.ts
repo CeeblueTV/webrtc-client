@@ -95,6 +95,7 @@ export class Player extends EventEmitter {
     /**
      * Event fired when stream state is changing
      * @param state
+     * @event
      */
     onState(state: StreamState) {
         this.log('onState', state).info();
