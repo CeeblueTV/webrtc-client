@@ -199,10 +199,13 @@ This monorepo also contains built-in documentation about the APIs in the library
 ```
 npm run build:docs
 ```
-You can access the documentation by opening the index.html file in the docs folder with your browser (`./docs/index.html`), or if you have installed and started the [http-server service](#requirements) by navigating to:
+Once generated, open the `index.html` file located in the `docs` folder (`./docs/index.html`) with your browser, or if you have installed and started the [http-server service](#requirements) by navigating to:
 ```
 http://localhost:8081/docs/
 ```
+> 📌 **NOTE**
+>
+>  An online, continuously maintained version of the latest released documentation is available at https://ceebluetv.github.io/webrtc-client/
 
 ## Contribution
 
