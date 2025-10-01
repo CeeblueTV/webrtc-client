@@ -57,7 +57,7 @@ export class WSController extends SIPConnector implements IController {
     private _ws: WebSocketReliable;
     private _promise?: { (result: string | Error): void };
     private _reportWatchdogInterval?: NodeJS.Timeout;
-    private _reportReceivedTimestamp?: number;
+    private _reportReceivedTimestamp: number;
 
     /**
      * Instantiate the WSController, connect to the WebSocket endpoint
@@ -68,6 +68,7 @@ export class WSController extends SIPConnector implements IController {
      */
     constructor(connectParams: Connect.Params, stream?: MediaStream) {
         super(connectParams, stream);
+        this._reportReceivedTimestamp = Util.time();
         this._ws = new WebSocketReliable(Connect.buildURL(Connect.Type.WEBRTC, connectParams, 'wss'));
         this._ws.onClose = (error?: WebSocketReliableError) => this.close(error);
         this._ws.onOpen = () => {
@@ -226,9 +227,7 @@ export class WSController extends SIPConnector implements IController {
         this._reportReceivedTimestamp = Util.time();
 
         this._reportWatchdogInterval = setInterval(() => {
-            const timeout = this._reportReceivedTimestamp
-                ? Util.time() - this._reportReceivedTimestamp
-                : REPORT_WATCHDOG_TIMEOUT;
+            const timeout = Util.time() - this._reportReceivedTimestamp;
             if (timeout >= REPORT_WATCHDOG_TIMEOUT / 3) {
                 this.log(`No updates received for the last ${(timeout / 1000).toFixed(1)}s`).warn();
             }
