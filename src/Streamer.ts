@@ -319,6 +319,55 @@ export class Streamer extends EventEmitter {
         this.onStop(error);
     }
 
+    /**
+     * Replace a single track while streaming.
+     *
+     * - If the underlying connector exposes a `replaceTrack(kind, track)` method,
+     *   this will hot-swap the sender track (no full restart).
+     * - Otherwise, we update the exposed MediaStream for consistency and throw,
+     *   so callers can decide to stop/start with a new stream.
+     *
+     * @param kind 'audio' | 'video'
+     * @param media A MediaStreamTrack, a MediaStream (first track of kind is used), or null to remove/mute that kind.
+     */
+    async replaceTrack(kind: 'audio' | 'video', media: MediaStreamTrack | MediaStream | null): Promise<void> {
+        if (!this._connector) {
+            throw Error('Cannot call replaceTrack before start()');
+        }
+        const stream = this._connector.stream;
+        if (!stream) {
+            throw Error('Cannot call replaceTrack without a stream');
+        }
+
+        let track = null;
+        if (media !== null) {
+            if ('kind' in media) {
+                // MediaStreamTrack
+                if (media.kind !== kind) {
+                    throw Error(
+                        `replaceTrack: provided track kind "${media.kind}" does not match requested kind "${kind}"`
+                    );
+                }
+                track = media;
+            } else {
+                // MediaStream
+                const tracks = kind === 'video' ? media.getVideoTracks() : media.getAudioTracks();
+                track = tracks[0] ?? null;
+            }
+        }
+
+        await this._connector.replaceTrack(kind, track);
+
+        if (kind === 'video') {
+            stream.getVideoTracks().forEach(t => stream.removeTrack(t));
+        } else {
+            stream.getAudioTracks().forEach(t => stream.removeTrack(t));
+        }
+        if (track) {
+            stream.addTrack(track);
+        }
+    }
+
     private _computeVideoBitrate(abr: ABRAbstract) {
         if (!this._controller || this._videoBitrateFixed) {
             return;

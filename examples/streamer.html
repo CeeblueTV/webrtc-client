@@ -111,10 +111,34 @@
                     </div>
                 </div>
 
+                <!-- Devices and Resolution -->
+                <div class="row mb-3">
+                    <div class="form-group col-sm-4">
+                        <label class="mb-1">Camera</label>
+                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedVideoDeviceId" @change="onCameraSelectionChange">
+                            <option value="disabled">Disabled</option>
+                            <option v-for="d in videoInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-sm-4">
+                        <label class="mb-1">Microphone</label>
+                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedAudioDeviceId" @change="onMicSelectionChange">
+                            <option value="disabled">Disabled</option>
+                            <option v-for="d in audioInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Microphone' }}</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-sm-4">
+                        <label class="mb-1">Resolution</label>
+                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedResolutionKey" @change="onResolutionSelectionChange">
+                            <option v-for="opt in resolutionOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="row mb-5 ml-1 mr-1">
                     <div class="col-sm p-2">
                         <div class="row">
-                            <div class="col-sm">
+                            <div class="col-4 form-group">
                                 <select :disabled="!isIdle()" class="custom-select" v-model="streaming.bitrate">
                                     <option disabled selected>Target bitrate</option>
                                     <option value="700000">0.7 Mbps</option>
@@ -130,32 +154,13 @@
                                     <option value="5000000">5 Mbps</option>
                                 </select>
                             </div>
-                            <div class="col-sm">
-                                <!--            <select :disabled="!isIdle()" class="custom-select" v-model="streaming.resolution">-->
-                                <!--              <option disabled selected>Target resolution</option>-->
-                                <!--              <option value="1">640x480</option>-->
-                                <!--            </select>-->
+                            <div class="col-3 form-check form-group">
+                                <input :disabled="!isIdle()" class="form-check-input" id="faceCheck" type="checkbox" v-model="faceModeChecked">
+                                <label class="form-check-label" for="faceCheck">Face mode</label>
                             </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-2 p-2">
-                        <div class="d-flex justify-content-center">
-                            <button :disabled="!isIdle()" class="btn btn-light" type="button" v-on:click="changeFacingMode()">
-                                <i class="fas" v-bind:class="facingModeClassObject"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-sm p-2">
-                        <div class="d-flex justify-content-between">
-                            <div class="form-check">
+                            <div class="col-3 form-check form-group">
                                 <input :disabled="!isIdle()" class="form-check-input" id="landscapeCheck" type="checkbox" v-model="permanentLandscape">
                                 <label class="form-check-label" for="landscapeCheck">Landscape</label>
-                            </div>
-
-                            <div>
-                                <button :disabled="!isIdle()" class="btn btn-light" type="button" v-on:click="mute()">
-                                    <i class="" v-bind:class="mutedClassObject"></i>
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -171,9 +176,6 @@
 
         </div>
 
-        <!-- development version, includes helpful console warnings -->
-        <!--<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>-->
-        <!-- production version, optimized for size and speed -->
         <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
         <script type="module">
             import { Streamer, StreamerStats, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.bundle.js";
@@ -188,6 +190,7 @@
             const DEFAULT_STREAMING_HEIGHT = 720;
             const DEFAULT_STREAMING_FRAMERATE = 30;
             const DEFAULT_PERMANENT_LANDSCAPE = false;
+            const DEFAULT_FACE_MODE = true;
 
             const StreamingState = {
                 IDLE: 'IDLE',
@@ -215,10 +218,6 @@
                         height: DEFAULT_STREAMING_HEIGHT,
                         framerate: DEFAULT_STREAMING_FRAMERATE,
 
-                        facingMode: FacingMode.USER,
-
-                        muted: false,
-
                         rtp: {
                             nack: 0,
                             drop: 0,
@@ -226,6 +225,7 @@
                         videoSource: null
                     },
 
+                    faceModeChecked: DEFAULT_FACE_MODE,
                     permanentLandscape: DEFAULT_PERMANENT_LANDSCAPE,
                     overlayTimestamp: true,
                     streamer: null,
@@ -238,7 +238,15 @@
 
                     /* UI */
                     streamingButtonCaption: '',
-                    errorNotifications: []
+                    errorNotifications: [],
+
+                    /* Devices / Resolution */
+                    videoInputDevices: [],
+                    audioInputDevices: [],
+                    selectedVideoDeviceId: null,
+                    selectedAudioDeviceId: null,
+                    resolutionOptions: [{ key: 'auto', label: 'Auto (camera default)', w: null, h: null }],
+                    selectedResolutionKey: 'auto'
                 },
                 created() {
                     const options = Util.options();
@@ -254,11 +262,10 @@
                     this.overlayTimestamp = options.timestamp? true : false;
                 },
                 mounted() {
-                    this.$refs.canvas.setAttribute('width', this.streaming.width);
-                    this.$refs.canvas.setAttribute('height', this.streaming.height);
+                    this.updateCanvasAndVideoSize();
 
-                    this.$refs.camera.setAttribute('width', this.streaming.width);
-                    this.$refs.camera.setAttribute('height', this.streaming.height);
+                    // populate device lists (labels require prior permission on some browsers)
+                    this.initDevices();
                 },
                 beforeUnmount() {
                     this.errorNotifications.forEach(e => {
@@ -269,21 +276,217 @@
                     });
                     this.errorNotifications = [];
                 },
-                computed: {
-                    facingModeClassObject() {
-                        return {
-                            'fas fa-image': this.streaming.facingMode === FacingMode.USER,
-                            'fas fa-user-alt': this.streaming.facingMode === FacingMode.ENVIRONMENT,
-                        };
-                    },
-                    mutedClassObject() {
-                        return {
-                            'fas fa-microphone-slash': this.streaming.muted,
-                            'fas fa-microphone': !this.streaming.muted,
-                        };
-                    }
-                },
                 methods: {
+                    /* Devices & Resolution */
+                    async initDevices() {
+                        try {
+                            // Trick to get device labels.
+                            const devices0 = await navigator.mediaDevices.enumerateDevices();
+                            const hasLabels = devices0.some(d => d.label);
+                            if (!hasLabels) {
+                                try {
+                                    const userMedia = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                                    this.stopTracks(userMedia);
+                                } catch (e) {
+                                }
+                            }
+                            await this.refreshDeviceLists();
+                        } catch (e) {
+                            this.showErrorMessage('Unable to enumerate media devices. ' + Util.stringify(e));
+                        }
+                    },
+                    async refreshDeviceLists() {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        this.videoInputDevices = devices.filter(d => d.kind === 'videoinput');
+                        this.audioInputDevices = devices.filter(d => d.kind === 'audioinput');
+                        if (!this.selectedVideoDeviceId && this.videoInputDevices.length) {
+                            this.selectedVideoDeviceId = this.videoInputDevices[0].deviceId;
+                        }
+                        if (!this.selectedAudioDeviceId && this.audioInputDevices.length) {
+                            this.selectedAudioDeviceId = this.audioInputDevices[0].deviceId;
+                        }
+                    },
+                    buildResolutionOptionsFromCapabilities(cap) {
+                        // Note that this list may not fit with the capabilities of the camera
+                        // This is just an example to show how to build a list of resolutions.
+                        const PRESETS = [
+                            [640, 360], [640, 480], [960, 540], [1280, 720], [1600, 900],
+                            [1920, 1080], [2560, 1440], [3840, 2160]
+                        ];
+                        const opts = [{ key: 'auto', label: 'Auto (camera default)', w: null, h: null }];
+                        if (!cap || !cap.width || !cap.height) {
+                            return opts;
+                        }
+                        const wmin = cap.width.min || 0, wmax = cap.width.max || 3840;
+                        const hmin = cap.height.min || 0, hmax = cap.height.max || 2160;
+                        for (const p of PRESETS) {
+                            const w = p[0], h = p[1];
+                            if (w >= wmin && w <= wmax && h >= hmin && h <= hmax) {
+                                opts.push({ key: w + 'x' + h, label: w + '×' + h, w: w, h: h });
+                            }
+                        }
+                        return opts;
+                    },
+                    async updateResolutionOptionsForTrack(track) {
+                        try {
+                            const cap = track.getCapabilities ? track.getCapabilities() : null;
+                            this.resolutionOptions = this.buildResolutionOptionsFromCapabilities(cap);
+                            if (!this.resolutionOptions.find(function(o){ return o.key === app.selectedResolutionKey; })) {
+                                this.selectedResolutionKey = 'auto';
+                            }
+                        } catch (e) {
+                            this.resolutionOptions = [{ key: 'auto', label: 'Auto (camera default)', w: null, h: null }];
+                        }
+                    },
+                    getCurrentConnectorTrack(kind) {
+                        const s = this.streamer && this.streamer.connector && this.streamer.connector.stream;
+                        if (!s) {
+                            return null;
+                        }
+                        return kind === 'video' ? s.getVideoTracks()[0] : s.getAudioTracks()[0];
+                    },
+                    
+                    // Stop all tracks in a MediaStream except the specified track
+                    stopTracks(userMedia, exceptTrack) {
+                        userMedia.getTracks().forEach(track => {
+                            if (track !== exceptTrack) {
+                                track.stop();
+                            }
+                        });
+                    },
+                    // Stop a track if it has a stop method
+                    safeStopTrack(track) {
+                        if (track && typeof track.stop === 'function') {
+                            try { track.stop(); } catch (e) {}
+                        }
+                    },
+                    async onCameraSelectionChange() {
+                        if (!this.isStreaming()) {
+                            return;
+                        }
+                        try {
+                            const oldTrack = this.getCurrentConnectorTrack('video');
+
+                            if (this.selectedVideoDeviceId === 'disabled') {
+                                await this.tryReplaceTrack('video', null);
+                                this.replacePreviewTrack('video', null);
+                                this.safeStopTrack(oldTrack);
+                                return;
+                            }
+                            const userMedia = await navigator.mediaDevices.getUserMedia({
+                                video: { deviceId: { exact: this.selectedVideoDeviceId } },
+                                audio: false
+                            });
+                            const newTrack = userMedia.getVideoTracks()[0];
+                            await this.tryReplaceTrack('video', newTrack);
+                            this.replacePreviewTrack('video', newTrack);
+                            await this.updateResolutionOptionsForTrack(newTrack);
+                            this.stopTracks(userMedia, newTrack);
+                            this.safeStopTrack(oldTrack);
+                        } catch (e) {
+                            this.showErrorMessage('Failed to switch camera: ' + Util.stringify(e));
+                        }
+                    },
+                    async onMicSelectionChange() {
+                        if (!this.isStreaming()) {
+                            return;
+                        }
+                        try {
+                            const oldTrack = this.getCurrentConnectorTrack('audio');
+
+                            if (this.selectedAudioDeviceId === 'disabled') {
+                                await this.tryReplaceTrack('audio', null);
+                                this.replacePreviewTrack('audio', null);
+                                this.safeStopTrack(oldTrack);
+                                return;
+                            }
+                            const userMedia = await navigator.mediaDevices.getUserMedia({
+                                audio: { deviceId: { exact: this.selectedAudioDeviceId } },
+                                video: false
+                            });
+                            const newTrack = userMedia.getAudioTracks()[0];
+                            await this.tryReplaceTrack('audio', newTrack);
+                            this.replacePreviewTrack('audio', newTrack);
+                            this.stopTracks(userMedia, newTrack);
+                            this.safeStopTrack(oldTrack);
+                        } catch (e) {
+                            this.showErrorMessage('Failed to switch microphone: ' + Util.stringify(e));
+                        }
+                    },
+                    async onResolutionSelectionChange() {
+                        const elStream = this.$refs.camera.srcObject;
+                        const track = elStream && elStream.getVideoTracks()[0];
+                        if (!track) {
+                            return;
+                        }
+                        var opt = this.resolutionOptions.find(function(o){ return o.key === app.selectedResolutionKey; });
+                        const isAuto = !opt || !opt.w || !opt.h;
+
+                        if (track.applyConstraints) {
+                            try {
+                                if (isAuto) {
+                                    await track.applyConstraints({ width: undefined, height: undefined });
+                                    this.updateCanvasAndVideoSize();
+                                } else {
+                                    await track.applyConstraints({ width: { exact: opt.w }, height: { exact: opt.h } });
+                                    this.updateCanvasAndVideoSize(opt.w, opt.h);
+                                }
+                                return;
+                            } catch (e) {
+                                log('applyConstraints failed; falling back to getUserMedia', e).warn();
+                            }
+                        }
+
+                        try {
+                            log('Applying resolution constraints via getUserMedia', isAuto ? 'auto' : (opt.w + 'x' + opt.h)).info();
+                            const userMedia = await navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    deviceId: this.selectedVideoDeviceId ? { exact: this.selectedVideoDeviceId } : undefined,
+                                    width: isAuto? undefined : { exact: opt.w }, 
+                                    height: isAuto? undefined : { exact: opt.h }
+                                },
+                                audio: false
+                            });
+                            const newTrack = userMedia.getVideoTracks()[0];
+
+                            await this.tryReplaceTrack('video', newTrack);
+                            this.replacePreviewTrack('video', newTrack);
+
+                            this.updateCanvasAndVideoSize(isAuto? DEFAULT_STREAMING_WIDTH : opt.w, isAuto? DEFAULT_STREAMING_HEIGHT : opt.h);
+
+                            await this.updateResolutionOptionsForTrack(newTrack);
+                            this.stopTracks(userMedia, newTrack);
+                        } catch (e) {
+                            this.showErrorMessage('Resolution not supported by the current camera.');
+                        }
+                    },
+                    async tryReplaceTrack(kind, newTrack) {
+                        try {
+                            await this.streamer.replaceTrack(kind, newTrack);
+                            return;
+                        } catch (e) {
+                            this.showErrorMessage(`Failed to replace ${kind} track: ${Util.stringify(e)}`, true);
+                        }
+                    },
+                    replacePreviewTrack(kind, newTrack) {
+                        var elStream = this.$refs.camera.srcObject || new MediaStream();
+                        var toRemove = kind === 'video' ? elStream.getVideoTracks() : elStream.getAudioTracks();
+                        toRemove.forEach(function(t){ elStream.removeTrack(t); });
+                        if (newTrack) {
+                            elStream.addTrack(newTrack);
+                        }
+                        this.$refs.camera.srcObject = elStream;
+                        this.$refs.camera.play();
+                    },
+                    updateCanvasAndVideoSize(width = DEFAULT_STREAMING_WIDTH, height = DEFAULT_STREAMING_HEIGHT) {
+                        this.streaming.width = width;
+                        this.streaming.height = height;
+                        this.$refs.canvas.setAttribute('width', width);
+                        this.$refs.canvas.setAttribute('height', height);
+                        this.$refs.camera.setAttribute('width', width);
+                        this.$refs.camera.setAttribute('height', height);
+                    },
+
                     updateRTP() {
                         if (this.streamer.controller) {
                             this.streamer.setRTPProps(this.streaming.rtp.nack, this.streaming.rtp.drop);
@@ -298,28 +501,24 @@
                             this.stopStreaming();
                         }
                     },
-                    changeFacingMode() {
-                        if (this.streaming.facingMode === FacingMode.USER) {
-                            this.streaming.facingMode = FacingMode.ENVIRONMENT;
-                        } else {
-                            this.streaming.facingMode = FacingMode.USER;
-                        }
-                    },
-                    mute() {
-                        this.streaming.muted = !this.streaming.muted;
-                    },
                     captureMediaStream() {
                         log('Capturing media stream ...').info();
 
+                        const videoConstraints = this.selectedVideoDeviceId === 'disabled' ? false : {
+                            deviceId: this.selectedVideoDeviceId ? { exact: this.selectedVideoDeviceId } : undefined,
+                            facingMode: this.faceModeChecked ? FacingMode.USER : FacingMode.ENVIRONMENT,
+                            frameRate: this.streaming.framerate,
+                            width: { ideal: this.streaming.width },
+                            height: { ideal: this.streaming.height }
+                        };
+                        const audioConstraints = this.selectedAudioDeviceId === 'disabled' ? false : {
+                            deviceId: this.selectedAudioDeviceId ? { exact: this.selectedAudioDeviceId } : undefined
+                        };
+
                         return navigator.mediaDevices
                             .getUserMedia({
-                                audio: !this.streaming.muted,
-                                video: {
-                                    facingMode: this.streaming.facingMode,
-                                    frameRate: this.streaming.framerate,
-                                    width: { ideal: this.streaming.width },
-                                    height: { ideal: this.streaming.height }
-                                }
+                                audio: audioConstraints,
+                                video: videoConstraints
                             })
                             .then(stream => {
                                 this.$refs.camera.volume = 0;
@@ -327,6 +526,15 @@
                                 this.$refs.camera.srcObject = stream;
                                 this.$refs.camera.play();
 
+                                const videoTrack = stream.getVideoTracks()[0];
+                                if (videoTrack) {
+                                    return this.updateResolutionOptionsForTrack(videoTrack).then(function(){ 
+                                        return stream; 
+                                    });
+                                }
+                                return stream;
+                            })
+                            .then(stream => {
                                 this.onDrawFrame.count = 0;
                                 if(this.diagnostics) {
                                     this.diagnostics = { timestamps: []};
@@ -355,7 +563,7 @@
 
                         this.captureMediaStream()
                             .then(stream => {
-                                log('Start streaming...').info();
+                                log(`Start streaming... (stream : ${stream})`).info();
                                 if (!stream) {
                                     this.state = StreamingState.IDLE;
                                     return;
@@ -404,6 +612,10 @@
                         if(error) {
                             log('onStreamingStop', error).error();
                             this.showErrorMessage(error.name, true);
+                            if (error.name === 'Replace track failed') {
+                                log('onStreamingStop: Restarting...').warn();
+                                this.restarting = true;
+                            }
                         } else {
                             log('onStreamingStop').info();
                         }
@@ -417,6 +629,8 @@
                             this.streaming.videoSource.stop();
                             this.streaming.videoSource = null;
                         }
+                        this.safeStopTrack(this.getCurrentConnectorTrack('audio'));
+                        this.safeStopTrack(this.getCurrentConnectorTrack('video'));
                         this.streamer = null;
 
                         this.clearFrame();
@@ -426,6 +640,7 @@
 
                             setTimeout(() => {
                                 log('Planned restarting...').info();
+                                this.state = StreamingState.PROCESSING;
                                 this.startStreaming();
                             }, 100);
                         }
@@ -445,7 +660,7 @@
                         log('* SetupLandscapeAnimation').info();
                         const videoTrack = cameraStream.getVideoTracks()[0];
 
-                        const capabilities = videoTrack.getCapabilities();
+                        const capabilities = videoTrack.getCapabilities?.() || {};
                         log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
 
                         try {
@@ -597,7 +812,7 @@
                     closeErrorMessage(notification) {
                         this.errorNotifications = this.errorNotifications.filter(e => e.timestamp !== notification.timestamp);
                         clearTimeout(notification.closeTimeout);
-                    },
+                    }
                 }
             });
 
