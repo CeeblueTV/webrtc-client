@@ -430,15 +430,15 @@
                             }, 100);
                         }
                     },
-                    onRTPProps(nack, drop) {
+                    onRTPProps(props) {
                         log('* onRTPProps').info();
 
-                        if (nack) {
-                            this.streaming.rtp.nack = nack;
+                        if (props && props.nack != null) {
+                            this.streaming.rtp.nack = props.nack;
                         }
 
-                        if (drop) {
-                            this.streaming.rtp.drop = drop;
+                        if (props && props.drop != null) {
+                            this.streaming.rtp.drop = props.drop;
                         }
                     },
                     setupLandscapeAnimation(cameraStream) {
