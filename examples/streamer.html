@@ -288,8 +288,22 @@
                     },
                     async refreshDeviceLists() {
                         const devices = await navigator.mediaDevices.enumerateDevices();
-                        this.videoInputDevices = devices.filter(d => d.kind === 'videoinput');
-                        this.audioInputDevices = devices.filter(d => d.kind === 'audioinput');
+                        const groups = new Set();
+                        this.videoInputDevices = devices.filter(d => { // keep only unique video devices
+                            if (d.kind !== 'videoinput' || groups.has(d.groupId)) {
+                                return false;
+                            }
+                            groups.add(d.groupId);
+                            return true;
+                        });
+                        groups.clear();
+                        this.audioInputDevices = devices.filter(d => { // keep only unique audio devices
+                            if (d.kind !== 'audioinput' || groups.has(d.groupId)) {
+                                return false;
+                            }
+                            groups.add(d.groupId);
+                            return true;
+                        });
                         if (!this.selectedVideoDeviceId && this.videoInputDevices.length) {
                             this.selectedVideoDeviceId = this.videoInputDevices[0].deviceId;
                         }
