@@ -114,17 +114,17 @@
                 <!-- Devices and Resolution -->
                 <div class="row mb-3">
                     <div class="form-group col-sm-4">
-                        <label class="mb-1">Camera</label>
-                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedVideoDeviceId" @change="onCameraSelectionChange">
-                            <option value="disabled">Disabled</option>
-                            <option v-for="d in videoInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
-                        </select>
-                    </div>
-                    <div class="form-group col-sm-4">
                         <label class="mb-1">Microphone</label>
                         <select class="custom-select" :disabled="isProcessing()" v-model="selectedAudioDeviceId" @change="onMicSelectionChange">
                             <option value="disabled">Disabled</option>
                             <option v-for="d in audioInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Microphone' }}</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-sm-4">
+                        <label class="mb-1">Camera</label>
+                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedVideoDeviceId" @change="onCameraSelectionChange">
+                            <option value="disabled">Disabled</option>
+                            <option v-for="d in videoInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
                         </select>
                     </div>
                     <div class="form-group col-sm-4">
@@ -135,34 +135,26 @@
                     </div>
                 </div>
 
-                <div class="row mb-5 ml-1 mr-1">
-                    <div class="col-sm p-2">
-                        <div class="row">
-                            <div class="col-4 form-group">
-                                <select :disabled="!isIdle()" class="custom-select" v-model="streaming.bitrate">
-                                    <option disabled selected>Target bitrate</option>
-                                    <option value="700000">0.7 Mbps</option>
-                                    <option value="1000000">1 Mbps</option>
-                                    <option value="1200000">1.2 Mbps</option>
-                                    <option value="1400000">1.4 Mbps</option>
-                                    <option value="1600000">1.6 Mbps</option>
-                                    <option value="1800000">1.8 Mbps</option>
-                                    <option value="2000000">2 Mbps</option>
-                                    <option value="2500000">2.5 Mbps</option>
-                                    <option value="3000000">3 Mbps</option>
-                                    <option value="4000000">4 Mbps</option>
-                                    <option value="5000000">5 Mbps</option>
-                                </select>
-                            </div>
-                            <div class="col-3 form-check form-group">
-                                <input :disabled="!isIdle()" class="form-check-input" id="faceCheck" type="checkbox" v-model="faceModeChecked">
-                                <label class="form-check-label" for="faceCheck">Face mode</label>
-                            </div>
-                            <div class="col-3 form-check form-group">
-                                <input :disabled="!isIdle()" class="form-check-input" id="landscapeCheck" type="checkbox" v-model="permanentLandscape">
-                                <label class="form-check-label" for="landscapeCheck">Landscape</label>
-                            </div>
-                        </div>
+                <div class="row">
+                    <div class="col-4 form-group">
+                        <select :disabled="!isIdle()" class="custom-select" v-model="streaming.bitrate">
+                            <option disabled selected>Target bitrate</option>
+                            <option value="700000">0.7 Mbps</option>
+                            <option value="1000000">1 Mbps</option>
+                            <option value="1200000">1.2 Mbps</option>
+                            <option value="1400000">1.4 Mbps</option>
+                            <option value="1600000">1.6 Mbps</option>
+                            <option value="1800000">1.8 Mbps</option>
+                            <option value="2000000">2 Mbps</option>
+                            <option value="2500000">2.5 Mbps</option>
+                            <option value="3000000">3 Mbps</option>
+                            <option value="4000000">4 Mbps</option>
+                            <option value="5000000">5 Mbps</option>
+                        </select>
+                    </div>
+                    <div class="col-3 form-check form-group">
+                        <input :disabled="!isIdle()" class="form-check-input" id="landscapeCheck" type="checkbox" v-model="permanentLandscape">
+                        <label class="form-check-label" for="landscapeCheck">Landscape</label>
                     </div>
                 </div>
 
@@ -225,7 +217,6 @@
                         videoSource: null
                     },
 
-                    faceModeChecked: DEFAULT_FACE_MODE,
                     permanentLandscape: DEFAULT_PERMANENT_LANDSCAPE,
                     overlayTimestamp: true,
                     streamer: null,
@@ -506,7 +497,6 @@
 
                         const videoConstraints = this.selectedVideoDeviceId === 'disabled' ? false : {
                             deviceId: this.selectedVideoDeviceId ? { exact: this.selectedVideoDeviceId } : undefined,
-                            facingMode: this.faceModeChecked ? FacingMode.USER : FacingMode.ENVIRONMENT,
                             frameRate: this.streaming.framerate,
                             width: { ideal: this.streaming.width },
                             height: { ideal: this.streaming.height }
@@ -563,7 +553,7 @@
 
                         this.captureMediaStream()
                             .then(stream => {
-                                log(`Start streaming... (stream : ${stream})`).info();
+                                log(`Start streaming... (stream : ${stream? 'true' : 'false'})`).info();
                                 if (!stream) {
                                     this.state = StreamingState.IDLE;
                                     return;
