@@ -181,10 +181,17 @@ export class Streamer extends EventEmitter {
         return this._videoBitrateConstraint;
     }
 
+    /**
+     * The current audio track of the stream, or null if audio track is disabled.
+     */
     get audioTrack(): MediaStreamTrack | null {
         const stream = this._connector && this._connector.stream;
         return stream ? stream.getAudioTracks()[0] || null : null;
     }
+
+    /**
+     * The current video track of the stream, or null if video track is disabled.
+     */
     get videoTrack(): MediaStreamTrack | null {
         const stream = this._connector && this._connector.stream;
         return stream ? stream.getVideoTracks()[0] || null : null;
