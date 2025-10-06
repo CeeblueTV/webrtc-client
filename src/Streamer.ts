@@ -181,6 +181,15 @@ export class Streamer extends EventEmitter {
         return this._videoBitrateConstraint;
     }
 
+    get audioTrack(): MediaStreamTrack | null {
+        const stream = this._connector && this._connector.stream;
+        return stream ? stream.getAudioTracks()[0] || null : null;
+    }
+    get videoTrack(): MediaStreamTrack | null {
+        const stream = this._connector && this._connector.stream;
+        return stream ? stream.getVideoTracks()[0] || null : null;
+    }
+
     private _connector?: IConnector;
     private _controller?: IController;
     private _mediaReport?: MediaReport;
@@ -196,6 +205,26 @@ export class Streamer extends EventEmitter {
     constructor(private Connector?: { new (connectParams: Connect.Params, stream: MediaStream): IConnector }) {
         super();
         this._videoBitrateFixed = false;
+    }
+
+    /**
+     * Replace the audio track while streaming.
+     *
+     * @param track MediaStreamTrack to set as audio track, or null to remove the audio track
+     * @returns {Promise<void>} A promise that resolves when the track is set or removed
+     */
+    setAudioTrack(track: MediaStreamTrack | null): Promise<void> {
+        return this._replaceTrack('audio', track);
+    }
+
+    /**
+     * Replace the video track while streaming.
+     *
+     * @param track MediaStreamTrack to set as video track, or null to remove the video track
+     * @returns {Promise<void>} A promise that resolves when the track is set or removed
+     */
+    setVideoTrack(track: MediaStreamTrack | null): Promise<void> {
+        return this._replaceTrack('video', track);
     }
 
     /**
@@ -330,30 +359,24 @@ export class Streamer extends EventEmitter {
      * @param kind 'audio' | 'video'
      * @param media A MediaStreamTrack, a MediaStream (first track of kind is used), or null to remove/mute that kind.
      */
-    async replaceTrack(kind: 'audio' | 'video', media: MediaStreamTrack | MediaStream | null): Promise<void> {
+    private async _replaceTrack(kind: 'audio' | 'video', media: MediaStreamTrack | null): Promise<void> {
         if (!this._connector) {
-            throw Error('Cannot call replaceTrack before start()');
+            throw Error('Cannot call _replaceTrack before start()');
         }
         const stream = this._connector.stream;
         if (!stream) {
-            throw Error('Cannot call replaceTrack without a stream');
+            throw Error('Cannot call _replaceTrack without a stream');
         }
 
         let track = null;
         if (media !== null) {
-            if ('kind' in media) {
-                // MediaStreamTrack
-                if (media.kind !== kind) {
-                    throw Error(
-                        `replaceTrack: provided track kind "${media.kind}" does not match requested kind "${kind}"`
-                    );
-                }
-                track = media;
-            } else {
-                // MediaStream
-                const tracks = kind === 'video' ? media.getVideoTracks() : media.getAudioTracks();
-                track = tracks[0] ?? null;
+            // MediaStreamTrack
+            if (media.kind !== kind) {
+                throw Error(
+                    `_replaceTrack: provided track kind "${media.kind}" does not match requested kind "${kind}"`
+                );
             }
+            track = media;
         }
 
         await this._connector.replaceTrack(kind, track);

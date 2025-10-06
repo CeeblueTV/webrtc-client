@@ -467,8 +467,11 @@
                     },
                     async tryReplaceTrack(kind, newTrack) {
                         try {
-                            await this.streamer.replaceTrack(kind, newTrack);
-                            return;
+                            if (kind === 'audio') {
+                                await this.streamer.setAudioTrack(newTrack);
+                            } else {
+                                await this.streamer.setVideoTrack(newTrack);
+                            }
                         } catch (e) {
                             this.showErrorMessage(`Failed to replace ${kind} track: ${Util.stringify(e)}`, true);
                         }
