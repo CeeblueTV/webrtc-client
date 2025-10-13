@@ -344,11 +344,7 @@
                         }
                     },
                     getCurrentConnectorTrack(kind) {
-                        const s = this.streamer && this.streamer.connector && this.streamer.connector.stream;
-                        if (!s) {
-                            return null;
-                        }
-                        return kind === 'video' ? s.getVideoTracks()[0] : s.getAudioTracks()[0];
+                        return this.streamer? (kind === 'video' ? this.streamer.videoTrack : this.streamer.audioTrack) : null;
                     },
                     
                     // Stop all tracks in a MediaStream except the specified track

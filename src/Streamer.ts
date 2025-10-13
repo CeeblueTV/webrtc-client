@@ -186,7 +186,7 @@ export class Streamer extends EventEmitter {
      */
     get audioTrack(): MediaStreamTrack | null {
         const stream = this._connector && this._connector.stream;
-        return stream ? stream.getAudioTracks()[0] || null : null;
+        return stream?.getAudioTracks()?.[0] ?? null;
     }
 
     /**
@@ -194,7 +194,7 @@ export class Streamer extends EventEmitter {
      */
     get videoTrack(): MediaStreamTrack | null {
         const stream = this._connector && this._connector.stream;
-        return stream ? stream.getVideoTracks()[0] || null : null;
+        return stream?.getVideoTracks()?.[0] ?? null;
     }
 
     private _connector?: IConnector;
