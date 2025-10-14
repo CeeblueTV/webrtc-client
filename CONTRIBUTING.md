@@ -4,20 +4,14 @@ Your contributions to this project are highly appreciated. Please adhere to this
 
 By contributing code to this project, you agree to license your contribution under the [GNU Affero General Public License](/LICENSE).
 
-## Code Formatting and Linting Process
-
-In our development workflow, we prioritize code quality through the use of the highly opinionated code formatter, Prettier. We have automated the formatting and linting processes on every staged commit to ensure that our codebase adheres to consistent standards.
-
-Feel free to reach out if you have any questions or need further clarification on our code formatting and linting practices.
-
 ## Issues
 
 Use issues exclusively for bug reporting and proposing enhancements.
 
 When reporting bugs, describe the problem clearly and provide all relevant information to replicate it. Describe both the expected and actual behavior as detailed as possible.
 
-🐛 **[File a bug report](https://github.com/CeeblueTV/webrtc-client/issues/new?assignees=&labels=&template=01-bug.md&title=)**
-✨ **[Propose enhancement](https://github.com/CeeblueTV/webrtc-client/issues/new?assignees=&labels=&template=02-enhancement.md&title=)**
+- 🐛 **[File a bug report](https://github.com/CeeblueTV/webrtc-client/issues/new?assignees=&labels=&template=01-bug.md&title=)**
+- ✨ **[Propose enhancement](https://github.com/CeeblueTV/webrtc-client/issues/new?assignees=&labels=&template=02-enhancement.md&title=)**
 
 ## Pull Requests
 
@@ -27,7 +21,22 @@ To contribute fork the project, then submit a Pull-Request with your changes, ta
 
 We use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) for continuous deployment, versioning, and changelog creation.
 
-Once `npm install` is executed, git hooks aid in the committing process. Should the hooks not install automatically, run `npm rebuild husky`. Use `git commit` to commit your changes; [Commitizen](https://github.com/commitizen/cz-cli) assists in crafting a structured commit message. To complete the commit, close the text editor that appears (typically with ctrl + x), and then `git push` as usual.
+Once `npm install` is executed, **git hooks** provided by Husky are set up to assist in the committing process. These hooks automatically enforce commit message standards using **commitlint**, as configured in `.husky/prepare-commit-msg`. This ensures that our commit messages are consistent and well-structured, which helps both our team and our tools work more effectively.
+
+If the hooks do not install automatically, you can run:
+```shell
+npm rebuild husky
+```
+
+## Code Formatting and Linting Process
+
+In our development workflow, we prioritize code quality through the use of the highly opinionated code formatter, Prettier. We have automated the formatting and linting processes on every staged commit to ensure that our codebase adheres to consistent standards.
+
+Feel free to reach out if you have any questions or need further clarification on our code formatting and linting practices.
+
+## Commit Often
+
+We encourage you to commit early and often. Making smaller, incremental commits not only helps keep the project history clear, but also makes the review process easier and more effective for the team. Frequent commits enable quicker feedback, simplify code reviews, and reduce the likelihood of merge conflicts.
 
 ## [Developer's Certificate of Origin 1.1](https://github.com/nodejs/node/blob/main/CONTRIBUTING.md#developers-certificate-of-origin-11)
 

@@ -238,6 +238,9 @@ Alternatively, start the http-server and navigate to localhost:
 npx http-server . -p 8081
 http://localhost:8081/docs/
 ```
+> 📌 **NOTE**
+>
+>  An online, continuously maintained version of the latest released documentation is available at https://ceebluetv.github.io/webrtc-client/
 
 ## Contribution
 
