@@ -1,4 +1,5 @@
-[Requirements](#requirements) | [Usage](#usage) | [Examples](#examples) | [Building locally](#building-locally) | [Documentation](#documentation) | [Contribution](#contribution) | [License](#license)
+[Requirements](#requirements) | [Usage](#usage) | [Examples](#examples) | [Building locally](#building-locally) | [Logs](#logs) | [Documentation](#documentation) | [Contribution](#contribution) | [License](#license)
+
 
 # Ceeblue WebRTC Client
 [![npm](https://img.shields.io/npm/v/%40ceeblue%2Fwebrtc-client)](https://npmjs.org/package/@ceeblue/webrtc-client)
@@ -10,7 +11,7 @@ The client library addresses common challenges faced by developers:
 - **Firewall Traversal** - Implements TURN to manage firewall traversal.
 - **Security** - Ensures secure streaming through encryption and authentication.
 - **Quality of Service (QoS)** - Handles latency, packet loss, and other optimizations.
-- **Signaling** - Unifies different signaling capabilities over WebSocket and WHIP/WHEP into a single, easy-to-use interface, with enhanced communication robustness.
+- **Signaling** - Unifies different signaling capabilities over WebSocket and [WHIP]/[WHEP] into a single, easy-to-use interface, with enhanced communication robustness.
 - **Multi Bitrate Playback** - Enables the player to switch in real-time between multiple quality renditions based on network conditions and client capabilities.
 - **Adaptive Bitrate Streaming** - Allows the streamer to adapt its video bitrate in real-time based on network conditions and client capabilities.
 
@@ -22,26 +23,37 @@ The client library addresses common challenges faced by developers:
 > 
 > Use TURN wisely, it should be your last resort.
 
+
 ## Requirements
 
-| Item | Description |
-| --- | --- |
-| **Ceeblue Account** | To create a Stream, you will need an account with [Ceeblue Streaming Cloud](https://dashboard.ceeblue.tv). A trial account is sufficient. If you do not have one yet, you can request one on the [Ceeblue website](https://ceeblue.net/free-trial/). |
-| **Stream** | To use this library, you'll first need to create a stream either through [Ceeblue Cloud API](https://docs.ceeblue.net/reference) or on [the dashboard](https://dashboard.ceeblue.tv). Use the [Quick Start Guide](https://docs.ceeblue.net/reference/quick-start-guide) for fast results. |
-| **Node Package Manager (npm)** | Download and install from https://nodejs.org/en/download |
+#### 1. Node Package Manager (npm)
+Download and install npm from https://nodejs.org/en/download
+
+#### 2. Create a Ceeblue Account
+To create a Stream, you will need a Ceeblue account on [Ceeblue Cloud API] or [Ceeblue Dashboard]. A trial account is sufficient. If you do not have one yet, you can request one on the [Ceeblue website].
+
+#### 3. Create a Stream
+To use this library you'll first need to create a stream either through [Ceeblue Cloud API] or via the [Ceeblue Dashboard]. Use the [Quick Start Guide] for fast results.
+
+Once the stream is created, retrieve its `<endpoint>` from the API in the `signallingUri` field. The value takes the following form, with an `in+` prefix when the stream is transcoded, or `as+` when it is not:
+``` 
+wss://<hostname>/webrtc/in+12423351-d0a2-4f0f-98a0-015b73f934f2  
+```
+
+You will also need the `WebRTC <endpoint>` for playback, which is provided from API in the `uri` field. The value takes the following form, with an `out+` prefix when the stream is transcoded, or `as+` when it is not:
+```
+wss://<hostname>/webrtc/out+12423351-d0a2-4f0f-98a0-015b73f934f2
+```
+
+> [!NOTE]
+>
+> From [Ceeblue Dashboard] you can create an output `WebRTC endpoint` by clicking on the Viewer's eye 👁 button.
 
 > [!IMPORTANT]
-> 
-> The `<endPoint>` and `<streamName>` (UUID) variables are part of the URL used to access the stream, which will be provided by Ceeblue either via the [API](https://docs.ceeblue.net/reference) or the [dashboard](https://dashboard.ceeblue.tv).\
-> These variables are required for publishing or playing a stream. The WebRTC signaling URL format is as follows:
 >
-> ```
-> [wss|https]://<endPoint>/webrtc/<streamName>
-> ```
->
-> The `<endPoint>` is the host part of this URL, and `<streamName>` is the unique identifier for your stream.\
-> The signaling protocol can be either `wss` (WebSocket Secure) or `https` (for WHIP/WHEP).\
-> We **recommend** using `wss` for WebRTC because it unlocks additional features, such as adaptive bitrate (ABR).
+> By default, the signaling protocol uses a secure WebSocket channel `wss`, which enables additional features such as adaptive bitrate (ABR).  
+> Alternatively, if you use `https` instead you can switch respectively to [WHIP] and [WHEP].
+
 
 ## Usage
 
@@ -49,32 +61,28 @@ Add the library as a dependency to your project using:
 ```
 npm install @ceeblue/webrtc-client
 ```
-[Import](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) the library into your project with:
+Then [import] the library into your project with:
  ```javascript
 import * as WebRTC from '@ceeblue/webrtc-client';
 ```
 
 > [!TIP]
 > 
-> If your project uses TypeScript, it is recommended that you set the "target" property in your configuration to "ES6". This will align with our usage of ES6 features and ensure that your build succeeds.\
-> If you require a backwards-compatible [UMD](https://github.com/umdjs/umd) version, we recommend [building it locally](#building-locally).
-> 
+> If your project uses TypeScript, it is recommended to set `"target": "ES6"` in your configuration to align with our usage of ES6 features and ensures that your build will succeed.\
 > Set `"moduleResolution": "Node"` in **tsconfig.json** to ensure TypeScript resolves imports correctly for Node.js.
-> 
-> ```json
-> {
->    "compilerOptions": {
->       "target": "ES6",
->       "moduleResolution": "Node"
->    }
-> }
-> ```
+>   ```json
+>   {
+>      "compilerOptions": {
+>         "target": "ES6",
+>         "moduleResolution": "Node"
+>      }
+>   }
+>   ```
+> If you require a backwards-compatible [UMD] version, we recommend [building it locally](#building-locally).
 
 ### Publish a stream
 
-To publish a stream, use the [Streamer](./src/Streamer.ts) class.\
-Use the `<endPoint>` and `<streamName>` you received from the [Ceeblue Cloud API](https://docs.ceeblue.net/reference/post-inputs) or Dashboard.\
-For a full example, see streamer.html in [Examples](#examples).
+To publish a stream use the [Streamer](./src/Streamer.ts) class with the `<endpoint>` you saved while [creating the stream](#3-create-a-stream). A complete example is available in [streamer.html](./examples/player.html) under [Examples](#examples).
 
 ```javascript
 import { Streamer } from '@ceeblue/webrtc-client';
@@ -88,26 +96,16 @@ streamer.onStop = _ => {
 }
 const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
 streamer.start(stream, {
-   endPoint: <endPoint>,
-   streamName: <streamName>,
-   iceServer: {
-      urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
-      username: 'ceeblue', credential: 'ceeblue'
-   }
+   endPoint: 'wss://<hostname>/webrtc/in+12423351-d0a2-4f0f-98a0-015b73f934f2'
 });
 ```
-> [!IMPORTANT]
->
-> Given this URL: `wss://example.com/webrtc/in+aa3221a5-a715-4215-9e9d-711f2c9cfc45`\
-> **You can set:**
-> - `<endPoint> = example.com` and `<streamName> = in+aa3221a5-a715-4215-9e9d-711f2c9cfc45`, or
-> - `<endPoint> = wss://example.com/webrtc/in+aa3221a5-a715-4215-9e9d-711f2c9cfc45` (no separate `<streamName>` needed)
+> [!NOTE]
+> 
+> For complete details on the connection parameters, see the [Connect.Params type] in [web-utils project].
 
 ### Play a stream
 
-To play the stream, use the [Player](./src/Player.ts) class.\
-Use the `<endPoint>` and `<streamName>` you received from the [Ceeblue Cloud API](https://docs.ceeblue.net/reference/post-outputs) or Dashboard.\
-For a full example, see player.html in [Examples](#examples).
+To play the stream use the [Player](./src/Player.ts) class with the `WebRTC <endpoint>` you saved while [creating the stream](#3-create-a-stream). A complete example is available in [player.html](./examples/player.html) under [Examples](#examples).
 
 ```javascript
 import { Player } from '@ceeblue/webrtc-client';
@@ -122,130 +120,166 @@ player.onStop = _ => {
    console.log('stop playing');
 }
 player.start({
-   endPoint: <endPoint>,
-   streamName: <streamName>,
-   iceServer: {
-      urls: ['turn:' + <endPoint> + ':3478?transport=tcp', 'turn:' + <endPoint> + ':3478'],
-      username: 'ceeblue', credential: 'ceeblue'
-   }
+   endPoint: 'wss://<hostname>/webrtc/out+12423351-d0a2-4f0f-98a0-015b73f934f2'
 });
 ```
+> [!NOTE]
+> 
+> For complete details on the connection parameters, see the [Connect.Params type] in [web-utils project].
 
-> [!IMPORTANT]
-> 
-> When specifying your stream connection `<endPoint>` can be either:
-> - The **hostname** (e.g. example.com), or
-> - The **full URL** (e.g. wss://example.com/webrtc/out+aa3221a5-a715-4215-9e9d-711f2c9cfc45)
-> 
-> If you provide the **full URL** as `<endPoint>`, the library will automatically extract the `<streamName>` for you, no need to specify it separately.\
-> If you provide only the **hostname**, you must also specify the `<streamName>`. If you don’t, the connection will fail because we won’t know which stream to connect to. 
-> 
-> For full details on the available connection parameters, check out the Params type in [`Connect.ts` file from `web-utils`](https://github.com/CeeblueTV/web-utils/blob/main/src/Connect.ts).
 
 ## Examples
 
-To help you understand how to use the library, we've created three examples:
+To help you get started, we provide the following examples:
 
-- [/examples/streamer.html](./examples/streamer.html) Publish a stream with your webcam
-- [/examples/player.html](./examples/player.html) Play a stream
-- [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) Play a stream with timed metadata (Advanced; requires a stream with timecode)
+- [/examples/streamer.html](./examples/streamer.html) - Publish a stream with your webcam
+- [/examples/player.html](./examples/player.html) - Play a stream
+- [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) - Play a stream with timed metadata (Advanced; requires a stream with timecode)
 
-1. In your project folder, open Terminal and type this command to start a HTTP server locally:
+> [!TIP]
+> 
+> To serve the examples locally, run a [static http-server] in the project directory:
+>```
+>npx http-server . -p 8081
+>```
+>
 
-    ```console
-    npx http-server . -p 8081
-    ```
-
-2. Open the following address in your browser, replacing any placeholders in the URL with the variables from the [Ceeblue Cloud API](https://docs.ceeblue.net/reference/post-inputs) or Dashboard.
-
-   ```html
-   http://localhost:8081/examples/streamer.html?host=<endPoint>&stream=<streamName>
-   ```
-
-3. Click on **Start streaming**.\
-   The live stream from your webcam will start.\
-   If your browser asks for permission to access your camera, make sure you grant it.
-
-4. Open a separate browser window and enter the following address into the address bar, replacing any placeholders in the URL with the variables from the [Ceeblue Cloud API](https://docs.ceeblue.net/reference/post-outputs) or Dashboard.
+1. Open the streamer in your browser, with the `WebRTC <endpoint>` you saved while [creating the stream](#3-create-a-stream).
 
    ```html
-   http://localhost:8081/examples/player.html?host=<endPoint>&stream=<streamName>
+   http://localhost:8081/examples/streamer.html?endPoint=<endPoint>
    ```
 
-5. Click **Play** to start watching the live stream.
+2. Click on **Start streaming**. The live stream from your webcam will start.\
+   If your browser requests permission to access your camera, make sure to grant it.
+
+3. Open a separate browser window and go to the player URL below, using the same `WebRTC <endpoint>`.
+
+   ```html
+   http://localhost:8081/examples/player.html?endPoint=<endPoint>
+   ```
+
+4. Click **Play** to start watching the live stream.
+
 
 ## Building locally
 
-```console
+1. [Clone] this repository
+2. Enter the `webrtc-client` folder and run `npm install` to install packages dependencies.
+3. Execute `npm run build`. The output will be the following files placed in the **/dist/** folder:
+   - **webrtc-client.d.ts** - Typescript definitions file
+   - **webrtc-client.js** - NPM JavaScript library
+   - **webrtc-client.bundle.js** - Bundled browser JavaScript library
+```
 git clone https://github.com/CeeblueTV/webrtc-client.git
 cd webrtc-client
 npm install
 npm run build
 ```
-1. [Clone](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) this repository.
-2. Enter the `webrtc-client` folder.
-3. Run `npm install` to install packages dependencies.
-4. Execute `npm run build`.
 
-The following files will be created and placed in the **/dist/** folder:
-- **webrtc-client.d.ts:** Typescript definitions
-- **NPM binaries**
-  - **webrtc-client.js:** NPM JavaScript library
-  - **webrtc-client.js.map:** Source map that associates the NPM library with the original source files
-  - **webrtc-client.min.js:** Minified version of the NPM library, optimized for size
-  - **webrtc-client.min.js.map:** Source map that associates the NPM minified library with the original source files
-- **Browser binaries**
-  - **webrtc-client.bundle.js:** Browser JavaScript library
-  - **webrtc-client.bundle.js.map:** Source map that associates the browser library with the original source files
-  - **webrtc-client.bundle.min.js:** Minified version of the browser library, optimized for size
-  - **webrtc-client.bundle.min.js.map:** Source map that associates the browser minified library with the original source files
+> [!NOTE]
+>
+> Each JavaScript file is accompanied by a minified  `min.js` version and a `.map` source map file
 
 > [!TIP]
 >
-> The project uses ES modules by default.\
-> However, you can build it for other supported module systems (CommonJS or IIFE) using the following commands:
-> ```console
-> npm run build:cjs
-> npm run build:iife
-> ```
+> By default, the project format is ES module.\
+> However, you can build the project for the supported module systems (CommonJS or IIFE) using the following commands:
+>   ```
+>   npm run build:cjs
+>   npm run build:iife
+>   ```
 >  
 > The default target is ES6.\
-> If you want to manually test other targets (although they are not officially supported), you can experiment with:
-> ```console
-> npm run build -- --target esnext
-> npm run build:cjs -- --target esnext
-> ```
+> If you want to manually test other targets (even though they are not officially supported), you can experiment with:
+>   ```
+>   npm run build -- --target esnext
+>   npm run build:cjs -- --target esnext
+>   ```
 >
 > Run the watch command to automatically rebuild the bundles whenever changes are made:
-> ```console
-> npm run watch
-> ```
-> If you prefer to watch and build for a specific target, use one of these commands:
-> ```console
-> npm run watch:cjs
-> npm run watch:iife
-> ```
+>   ```
+>   npm run watch
+>   ```
+>
+> If you prefer to watch and build for a specific target, use one of the following  commands:
+>   ```
+>   npm run watch:cjs
+>   npm run watch:iife
+>   ```
+
+
+## Logs
+
+WebRTC uses the [Log Engine] of [web-utils project].
+
+There are four log levels:
+- `LogLevel.ERROR` - Unrecoverable error
+- `LogLevel.WARN`- Error which doesn't interrupt the current operation
+- `LogLevel.INFO`- Informational messages at a frequency acceptable in production
+- `LogLevel.DEBUG`- High-frequency messages intended for debugging
+
+By default, only `LogLevel.ERROR` is enabled. To change the level, use the following approach:
+
+```javascript
+import { utils }  from '@ceeblue/webrtc-client';
+const { log, LogLevel } = utils;
+log.level = LogLevel.INFO; // displays errors, warns and infos
+```
+
+To disable all logging, use this approach:
+```javascript
+import { utils }  from '@ceeblue/webrtc-client';
+const { log, } = utils;
+log.level = false; // suppresses all log output, the opposite `true` value displays all the logs
+```
+
+> [!IMPORTANT]
+>
+> Beyond basic filtering, the [Log Engine] of the [web-utils project] also provides advanced features such as subscription, interception, redirection, and log redefinition.
+
 
 ## Documentation
 
-This monorepo contains built-in API documentation, which can be generated using the following npm command:
-```console
+You can find the latest built-in API documentation here:\
+https://ceebluetv.github.io/webrtc-client/
+
+To build the documentation locally, run:
+```
 npm run build:docs
 ```
-Once generated, open `./docs/index.html` to view the documentation.\
-Alternatively, start the http-server and navigate to localhost:
-```console
-npx http-server . -p 8081
-http://localhost:8081/docs/
-```
-> 📌 **NOTE**
->
->  An online, continuously maintained version of the latest released documentation is available at https://ceebluetv.github.io/webrtc-client/
+This generates documentation files, which you can view by opening `./docs/index.html`.
+
+> [!TIP]
+> 
+> To serve the documentation locally, run a [static http-server] in the `./docs/` directory:
+>```
+>npx http-server . -p 8081
+>```
+> You can then access the documentation at http://localhost:8081/.
+
 
 ## Contribution
 
 All contributions are welcome. Please see [our contribution guide](/CONTRIBUTING.md) for details.
 
+
 ## License
 
 By contributing code to this project, you agree to license your contribution under the [GNU Affero General Public License](/LICENSE).
+
+
+[web-utils project]: https://github.com/CeeblueTV/web-utils
+[Log Engine]: https://ceebluetv.github.io/web-utils/interfaces/ILog.html
+[Clone]: https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository
+[UMD]: https://github.com/umdjs/umd
+[import]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules
+[Ceeblue Dashboard]: https://dashboard.ceeblue.tv
+[Ceeblue Cloud API]: https://docs.ceeblue.net/reference
+[Ceeblue website]: https://ceeblue.net/free-trial/
+[Quick Start Guide]: https://docs.ceeblue.net/reference/quick-start-guide
+[static http-server]: https://www.npmjs.com/package/http-server
+[Connect.Params type]: https://ceebluetv.github.io/web-utils/types/Connect.Params.html
+[WHIP]: https://www.ietf.org/archive/id/draft-ietf-wish-whip-01.html
+[WHEP]: https://www.ietf.org/archive/id/draft-murillo-whep-03.html
+
