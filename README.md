@@ -17,11 +17,8 @@ The client library addresses common challenges faced by developers:
 
 > [!CAUTION]
 >
-> Using TURN ensures near-universal connectivity, but introduces important tradeoffs:
-> - Relaying adds latency.
-> - TURN over TCP/TLS doesn’t handle congested networks well, video can freeze or slow down.
-> 
-> Use TURN wisely, it should be your last resort.
+> By default, TURN is enabled to ensure near-universal connectivity, but it can introduce important trade-offs (relaying adds latency, TCP/TLS doesn’t handle congested networks well), video may freeze or slow down.
+> You can disable it by configuring your own [Connect.Params.iceServer] to override default settings in [Streamer.start] or [Player.start] methods
 
 
 ## Requirements
@@ -51,8 +48,7 @@ wss://<hostname>/webrtc/out+12423351-d0a2-4f0f-98a0-015b73f934f2
 
 > [!IMPORTANT]
 >
-> By default, the signaling protocol uses a secure WebSocket channel `wss`, which enables additional features such as adaptive bitrate (ABR).  
-> Alternatively, if you use `https` instead you can switch respectively to [WHIP] and [WHEP].
+> The signalling protocol can be either `wss` (WebSocket Secure) or `https` (for [WHIP]/WHEP). By default, we recommend `wss` to enable additional features such as adaptive bitrate (ABR).
 
 
 ## Usage
@@ -134,7 +130,7 @@ To help you get started, we provide the following examples:
 
 - [/examples/streamer.html](./examples/streamer.html) - Publish a stream with your webcam
 - [/examples/player.html](./examples/player.html) - Play a stream
-- [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) - Play a stream with timed metadata (Advanced; requires a stream with timecode)
+- [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) - Play a stream with timed metadata
 
 > [!TIP]
 > 
@@ -270,6 +266,9 @@ By contributing code to this project, you agree to license your contribution und
 
 
 [web-utils project]: https://github.com/CeeblueTV/web-utils
+[Connect.Params.iceServer]: https://ceebluetv.github.io/web-utils/types/Connect.Params.html
+[Player start]: https://ceebluetv.github.io/webrtc-client/classes/Player.html#start
+[Streamer start]: https://ceebluetv.github.io/webrtc-client/classes/Streamer.html#start
 [Log Engine]: https://ceebluetv.github.io/web-utils/interfaces/ILog.html
 [Clone]: https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository
 [UMD]: https://github.com/umdjs/umd
