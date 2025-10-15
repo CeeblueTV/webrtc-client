@@ -1,12 +1,24 @@
-[Requirements](#requirements) | [Usage](#usage) | [Examples](#examples) | [Building locally](#building-locally) | [Logs](#logs) | [Documentation](#documentation) | [Contribution](#contribution) | [License](#license)
+<p align="center">
+ <a href="#requirements">Requirements</a> •
+ <a href="#usage">Usage</a> •
+ <a href="#examples">Examples</a> •
+ <a href="#building-locally">Building locally</a> •
+ <a href="#logs">Logs</a> •
+ <a href="#documentation">Documentation</a> •
+ <a href="#contribution">Contribution</a> •
+ <a href="#license">License</a>
+</p>
+<h1 align="center">
+  Ceeblue WebRTC Client
+</h1>
+<h4 align="center">The Ceeblue WebRTC Client is a generic client library designed to simplify the implementation of WebRTC functionalities for Ceeblue customers.</h4>
+<p align="center">
+  <a href="https://npmjs.org/package/@ceeblue/webrtc-client"><img src="https://img.shields.io/npm/v/@ceeblue/webrtc-client.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@ceeblue/webrtc-client"><img src="https://img.shields.io/npm/dm/@ceeblue/webrtc-client.svg" alt="npm downloads"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-yellow.svg" alt="License: AGPL v3"></a>
+</p>
 
-
-# Ceeblue WebRTC Client
-[![npm](https://img.shields.io/npm/v/%40ceeblue%2Fwebrtc-client)](https://npmjs.org/package/@ceeblue/webrtc-client)
-
-The Ceeblue WebRTC Client is a generic client library designed to simplify the implementation of WebRTC functionalities for Ceeblue customers.
-
-The client library addresses common challenges faced by developers:
+This library addresses common challenges faced by developers:
 - **Unified Browser Support** - Addresses inconsistencies and variations in implementation across different browsers.
 - **Firewall Traversal** - Implements TURN to manage firewall traversal.
 - **Security** - Ensures secure streaming through encryption and authentication.
@@ -267,8 +279,8 @@ By contributing code to this project, you agree to license your contribution und
 
 [web-utils project]: https://github.com/CeeblueTV/web-utils
 [Connect.Params.iceServer]: https://ceebluetv.github.io/web-utils/types/Connect.Params.html
-[Player start]: https://ceebluetv.github.io/webrtc-client/classes/Player.html#start
-[Streamer start]: https://ceebluetv.github.io/webrtc-client/classes/Streamer.html#start
+[Player.start]: https://ceebluetv.github.io/webrtc-client/classes/Player.html#start
+[Streamer.start]: https://ceebluetv.github.io/webrtc-client/classes/Streamer.html#start
 [Log Engine]: https://ceebluetv.github.io/web-utils/interfaces/ILog.html
 [Clone]: https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository
 [UMD]: https://github.com/umdjs/umd
