@@ -37,6 +37,10 @@ Once the stream is created, retrieve its `<endpoint>` from the API in the `signa
 wss://<hostname>/webrtc/in+12423351-d0a2-4f0f-98a0-015b73f934f2  
 ```
 
+> [!IMPORTANT]
+>
+> The signalling protocol can be either `wss` (WebSocket over TLS) or `https` (for [WHIP]/WHEP). By default, we recommend `wss` to enable additional features such as adaptive bitrate (ABR).
+
 You will also need the `WebRTC <endpoint>` for playback, which is provided from API in the `uri` field. The value takes the following form, with an `out+` prefix when the stream is transcoded, or `as+` when it is not:
 ```
 wss://<hostname>/webrtc/out+12423351-d0a2-4f0f-98a0-015b73f934f2
@@ -45,10 +49,6 @@ wss://<hostname>/webrtc/out+12423351-d0a2-4f0f-98a0-015b73f934f2
 > [!NOTE]
 >
 > From [Ceeblue Dashboard] you can create an output `WebRTC endpoint` by clicking on the Viewer's eye 👁 button.
-
-> [!IMPORTANT]
->
-> The signalling protocol can be either `wss` (WebSocket Secure) or `https` (for [WHIP]/WHEP). By default, we recommend `wss` to enable additional features such as adaptive bitrate (ABR).
 
 
 ## Usage
