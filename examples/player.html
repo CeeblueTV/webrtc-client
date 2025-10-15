@@ -164,7 +164,7 @@
                     }
                 },
                 created() {
-                    const options = Util.options();
+                    const options = Util.caseInsensitive(Util.options());
                     // init values
                     const params = {
                         endPoint: options.endPoint?.toLowerCase() || location.hostname,

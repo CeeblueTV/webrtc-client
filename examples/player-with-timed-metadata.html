@@ -28,7 +28,7 @@
             const logs = document.getElementById("metadata");
             const videoElement = document.getElementById('video');
 
-            const options = Util.options();
+            const options = Util.caseInsensitive(Util.options());
 
             videoElement.onloadeddata = () => {
                 videoElement.play();
