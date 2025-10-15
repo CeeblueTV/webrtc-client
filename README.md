@@ -39,7 +39,7 @@ wss://<hostname>/webrtc/in+12423351-d0a2-4f0f-98a0-015b73f934f2
 
 > [!IMPORTANT]
 >
-> The signalling protocol can be either `wss` (WebSocket over TLS) or `https` (for [WHIP]/WHEP). By default, we recommend `wss` to enable additional features such as adaptive bitrate (ABR).
+> By default, we use `wss` (WebSocket over TLS) for signaling, as it enables advanced features such as adaptive bitrate (ABR). However, you can use `https` for [WHIP] and [WHEP] if you don’t need these additional features or require compatibility with other systems.
 
 You will also need the `WebRTC <endpoint>` for playback, which is provided from API in the `uri` field. The value takes the following form, with an `out+` prefix when the stream is transcoded, or `as+` when it is not:
 ```
