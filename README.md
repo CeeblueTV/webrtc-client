@@ -17,8 +17,8 @@ The client library addresses common challenges faced by developers:
 
 > [!CAUTION]
 >
-> By default, TURN is enabled to ensure near-universal connectivity, but it can introduce important trade-offs (relaying adds latency, TCP/TLS doesn’t handle congested networks well), video may freeze or slow down.
-> You can disable it by configuring your own [Connect.Params.iceServer] to override default settings in [Streamer.start] or [Player.start] methods
+> By default, TURN is enabled to ensure nearly universal connectivity. However, this comes with trade-offs: relaying adds latency, and TCP/TLS can perform poorly under network congestion, causing video to slow down or freeze.
+> You can disable TURN by specifying your own [Connect.Params.iceServer] in [Streamer.start] and [Player.start] methods to override the default settings.
 
 
 ## Requirements
