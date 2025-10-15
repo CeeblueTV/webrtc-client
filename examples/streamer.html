@@ -172,7 +172,7 @@
         <script type="module">
             import { Streamer, StreamerStats, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.bundle.js";
 
-            const { NetAddress, Util, log } = utils;
+            const { Util, log, Connect } = utils;
 
             log('webrtc-client version:', VERSION).info();
             log('web-utils version:', utils.VERSION).info();
@@ -202,7 +202,7 @@
                     streamName: null,
                     accessToken: null,
                     diagnostics: null,
-                    host: null,
+                    endPoint: null,
 
                     streaming: {
                         bitrate: DEFAULT_STREAMING_BITRATE,
@@ -240,13 +240,22 @@
                     selectedResolutionKey: 'auto'
                 },
                 created() {
-                    const options = Util.options();
+                    const options = Util.caseInsensitive(Util.options());
                     // init values
-                    const host = options.host;
-                    this.host = new NetAddress(host || location.host, 4433);
-                    this.streamName = options.stream;
-                    this.accessToken = options.accessToken;
-                    this.connectorType = options.whip || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
+                    const params = {
+                        endPoint: options.endPoint?.toLowerCase() || location.hostname,
+                        streamName: options.streamName,
+                        accessToken: options.accessToken
+                    }
+                    options.whip ||= params.endPoint.startsWith('http');
+
+                    // WIP change UI to have just one input for endPoint (OR streamName)?
+                    // In this case we can remove this buildURL here just to unpack streamName from endPoint when set
+                    Connect.buildURL(Connect.Type.WEBRTC, params, options.whip ? 'https' : 'wss');
+                    this.endPoint = params.endPoint;
+                    this.streamName = params.streamName;
+                    this.accessToken = params.accessToken;
+                    this.connectorType = options.whip ? this.connectorTypes[1] : this.connectorTypes[0];
 
                     this.diagnostics = options.diagnostics || options.debug;
                     this.permanentLandscape = options.landscape? true : false;
@@ -558,7 +567,7 @@
                             });
                     },
                     startStreaming() {
-                        if (!(this.streamName && (this.streamName.length > 0))) {
+                        if (!this.streamName) {
                             this.state = StreamingState.IDLE;
                             this.showErrorMessage('Stream name is empty!');
                             return;
@@ -578,13 +587,9 @@
 
                                 this.streamer.start(stream,
                                     {
-                                        endPoint:this.host.toString(),
+                                        endPoint: this.endPoint,
                                         streamName: this.streamName,
-                                        accessToken: this.accessToken,
-                                        iceServer: {
-                                            urls: ['turn:' + this.host.domain + ':3478?transport=tcp', 'turn:' + this.host.domain + ':3478'],
-                                            username: 'ceeblue', credential: 'ceeblue'
-                                        }
+                                        accessToken: this.accessToken
                                     },
                                     {
                                         maximum: this.streaming.bitrate,
