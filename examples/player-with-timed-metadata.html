@@ -21,16 +21,15 @@
         <textarea id="metadata" rows="10" readonly></textarea>
 
         <script type="module">
-            import { Player, utils } from "../dist/webrtc-client.js";
+            import { Player, utils } from "../dist/webrtc-client.bundle.js";
 
-            const { NetAddress, Util } = utils;
+            const { Util } = utils;
 
             const logs = document.getElementById("metadata");
             const videoElement = document.getElementById('video');
 
-            const options = Util.options();
-            const host = new NetAddress(options.host || location.host, 443);
-            const streamName = options.stream;
+            const options = Util.caseInsensitive(Util.options());
+
             videoElement.onloadeddata = () => {
                 videoElement.play();
             };
@@ -39,12 +38,9 @@
                 videoElement.srcObject = stream;
             };
             player.start({
-                endPoint: host.toString(),
-                streamName,
-                iceServer: {
-                    urls: ['turn:' + host.domain + ':3478?transport=tcp', 'turn:' + host.domain + ':3478'],
-                    username: 'ceeblue', credential: 'ceeblue'
-                }
+                endPoint: options.endPoint?.toLowerCase() || location.hostname,
+                streamName: options.streamName,
+                accessToken: options.accessToken
             });
             player.onMetadata = metadata => {
                 const dataTracks = [];

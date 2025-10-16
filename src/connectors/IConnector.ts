@@ -53,6 +53,10 @@ export type ConnectorError =
      */
     | { type: 'ConnectorError'; name: 'Access denied' }
     /**
+     * Represents an RTCRtpSender::replaceTrack error.
+     */
+    | { type: 'ConnectorError'; name: 'Replace track failed'; detail: string }
+    /**
      * Represents a {@link WebSocketReliableError} error
      */
     | WebSocketReliableError;
@@ -108,4 +112,14 @@ export interface IConnector extends EventEmitter {
      * @param error the error reason if is not a proper close
      */
     close(error?: ConnectorError): void;
+    /**
+     *
+     * @param kind 'video' or 'audio' to replace the track of the given kind
+     * @returns Promise that resolves when the track is replaced
+     * @throws Error if the kind is not supported or if the operation fails
+     *
+     * This method allows to replace the current track of the given kind with a new one.
+     * If the track is null, it will remove the current track of that kind.
+     */
+    replaceTrack(kind: 'audio' | 'video', track: MediaStreamTrack | null): Promise<void>;
 }

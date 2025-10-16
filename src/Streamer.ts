@@ -181,6 +181,22 @@ export class Streamer extends EventEmitter {
         return this._videoBitrateConstraint;
     }
 
+    /**
+     * The current audio track of the stream, or null if audio track is disabled.
+     */
+    get audioTrack(): MediaStreamTrack | null {
+        const stream = this._connector && this._connector.stream;
+        return stream?.getAudioTracks()?.[0] ?? null;
+    }
+
+    /**
+     * The current video track of the stream, or null if video track is disabled.
+     */
+    get videoTrack(): MediaStreamTrack | null {
+        const stream = this._connector && this._connector.stream;
+        return stream?.getVideoTracks()?.[0] ?? null;
+    }
+
     private _connector?: IConnector;
     private _controller?: IController;
     private _mediaReport?: MediaReport;
@@ -196,6 +212,26 @@ export class Streamer extends EventEmitter {
     constructor(private Connector?: { new (connectParams: Connect.Params, stream: MediaStream): IConnector }) {
         super();
         this._videoBitrateFixed = false;
+    }
+
+    /**
+     * Replace the audio track while streaming.
+     *
+     * @param track MediaStreamTrack to set as audio track, or null to remove the audio track
+     * @returns {Promise<void>} A promise that resolves when the track is set or removed
+     */
+    setAudioTrack(track: MediaStreamTrack | null): Promise<void> {
+        return this._replaceTrack('audio', track);
+    }
+
+    /**
+     * Replace the video track while streaming.
+     *
+     * @param track MediaStreamTrack to set as video track, or null to remove the video track
+     * @returns {Promise<void>} A promise that resolves when the track is set or removed
+     */
+    setVideoTrack(track: MediaStreamTrack | null): Promise<void> {
+        return this._replaceTrack('video', track);
     }
 
     /**
@@ -317,6 +353,49 @@ export class Streamer extends EventEmitter {
         this._rtpProps = undefined;
         // User event (always in last)
         this.onStop(error);
+    }
+
+    /**
+     * Replace a single track while streaming.
+     *
+     * - If the underlying connector exposes a `replaceTrack(kind, track)` method,
+     *   this will hot-swap the sender track (no full restart).
+     * - Otherwise, we update the exposed MediaStream for consistency and throw,
+     *   so callers can decide to stop/start with a new stream.
+     *
+     * @param kind 'audio' | 'video'
+     * @param media A MediaStreamTrack, a MediaStream (first track of kind is used), or null to remove/mute that kind.
+     */
+    private async _replaceTrack(kind: 'audio' | 'video', media: MediaStreamTrack | null): Promise<void> {
+        if (!this._connector) {
+            throw Error('Cannot call _replaceTrack before start()');
+        }
+        const stream = this._connector.stream;
+        if (!stream) {
+            throw Error('Cannot call _replaceTrack without a stream');
+        }
+
+        let track = null;
+        if (media !== null) {
+            // MediaStreamTrack
+            if (media.kind !== kind) {
+                throw Error(
+                    `_replaceTrack: provided track kind "${media.kind}" does not match requested kind "${kind}"`
+                );
+            }
+            track = media;
+        }
+
+        await this._connector.replaceTrack(kind, track);
+
+        if (kind === 'video') {
+            stream.getVideoTracks().forEach(t => stream.removeTrack(t));
+        } else {
+            stream.getAudioTracks().forEach(t => stream.removeTrack(t));
+        }
+        if (track) {
+            stream.addTrack(track);
+        }
     }
 
     private _computeVideoBitrate(abr: ABRAbstract) {

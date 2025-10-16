@@ -131,7 +131,7 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
     constructor(connectParams: Connect.Params, stream?: MediaStream) {
         super();
         this._closed = false;
-        this._streamName = connectParams.streamName;
+        this._streamName = connectParams.streamName ?? '';
         this._endPoint = connectParams.endPoint;
         this._stream = stream;
         this._connectionInfosTime = 0;
@@ -341,6 +341,61 @@ export abstract class SIPConnector extends EventEmitter implements IConnector {
             })
             .then(() => this._tryToOpen())
             .catch(e => this.close({ type: 'ConnectorError', name: 'SIP failed', detail: Util.stringify(e) }));
+    }
+
+    /**
+     * Hot-swap a track on the existing RTCPeerConnection without renegotiation.
+     * @param kind 'audio' | 'video'
+     * @param track A MediaStreamTrack to send, or null to stop sending that kind.
+     */
+    public async replaceTrack(kind: 'audio' | 'video', track: MediaStreamTrack | null): Promise<void> {
+        if (this._closed || !this._peerConnection) {
+            throw Error('Connector is closed');
+        }
+        if (!this._stream) {
+            throw Error('No local stream to update');
+        }
+
+        // Prefer transceivers: they keep the media kind visible via the receiver even when sender.track is null
+        let tx;
+        if (typeof this._peerConnection.getTransceivers === 'function') {
+            tx = this._peerConnection
+                .getTransceivers()
+                .find(
+                    t =>
+                        t.sender &&
+                        ((t.receiver && t.receiver.track && t.receiver.track.kind === kind) ||
+                            (t.sender.track && t.sender.track.kind === kind))
+                );
+        }
+
+        let sender = tx?.sender;
+
+        // Fallback: sender scan (works when sender.track exists)
+        if (!sender) {
+            sender = this._peerConnection.getSenders().find(s => s.track && s.track.kind === kind);
+        }
+
+        if (!sender) {
+            // We could call addTrack() here, but that would require renegotiation.
+            this.close({
+                type: 'ConnectorError',
+                name: 'Replace track failed',
+                detail: `No existing ${kind} sender to replace; restart is required for this direction.`
+            });
+            return;
+        }
+
+        // Perform hot swap (no renegotiation)
+        await sender.replaceTrack(track);
+
+        // Keep our public MediaStream in sync for consumers of stream
+        const current = this._stream;
+        const toRemove = kind === 'video' ? current.getVideoTracks() : current.getAudioTracks();
+        toRemove.forEach(t => current.removeTrack(t));
+        if (track) {
+            current.addTrack(track);
+        }
     }
 
     /**
