@@ -253,6 +253,7 @@
                         audioTrack: 'Audio',
                         audioTrackId: undefined,
                         streamErrorMessage: null,
+                        startTime: 0,
 
                         logs: [], // Logs to display
                         metrics: null, // Metrics to display
@@ -304,6 +305,8 @@
                         console[level](...args.splice(0)); // args is empty after this call = final interception
                     },
                     play() {
+                        this.startTime = Util.time();
+                        log('Starting WebRTC playback').info();
                         if (this.player) {
                             this.player.stop();
                             return;
@@ -319,7 +322,7 @@
                         videoElement.muted = this.muted;
                         videoElement.autoplay = true;
                         videoElement.onloadeddata = () => {
-                            log('WebRTC loadeddata').info();
+                            log('TTFF : ', Util.time()-this.startTime).info();
                             videoElement.play();
                         };
 
