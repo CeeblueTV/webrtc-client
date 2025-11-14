@@ -129,7 +129,11 @@ export class StreamMetadata extends EventEmitter {
                         this.onState((this._streamState = state));
                     } else {
                         // Unrecoverable issue!
-                        this.close({ type: 'StreamMetadataError', name: data.error, stream: connectParams.streamName });
+                        this.close({
+                            type: 'StreamMetadataError',
+                            name: data.error,
+                            stream: connectParams.streamName ?? ''
+                        });
                     }
                     return;
                 }

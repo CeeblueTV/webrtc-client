@@ -1,6 +1,6 @@
 {
     "name": "@ceeblue/webrtc-client",
-    "version": "4.1.2",
+    "version": "5.0.0",
     "description": "Ceeblue WebRTC Client",
     "keywords": [
         "webrtc",
@@ -80,7 +80,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@ceeblue/web-utils": "^5.0.0",
+        "@ceeblue/web-utils": "^7.1.0",
         "sdp-transform": "^2.14.2"
     }
 }

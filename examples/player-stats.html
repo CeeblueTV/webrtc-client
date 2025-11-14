@@ -160,7 +160,7 @@
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
-            const { Util, NetAddress, log } = utils;
+            const { Util, Connect, log } = utils;
 
             log('webrtc-client version:', VERSION).info();
             log('web-utils version:', utils.VERSION).info();
@@ -240,7 +240,7 @@
                         streamName: '',
                         accessToken: null,
                         muted: true,
-                        host: null,
+                        endPoint: null,
 
                         streamMetadata: null,
                         videoTracks: new Map(),
@@ -269,13 +269,22 @@
                     }
                 },
                 created() {
-                    const options = Util.options();
+                    const options = Util.caseInsensitive(Util.options());
                     // init values
-                    const host = options.host;
-                    this.host = new NetAddress(host || location.host, 443);
-                    this.streamName = options.stream;
-                    this.accessToken = options.accessToken;
-                    this.connectorType = options.whep || (host && host.toLowerCase().startsWith('http')) ? this.connectorTypes[1] : this.connectorTypes[0];
+                    const params = {
+                        endPoint: options.endPoint?.toLowerCase() || location.hostname,
+                        streamName: options.streamName,
+                        accessToken: options.accessToken
+                    }
+                    options.whep ||= params.endPoint.startsWith('http');
+
+                    // WIP change UI to have just one input for endPoint (OR streamName)?
+                    // In this case we can remove this buildURL here just to unpack streamName from endPoint when set
+                    Connect.buildURL(Connect.Type.WEBRTC, params, options.whep ? 'https' : 'wss');
+                    this.endPoint = params.endPoint;
+                    this.streamName = params.streamName;
+                    this.accessToken = params.accessToken;
+                    this.connectorType = options.whep ? this.connectorTypes[1] : this.connectorTypes[0];
                     this.telemetryURL = options.telemetryURL;
 
                     // Automatically set the theme mode to system prefered mode or the one set in the options
@@ -300,7 +309,7 @@
                             return;
                         }
                         this.streamErrorMessage = null;
-                        if (!this.streamName && !this.host.toString()) {
+                        if (!this.streamName) {
                             this.streamErrorMessage = "Enter a non-empty stream name to play";
                             return;
                         }
@@ -321,13 +330,9 @@
                         this.player.onMetadata = this.onMetadata.bind(this);
                         this.player.start(
                             {
-                                endPoint:this.host.toString(),
+                                endPoint:this.endPoint,
                                 streamName: this.streamName,
-                                accessToken: this.accessToken,
-                                iceServer: {
-                                    urls: ['turn:' + this.host.domain + ':3478?transport=tcp', 'turn:' + this.host.domain + ':3478'],
-                                    username: 'ceeblue', credential: 'ceeblue'
-                                }
+                                accessToken: this.accessToken
                             });
 
                         // Metrics
