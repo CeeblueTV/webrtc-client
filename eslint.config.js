@@ -59,7 +59,7 @@ export default [
         }
     },
 
-    // HTML override (like your overrides[])
+    // HTML override
     {
         files: ['**/*.html'],
         languageOptions: {
@@ -70,10 +70,7 @@ export default [
             headers: headersPlugin
         },
         rules: {
-            // Your original override
             'headers/header-format': 'off',
-
-            // Your HTML rule
             '@html-eslint/indent': ['error', 4]
         }
     }
