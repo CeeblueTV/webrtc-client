@@ -153,7 +153,6 @@ export class WSController extends SIPConnector implements IController {
         });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     protected _eventHandler(ev: any) {
         this.log(`EventHandler ${Util.stringify(ev, { recursion: 2 })}`).debug();
 

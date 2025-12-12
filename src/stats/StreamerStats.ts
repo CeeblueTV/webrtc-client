@@ -42,7 +42,6 @@ export class StreamerStats extends EventEmitter implements IStats {
             return Promise.reject();
         }
         // Main info
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const metrics: any = {
             streamId: this._streamer.streamName,
             vbt: this._streamer.videoBitrate, // Video bitrate target

@@ -25,7 +25,6 @@ export interface IStreamData extends EventEmitter {
      * @param data JS data object received
      * @event
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any): void;
 
     /**

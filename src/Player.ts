@@ -126,7 +126,6 @@ export class Player extends EventEmitter {
      * @param data
      * @event
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(time: number, track: number, data: any) {
         this.log(`Data received on track ${track} at ${time} : ${Util.stringify(data)}`).info();
     }
@@ -593,7 +592,6 @@ export class Player extends EventEmitter {
     private _newStreamData(params: Connect.Params) {
         const streamData = (this._streamData = new WSStreamData(params));
         streamData.log = this.log.bind('Timed Metadatas:');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         streamData.onData = (time: number, track: number, data: any) => this.onData(track, time, data);
         streamData.tracks = this._dataTracks; // initialize data tracks
         streamData.onClose = (error?: WebSocketReliableError) => {

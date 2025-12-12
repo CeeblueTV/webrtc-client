@@ -29,7 +29,6 @@ export class WSStreamData extends EventEmitter implements IStreamData {
      * @override{@inheritDoc IStreamData.onData}
      * @event
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onData(track: number, time: number, data: any) {
         this.log(`Data received on track ${track} at ${time}: ${Util.stringify(data)}`).info();
     }
