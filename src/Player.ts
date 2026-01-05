@@ -292,7 +292,7 @@ export class Player extends EventEmitter {
         return this._skippedAudio;
     }
     /**
-     * Set the current skipped audio in seconds
+     * Reset the skipped audio metric to the desired value in seconds
      */
     set skippedAudio(value: number) {
         this._skippedAudio = value;
@@ -306,7 +306,7 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Set the current skipped video in seconds
+     * Reset the skipped video metric to the desired value in seconds
      */
     set skippedVideo(value: number) {
         this._skippedVideo = value;
@@ -320,7 +320,7 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Set the current estimated stalls count
+     * Reset the stalls metric metric to the desired value
      */
     set stalls(value: number) {
         this._stalls = value;
