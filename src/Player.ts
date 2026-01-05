@@ -748,7 +748,7 @@ export class Player extends EventEmitter {
         }
 
         // Buffer (max of audio/video jitter)
-        const videoJittertDelay = videoIn?.jitterBufferDelay ?? 0;
+        const videoJitterDelay = videoIn?.jitterBufferDelay ?? 0;
         const videoEmittedCount = videoIn?.jitterBufferEmittedCount ?? 0;
         const audioJitterDelay = audioIn?.jitterBufferDelay ?? 0;
         const audioEmittedCount = audioIn?.jitterBufferEmittedCount ?? 0;
@@ -756,12 +756,12 @@ export class Player extends EventEmitter {
         const audioDeltaCount = audioEmittedCount - this._prevAudioEmittedCount;
         if (videoDeltaCount > 0 || audioDeltaCount > 0) {
             const videoBuffering =
-                (1000 * (videoJittertDelay - this._prevVideoJitterDelay)) / Math.max(1, videoDeltaCount);
+                (1000 * (videoJitterDelay - this._prevVideoJitterDelay)) / Math.max(1, videoDeltaCount);
             const audioBuffering =
                 (1000 * (audioJitterDelay - this._prevAudioJitterDelay)) / Math.max(1, audioDeltaCount);
             this._bufferAmount = Math.max(videoBuffering, audioBuffering);
         }
-        this._prevVideoJitterDelay = videoJittertDelay;
+        this._prevVideoJitterDelay = videoJitterDelay;
         this._prevAudioJitterDelay = audioJitterDelay;
         this._prevVideoEmittedCount = videoEmittedCount;
         this._prevAudioEmittedCount = audioEmittedCount;
@@ -782,13 +782,12 @@ export class Player extends EventEmitter {
 
         // Skipped video
         const videoCurrentDroppedFrames = videoIn?.framesDropped ?? 0;
-        const deltaDroppedFrames = videoCurrentDroppedFrames - this._prevVideoDroppedFrames;
         if (this._fps > 0) {
+            const currentDroppedFrames = Math.max(this._prevVideoDroppedFrames, videoCurrentDroppedFrames);
+            const deltaDroppedFrames = currentDroppedFrames - this._prevVideoDroppedFrames;
             this._skippedVideo += deltaDroppedFrames / this._fps;
-        } else {
-            this._skippedVideo += deltaDroppedFrames / 30;
+            this._prevVideoDroppedFrames = currentDroppedFrames;
         }
-        this._prevVideoDroppedFrames = videoCurrentDroppedFrames;
 
         // Stalls
         const freezeCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
