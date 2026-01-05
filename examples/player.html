@@ -173,7 +173,7 @@
                         audioTrack: 'Audio',
                         audioTrackId: undefined,
                         streamErrorMessage: null,
-
+                        player: null,
                         stats: new Map(),
                         uiStats: null,
                         hasMetrics: false,
@@ -210,8 +210,6 @@
                     const skippedAudio = []; this.stats.set("Skipped audio", skippedAudio);
                     const skippedVideo = []; this.stats.set("Skipped video", skippedVideo);
                     const stalls = []; this.stats.set("Stalls", stalls);
-
-                    this.prevTimeMs = performance.now();
 
                     setInterval(async () => {
                         const player = this.player;
