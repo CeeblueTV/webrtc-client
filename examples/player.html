@@ -126,6 +126,11 @@
                     <ul class="list-group list-group-flush" ref="stats" style="width: 100%;">
                     </ul>
                 </div>
+                <div class="form-row" v-show="hasMetrics">
+                    <div class="form-group mx-auto">
+                        <img class="m-1" alt="Download metrics" title="Download metrics as a CSV file" type="button" @click="downloadStats()" src="./assets/download.png" style="object-fit:contain" height="32">
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -170,6 +175,8 @@
 
                         stats: new Map(),
                         uiStats: null, 
+                        hasMetrics: false,
+                        times: new Array(),
                     }
                 },
                 mounted() {
@@ -208,6 +215,7 @@
                     setInterval(async () => {
                         const player = this.player;
                         if (player) {
+                            this.hasMetrics = true;
                             const videoElement = this.$refs.video;
                             
                             bandwidths.push((player.bandwidth * 8).toFixed(0) + 'kbps');
@@ -243,6 +251,10 @@
                             this.prevVideoTime = videoTime;
                             this.prevRealTime = now;
                             playbackSpeeds.push(measuredSpeed.toFixed(2));
+                            this.times.push({
+                                time: new Date().toISOString(),
+                                mediaTime: videoElement.currentTime
+                            });
                         }
                         this.uiStats.display(this.stats);
 
@@ -379,7 +391,42 @@
                         if (this.player) {
                             this.player.audioTrack = this.audioTrackId;
                         }
-                    }
+                    },
+                    download(name, data, type) {
+                        const url = URL.createObjectURL(new Blob([data], {type}));
+                        const link = document.createElement("a");
+                        link.setAttribute("href", url);
+                        link.setAttribute("download", name);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    },
+                    downloadStats() {
+                        // Write headers and compute max values
+                        let csv = "";
+                        let max = this.times.length;
+                        let headers = ["localTime" , "mediaTime"];
+                        for (const [header, values] of this.stats) {
+                            headers.push(header);
+                            max = Math.max(max, values.length);
+                        }
+                        csv = headers.join(';');
+                        
+                        // Write CSV
+                        for (let i = 0; i < max; ++i) {
+                            csv += '\n';
+                            const {time, mediaTime} = this.times[i];
+                            csv += (time || '') + ';' + (mediaTime || '') + ';';
+                            for(let [name, stats] of this.stats) {
+                                csv += (stats[i] == null ? '' : parseFloat(stats[i])) + ';';
+                            }
+                        }
+
+                        // Download the csv !
+                        this.download("stats.csv", csv, 'text/csv;charset=utf-8;');
+                    },
+
                 },
             }).mount('#main');
         </script>
