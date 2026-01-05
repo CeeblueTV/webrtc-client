@@ -117,6 +117,10 @@
                     </button>
 
                 </div>
+                <div class="form-row">
+                    <ul class="list-group list-group-flush" ref="stats" style="width: 100%;">
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -127,8 +131,7 @@
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
 
-            const { Util, Connect, log } = utils;
-
+            const { Util, Connect, log, UIMetrics } = utils;
             log('webrtc-client version:', VERSION).info();
             log('web-utils version:', utils.VERSION).info();
 
@@ -160,10 +163,11 @@
                         audioTrackId: undefined,
                         streamErrorMessage: null,
 
-                        player: null
+                        stats: new Map(),
+                        uiStats: null, 
                     }
                 },
-                created() {
+                mounted() {
                     const options = Util.caseInsensitive(Util.options());
                     // init values
                     const params = {
@@ -180,7 +184,66 @@
                     this.streamName = params.streamName;
                     this.accessToken = params.accessToken;
                     this.connectorType = options.whip ? this.connectorTypes[1] : this.connectorTypes[0];
-                },
+                    
+
+                    this.uiStats = new UIMetrics(this.$refs.stats);
+                    // Stats in display order
+                    const bandwidths = []; this.stats.set("Bandwidth", bandwidths);
+                    const bufferAmounts = []; this.stats.set("Buffer", bufferAmounts);
+                    const playbackSpeeds = []; this.stats.set("Playback speed", playbackSpeeds);
+                    const fps = []; this.stats.set("Video FPS", fps);
+                    const trackAudio = []; this.stats.set("Track audio", trackAudio);
+                    const trackVideo = []; this.stats.set("Track video", trackVideo);
+                    const skippedAudio = []; this.stats.set("Skipped audio", skippedAudio);
+                    const skippedVideo = []; this.stats.set("Skipped video", skippedVideo);
+                    const stalls = []; this.stats.set("Stalls", stalls);
+
+                    this.prevTimeMs = performance.now();
+
+                    setInterval(async () => {
+                        const player = this.player;
+                        if (player) {
+                            const videoElement = this.$refs.video;
+                            
+                            bandwidths.push((player.bandwidth * 8).toFixed(0) + 'kbps');
+                            bufferAmounts.push(player.bufferAmount.toFixed(0) + 'ms');
+                            fps.push(player.fps);
+                            skippedAudio.push(player.skippedAudio.toFixed(1) + 's');
+                            skippedVideo.push(player.skippedVideo.toFixed(1) + 's');
+                            stalls.push(player.stalls);
+
+                            const tracks = player.metadata?.tracks;
+                            if (tracks) {
+                                const audioTrack = tracks.get(player.audioTrack);
+                                const videoTrack = tracks.get(player.videoTrack);
+                                if (audioTrack) {
+                                    trackAudio.push((audioTrack.bps * 8 / 1000).toFixed(0) + 'kbps' );
+                                }
+                                if (videoTrack) {
+                                    trackVideo.push((videoTrack.bps * 8 / 1000).toFixed(0) + 'kbps' );
+                                }
+                            }
+                            
+                            // Playback speed, calculated here to have access to videoElement.currentTime
+                            const now = performance.now();
+                            const videoTime = videoElement.currentTime ?? 0;
+                            let measuredSpeed = 0;
+                            if (this.prevVideoTime !== null && this.prevRealTime !== null) {
+                                const deltaVideoTime = videoTime - this.prevVideoTime;
+                                const deltaRealTime = (now - this.prevRealTime) / 1000;
+                                if (deltaVideoTime >= 0 && deltaRealTime > 0.05) {
+                                    measuredSpeed = deltaVideoTime / deltaRealTime;
+                                }
+                            }
+                            this.prevVideoTime = videoTime;
+                            this.prevRealTime = now;
+                            playbackSpeeds.push(measuredSpeed.toFixed(2));
+                        }
+                        this.uiStats.display(this.stats);
+
+                    }, 700);
+                    },
+        
                 methods: {
                     play() {
                         if (this.player) {
