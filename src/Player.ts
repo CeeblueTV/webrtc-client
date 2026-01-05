@@ -340,24 +340,26 @@ export class Player extends EventEmitter {
     private _streamDataReconnectTimeout?: NodeJS.Timeout;
     private _metadata?: Metadata;
 
-    // Metrics state
-    private _prevAudioBytes = 0;
-    private _prevVideoBytes = 0;
-    private _prevTime = 0;
-    private _prevVideoJitterDelay = 0;
-    private _prevVideoEmittedCount = 0;
-    private _prevAudioJitterDelay = 0;
-    private _prevAudioEmittedCount = 0;
-    private _prevAudioConcealedSamples = 0;
-    private _prevVideoDroppedFrames = 0;
+    // Metrics state, initialized in resetMetrics()
+    private _prevAudioBytes!: number;
+    private _prevVideoBytes!: number;
+    private _prevTime!: number;
+    private _prevVideoJitterDelay!: number;
+    private _prevVideoEmittedCount!: number;
+    private _prevAudioJitterDelay!: number;
+    private _prevAudioEmittedCount!: number;
+    private _prevAudioConcealedSamples!: number;
+    private _prevVideoDroppedFrames!: number;
+    private _stallsBaseline!: number; // Baseline corresponding to last reset
+    private _prevFreezeCount!: number;
 
-    // Latest computed metrics
-    private _bandwidth = 0;
-    private _bufferAmount = 0;
-    private _fps = 0;
-    private _skippedAudio = 0;
-    private _skippedVideo = 0;
-    private _stalls = 0;
+    // Latest computed metrics, initialized in resetMetrics()
+    private _bandwidth!: number;
+    private _bufferAmount!: number;
+    private _fps!: number;
+    private _skippedAudio!: number;
+    private _skippedVideo!: number;
+    private _stalls!: number;
 
     /**
      * Constructs a new Player instance, optionally with a custom connector
@@ -384,6 +386,7 @@ export class Player extends EventEmitter {
     constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
         super();
         this._dataTracks = new Array<number>();
+        this.resetMetrics(true);
     }
 
     /**
@@ -532,25 +535,6 @@ export class Player extends EventEmitter {
                 mbr.log = this.log.bind(this, 'MultiBitrate:') as ILog;
             }
         }
-        // Reset metrics state
-        this._prevAudioBytes = 0;
-        this._prevVideoBytes = 0;
-        this._prevTime = performance.now();
-        this._prevVideoJitterDelay = 0;
-        this._prevVideoEmittedCount = 0;
-        this._prevAudioJitterDelay = 0;
-        this._prevAudioEmittedCount = 0;
-        this._prevAudioConcealedSamples = 0;
-        this._prevVideoDroppedFrames = 0;
-        this._skippedAudio = 0;
-        this._skippedVideo = 0;
-
-        this._bandwidth = 0;
-        this._bufferAmount = 0;
-        this._fps = 0;
-        this._skippedAudio = 0;
-        this._skippedVideo = 0;
-        this._stalls = 0;
 
         // Controller
         this._controller = this._connector;
@@ -599,6 +583,36 @@ export class Player extends EventEmitter {
     }
 
     /**
+     * Resets incremental metrics (skipped audio/video, stalls)
+     * @param all if true reset all metrics state (bandwidth, buffer, fps, etc.)
+     */
+    resetMetrics(all = false) {
+        // Reset incremental metrics
+        this._skippedAudio = 0;
+        this._skippedVideo = 0;
+        // Use last observed freezeCount as baseline so stalls are reported since reset
+        this._stallsBaseline = this._prevFreezeCount || 0;
+        this._stalls = 0;
+
+        if (all) {
+            // Reset metrics state
+            this._prevAudioBytes = 0;
+            this._prevVideoBytes = 0;
+            this._prevTime = performance.now();
+            this._prevVideoJitterDelay = 0;
+            this._prevVideoEmittedCount = 0;
+            this._prevAudioJitterDelay = 0;
+            this._prevAudioEmittedCount = 0;
+            this._prevAudioConcealedSamples = 0;
+            this._prevVideoDroppedFrames = 0;
+            this._bandwidth = 0;
+            this._bufferAmount = 0;
+            this._fps = 0;
+            this._prevFreezeCount = 0;
+        }
+    }
+
+    /**
      * Stops playing the stream
      * @param error error description on an improper stop
      */
@@ -630,6 +644,7 @@ export class Player extends EventEmitter {
         this._dataTracks.length = 0;
         this._playingInfos = undefined;
         this._metadata = undefined;
+        this.resetMetrics(true);
         // User event (always in last)
         this.onStop(error);
     }
@@ -776,6 +791,8 @@ export class Player extends EventEmitter {
         this._prevVideoDroppedFrames = videoCurrentDroppedFrames;
 
         // Stalls
-        this._stalls = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
+        const freezeCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
+        this._stalls = freezeCount - (this._stallsBaseline || 0);
+        this._prevFreezeCount = freezeCount;
     }
 }
