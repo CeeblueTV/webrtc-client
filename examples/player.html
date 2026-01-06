@@ -231,10 +231,10 @@
                                 const audioTrack = tracks.get(player.audioTrack);
                                 const videoTrack = tracks.get(player.videoTrack);
                                 if (audioTrack) {
-                                    trackAudio.push((audioTrack.bps * 8 / 1000).toFixed(0) + 'kbps' );
+                                    trackAudio.push((audioTrack.ebps * 8 / 1000).toFixed(0) + 'kbps' );
                                 }
                                 if (videoTrack) {
-                                    trackVideo.push((videoTrack.bps * 8 / 1000).toFixed(0) + 'kbps' );
+                                    trackVideo.push((videoTrack.ebps * 8 / 1000).toFixed(0) + 'kbps' );
                                 }
                             }
                             
@@ -352,12 +352,12 @@
                             if (track.type === 'video') {
                                 this.videoTracks.set(
                                     id,
-                                    `${track.codec} ${track.width}x${track.height} ${(track.bps * 8 / 1000).toFixed(0)} kbps`
+                                    `${track.codec} ${track.width}x${track.height} ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
                                 );
                             } else if (track.type === 'audio') {
                                 this.audioTracks.set(
                                     id,
-                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${(track.bps * 8 / 1000).toFixed(0)} kbps`
+                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
                                 );
                             }
                         }
