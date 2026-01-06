@@ -396,7 +396,7 @@
                     resetMetrics(all = false){
                         // Reset collected metrics from player
                         if (this.player) {
-                            this.player.resetMetrics(all);
+                            this.player.resetMetrics();
                         }
 
                         // Clear stored metric arrays when a full reset is requested
@@ -413,13 +413,8 @@
                             this.hasMetrics = false;
                             this.prevVideoTime = null;
                             this.prevRealTime = null;
-
-                            const displayableCount = all ? 0 : this.uiStats.displayableCount;
-                            this.times.splice(0, Math.max(0, this.times.length - displayableCount));
+                            this.times.length = 0;
                         }
-
-                        
-                        
                     },
                     download(name, data, type) {
                         const url = URL.createObjectURL(new Blob([data], {type}));

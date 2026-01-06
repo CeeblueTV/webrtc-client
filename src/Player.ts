@@ -324,6 +324,7 @@ export class Player extends EventEmitter {
      */
     set stalls(value: number) {
         this._stalls = value;
+        this._stallsBaseline = this._prevFreezeCount - value;
     }
 
     private _connector?: IConnector;
@@ -386,7 +387,7 @@ export class Player extends EventEmitter {
     constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
         super();
         this._dataTracks = new Array<number>();
-        this.resetMetrics(true);
+        this._clearState();
     }
 
     /**
@@ -584,32 +585,12 @@ export class Player extends EventEmitter {
 
     /**
      * Resets incremental metrics (skipped audio/video, stalls)
-     * @param all if true reset all metrics state (bandwidth, buffer, fps, etc.)
      */
-    resetMetrics(all = false) {
+    resetMetrics() {
         // Reset incremental metrics
-        this._skippedAudio = 0;
-        this._skippedVideo = 0;
-        // Use last observed freezeCount as baseline so stalls are reported since reset
-        this._stallsBaseline = this._prevFreezeCount || 0;
-        this._stalls = 0;
-
-        if (all) {
-            // Reset metrics state
-            this._prevAudioBytes = 0;
-            this._prevVideoBytes = 0;
-            this._prevTime = performance.now();
-            this._prevVideoJitterDelay = 0;
-            this._prevVideoEmittedCount = 0;
-            this._prevAudioJitterDelay = 0;
-            this._prevAudioEmittedCount = 0;
-            this._prevAudioConcealedSamples = 0;
-            this._prevVideoDroppedFrames = 0;
-            this._bandwidth = 0;
-            this._bufferAmount = 0;
-            this._fps = 0;
-            this._prevFreezeCount = 0;
-        }
+        this.skippedAudio = 0;
+        this.skippedVideo = 0;
+        this.stalls = 0;
     }
 
     /**
@@ -638,13 +619,8 @@ export class Player extends EventEmitter {
         }
         // Signaling
         connector.close();
-        // Reset some value
-        this._audioTrack = undefined;
-        this._videoTrack = undefined;
-        this._dataTracks.length = 0;
-        this._playingInfos = undefined;
-        this._metadata = undefined;
-        this.resetMetrics(true);
+        // Reset states
+        this._clearState();
         // User event (always in last)
         this.onStop(error);
     }
@@ -791,7 +767,31 @@ export class Player extends EventEmitter {
 
         // Stalls
         const freezeCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
-        this._stalls = freezeCount - (this._stallsBaseline || 0);
+        this._stalls = Math.max(0, freezeCount - this._stallsBaseline);
         this._prevFreezeCount = freezeCount;
+    }
+
+    private _clearState() {
+        this._audioTrack = undefined;
+        this._videoTrack = undefined;
+        this._playingInfos = undefined;
+        this._metadata = undefined;
+
+        this.resetMetrics();
+        this._dataTracks.length = 0;
+        this._prevAudioBytes = 0;
+        this._prevVideoBytes = 0;
+        this._prevTime = performance.now();
+        this._prevVideoJitterDelay = 0;
+        this._prevVideoEmittedCount = 0;
+        this._prevAudioJitterDelay = 0;
+        this._prevAudioEmittedCount = 0;
+        this._prevAudioConcealedSamples = 0;
+        this._prevVideoDroppedFrames = 0;
+        this._bandwidth = 0;
+        this._bufferAmount = 0;
+        this._fps = 0;
+        this._prevFreezeCount = 0;
+        this._stallsBaseline = 0;
     }
 }
