@@ -181,6 +181,7 @@
                         prevRealTime: null,
                         hasMetrics: false,
                         times: new Array(),
+                        startTime: 0,
                     }
                 },
                 mounted() {
@@ -285,6 +286,8 @@
         
                 methods: {
                     play() {
+                        this.startTime = Util.time();
+                        log('Starting WebRTC playback').info();
                         if (this.player) {
                             this.player.stop();
                             return;
@@ -302,7 +305,7 @@
                         videoElement.muted = this.muted;
                         videoElement.autoplay = true;
                         videoElement.onloadeddata = () => {
-                            log('WebRTC loadeddata').info();
+                            log('TTFF :', Util.time()-this.startTime).info();
                             videoElement.play();
                         };
 
