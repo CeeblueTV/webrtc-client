@@ -240,6 +240,7 @@
                                 stalls.push(player.stalls);
 
                                 const tracks = player.metadata?.tracks;
+                                console.log("videoelbuffer", videoElement.buffered);
                                 if (tracks) {
                                     const audioTrack = tracks.get(player.audioTrack);
                                     const videoTrack = tracks.get(player.videoTrack);
@@ -416,7 +417,7 @@
                         }
                     },
                     resetMetrics(all = false){
-                        // Reset cummulative metrics from player
+                        // Reset cumulative metrics from the player
                         if (this.player) {
                             this.player.skippedAudio =  this.player.skippedVideo = this.player.stalls = this.player.packetsLost = this.player.nack = 0;
                         }

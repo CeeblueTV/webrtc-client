@@ -358,14 +358,14 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Returns the current estimated NACK count
+     * Returns the current estimated Negative Acknowledgement count
      */
     get nack(): number {
         return this._nack;
     }
 
     /**
-     * Reset the NACK metric
+     * Reset the Negative Acknowledgement metric
      */
     set nack(value: 0) {
         this._nack = 0;
@@ -396,14 +396,16 @@ export class Player extends EventEmitter {
     private _prevAudioEmittedCount!: number;
     private _prevAudioConcealedSamples!: number;
     private _prevVideoDroppedFrames!: number;
-    private _stallsBaseline!: number; // Baseline corresponding to last reset
     private _prevStallCount!: number;
-    private _packetsLostBaseline!: number; // Baseline corresponding to last reset
     private _prevPacketLost!: number;
-    private _nackBaseline!: number;
     private _prevNack!: number;
+    // Baselines are snapshots of cumulative stats taken at the last reset.
+    // Reported cumulative stats are computed as: current_total - baseline_total.
+    private _stallsBaseline!: number;
+    private _packetsLostBaseline!: number;
+    private _nackBaseline!: number;
 
-    // Latest computed metrics
+    // Latest computed metrics:
     private _bandwidth!: number;
     private _bufferAmount!: number;
     private _fps!: number;
@@ -788,7 +790,7 @@ export class Player extends EventEmitter {
         // FPS
         this._fps = videoIn?.framesPerSecond ?? 0;
 
-        // Skipped audio
+        // Skipped audio: cumulative
         if (this.audioTrack) {
             const audioTrack = this.metadata?.tracks.get(this.audioTrack);
             const audioCurrentConcealedSamples = audioIn?.concealedSamples ?? 0;
@@ -799,7 +801,7 @@ export class Player extends EventEmitter {
             this._prevAudioConcealedSamples = audioCurrentConcealedSamples;
         }
 
-        // Skipped video
+        // Skipped video: cumulative
         const videoCurrentDroppedFrames = videoIn?.framesDropped ?? 0;
         if (this._fps > 0) {
             const currentDroppedFrames = Math.max(this._prevVideoDroppedFrames, videoCurrentDroppedFrames);
@@ -808,7 +810,7 @@ export class Player extends EventEmitter {
             this._prevVideoDroppedFrames = currentDroppedFrames;
         }
 
-        // Stalls
+        // Stalls: cumulative
         const stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
         this._stalls = Math.max(0, stallCount - this._stallsBaseline);
         this._prevStallCount = stallCount;
@@ -854,9 +856,6 @@ export class Player extends EventEmitter {
         this._bandwidth = 0;
         this._bufferAmount = 0;
         this._fps = 0;
-        this._stallsBaseline = 0;
-        this._packetsLostBaseline = 0;
-        this._nackBaseline = 0;
         this._rtt = 0;
         this._jitter = 0;
         this._packetsLost = 0;
@@ -864,5 +863,8 @@ export class Player extends EventEmitter {
         this.skippedAudio = 0;
         this.skippedVideo = 0;
         this.stalls = 0;
+        this._stallsBaseline = 0;
+        this._packetsLostBaseline = 0;
+        this._nackBaseline = 0;
     }
 }
