@@ -126,7 +126,7 @@
                     <ul class="list-group list-group-flush" ref="stats" style="width: 100%;">
                     </ul>
                 </div>
-                <div class="form-row" v-show="hasMetrics">
+                <div class="form-row" v-show="hasMetrics && displayStats">
                     <div class="form-group mx-auto">
                         <img class="m-1" alt="Reset metrics view" title="Reset incremental metrics and rescale the chart" type="button" @click="resetMetrics()" src="./assets/reload.png" style="object-fit:contain" height="32">
                         <img class="m-1" alt="Download metrics" title="Download metrics as a CSV file" type="button" @click="downloadStats()" src="./assets/download.png" style="object-fit:contain" height="32">
@@ -162,6 +162,7 @@
                         accessToken: null,
                         muted: true,
                         endPoint: null,
+                        displayStats: null,
 
                         streamMetadata: null,
                         videoTracks: new Map(),
@@ -199,10 +200,17 @@
                     this.streamName = params.streamName;
                     this.accessToken = params.accessToken;
                     this.connectorType = options.whip ? this.connectorTypes[1] : this.connectorTypes[0];
-                    
-
+                    // Choses stats display level: 0: none, 1:basic, 2:full
+                    if (options.stats === 'none') {
+                        this.displayStats = 0;
+                    } else if (options.stats === 'full') {
+                        this.displayStats = 2;
+                    } else {
+                        this.displayStats = 1;
+                    }
+                
                     this.uiStats = new UIMetrics(this.$refs.stats);
-                    // Stats in display order
+                    // Stats to be displayed in order
                     const bandwidths = []; this.stats.set("Bandwidth", bandwidths);
                     const bufferAmounts = []; this.stats.set("Buffer", bufferAmounts);
                     const playbackSpeeds = []; this.stats.set("Playback speed", playbackSpeeds);
@@ -212,53 +220,65 @@
                     const skippedAudio = []; this.stats.set("Skipped audio", skippedAudio);
                     const skippedVideo = []; this.stats.set("Skipped video", skippedVideo);
                     const stalls = []; this.stats.set("Stalls", stalls);
+                    const packetsLost = []; this.stats.set("Packet loss", packetsLost);
+                    const nack = []; this.stats.set("Nack", nack);
+                    const rtt = []; this.stats.set("RTT", rtt);
+                    const jitter = []; this.stats.set("Jitter", jitter);
 
                     setInterval(async () => {
                         const player = this.player;
                         if (player) {
                             this.hasMetrics = true;
                             const videoElement = this.$refs.video;
-                            
-                            bandwidths.push((player.bandwidth * 8).toFixed(0) + 'kbps');
-                            bufferAmounts.push(player.bufferAmount.toFixed(0) + 'ms');
-                            fps.push(player.fps);
-                            skippedAudio.push(player.skippedAudio.toFixed(1) + 's');
-                            skippedVideo.push(player.skippedVideo.toFixed(1) + 's');
-                            stalls.push(player.stalls);
+                            // Basic stats
+                            if (this.displayStats >= 1) {
+                                bandwidths.push((player.bandwidth * 8).toFixed(0) + 'kbps');
+                                bufferAmounts.push(player.bufferAmount.toFixed(0) + 'ms');
+                                fps.push(player.fps);
+                                skippedAudio.push(player.skippedAudio.toFixed(1) + 's');
+                                skippedVideo.push(player.skippedVideo.toFixed(1) + 's');
+                                stalls.push(player.stalls);
 
-                            const tracks = player.metadata?.tracks;
-                            if (tracks) {
-                                const audioTrack = tracks.get(player.audioTrack);
-                                const videoTrack = tracks.get(player.videoTrack);
-                                if (audioTrack) {
-                                    trackAudio.push((audioTrack.ebps * 8 / 1000).toFixed(0) + 'kbps' );
+                                const tracks = player.metadata?.tracks;
+                                if (tracks) {
+                                    const audioTrack = tracks.get(player.audioTrack);
+                                    const videoTrack = tracks.get(player.videoTrack);
+                                    if (audioTrack) {
+                                        trackAudio.push((audioTrack.ebps * 8 / 1000).toFixed(0) + 'kbps' );
+                                    }
+                                    if (videoTrack) {
+                                        trackVideo.push((videoTrack.ebps * 8 / 1000).toFixed(0) + 'kbps' );
+                                    }
                                 }
-                                if (videoTrack) {
-                                    trackVideo.push((videoTrack.ebps * 8 / 1000).toFixed(0) + 'kbps' );
+                                
+                                // Playback speed, calculated here to have access to videoElement.currentTime
+                                const now = performance.now();
+                                const videoTime = videoElement.currentTime ?? 0;
+                                let measuredSpeed = 0;
+                                if (this.prevVideoTime !== null && this.prevRealTime !== null) {
+                                    const deltaVideoTime = videoTime - this.prevVideoTime;
+                                    const deltaRealTime = (now - this.prevRealTime) / 1000;
+                                    if (deltaVideoTime >= 0 && deltaRealTime > 0.05) {
+                                        measuredSpeed = deltaVideoTime / deltaRealTime;
+                                    }
                                 }
+                                this.prevVideoTime = videoTime;
+                                this.prevRealTime = now;
+                                playbackSpeeds.push(measuredSpeed.toFixed(2));
+                                this.times.push({
+                                    time: new Date().toISOString(),
+                                    mediaTime: videoElement.currentTime
+                                });
                             }
-                            
-                            // Playback speed, calculated here to have access to videoElement.currentTime
-                            const now = performance.now();
-                            const videoTime = videoElement.currentTime ?? 0;
-                            let measuredSpeed = 0;
-                            if (this.prevVideoTime !== null && this.prevRealTime !== null) {
-                                const deltaVideoTime = videoTime - this.prevVideoTime;
-                                const deltaRealTime = (now - this.prevRealTime) / 1000;
-                                if (deltaVideoTime >= 0 && deltaRealTime > 0.05) {
-                                    measuredSpeed = deltaVideoTime / deltaRealTime;
-                                }
+                            // Full stats
+                            if (this.displayStats >= 2) {
+                                rtt.push((player.rtt * 1000) + 'ms');
+                                jitter.push((player.jitter * 1000).toFixed(0) + 'ms');
+                                packetsLost.push(player.packetsLost);
+                                nack.push(player.nack);
                             }
-                            this.prevVideoTime = videoTime;
-                            this.prevRealTime = now;
-                            playbackSpeeds.push(measuredSpeed.toFixed(2));
-                            this.times.push({
-                                time: new Date().toISOString(),
-                                mediaTime: videoElement.currentTime
-                            });
                         }
                         this.uiStats.display(this.stats);
-
                     }, 700);
                     },
         
@@ -396,11 +416,10 @@
                         }
                     },
                     resetMetrics(all = false){
-                        // Reset collected metrics from player
+                        // Reset cummulative metrics from player
                         if (this.player) {
-                            this.player.resetMetrics();
+                            this.player.skippedAudio =  this.player.skippedVideo = this.player.stalls = this.player.packetsLost = this.player.nack = 0;
                         }
-
                         // Clear stored metric arrays when a full reset is requested
                         if (all) {
                             for (const arr of this.stats.values()) {

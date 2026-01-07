@@ -291,11 +291,12 @@ export class Player extends EventEmitter {
     get skippedAudio(): number {
         return this._skippedAudio;
     }
+
     /**
-     * Reset the skipped audio metric to the desired value in seconds
+     * Reset the skipped audio metric
      */
-    set skippedAudio(value: number) {
-        this._skippedAudio = value;
+    set skippedAudio(value: 0) {
+        this._skippedAudio = 0;
     }
 
     /**
@@ -306,10 +307,10 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Reset the skipped video metric to the desired value in seconds
+     * Reset the skipped video metric
      */
-    set skippedVideo(value: number) {
-        this._skippedVideo = value;
+    set skippedVideo(value: 0) {
+        this._skippedVideo = 0;
     }
 
     /**
@@ -320,11 +321,55 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Reset the stalls metric metric to the desired value
+     * Reset the stalls metric metric
      */
-    set stalls(value: number) {
-        this._stalls = value;
-        this._stallsBaseline = this._prevFreezeCount - value;
+    set stalls(value: 0) {
+        this._stalls = 0;
+        this._stallsBaseline = this._prevStallCount;
+    }
+
+    /**
+     * Returns the current round trip time in seconds
+     */
+    get rtt(): number {
+        return this._rtt;
+    }
+
+    /**
+     * Returns the current estimated jitter in seconds
+     */
+    get jitter(): number {
+        return this._jitter;
+    }
+
+    /**
+     * Returns the current estimated packets lost count
+     */
+    get packetsLost(): number {
+        return this._packetsLost;
+    }
+
+    /**
+     * Reset the packets lost metric
+     */
+    set packetsLost(value: 0) {
+        this._packetsLost = 0;
+        this._packetsLostBaseline = this._prevPacketLost;
+    }
+
+    /**
+     * Returns the current estimated NACK count
+     */
+    get nack(): number {
+        return this._nack;
+    }
+
+    /**
+     * Reset the NACK metric
+     */
+    set nack(value: 0) {
+        this._nack = 0;
+        this._nackBaseline = this._prevNack;
     }
 
     private _connector?: IConnector;
@@ -341,7 +386,7 @@ export class Player extends EventEmitter {
     private _streamDataReconnectTimeout?: NodeJS.Timeout;
     private _metadata?: Metadata;
 
-    // Metrics state, initialized in resetMetrics()
+    // Metrics state
     private _prevAudioBytes!: number;
     private _prevVideoBytes!: number;
     private _prevTime!: number;
@@ -352,15 +397,23 @@ export class Player extends EventEmitter {
     private _prevAudioConcealedSamples!: number;
     private _prevVideoDroppedFrames!: number;
     private _stallsBaseline!: number; // Baseline corresponding to last reset
-    private _prevFreezeCount!: number;
+    private _prevStallCount!: number;
+    private _packetsLostBaseline!: number; // Baseline corresponding to last reset
+    private _prevPacketLost!: number;
+    private _nackBaseline!: number;
+    private _prevNack!: number;
 
-    // Latest computed metrics, initialized in resetMetrics()
+    // Latest computed metrics
     private _bandwidth!: number;
     private _bufferAmount!: number;
     private _fps!: number;
     private _skippedAudio!: number;
     private _skippedVideo!: number;
     private _stalls!: number;
+    private _rtt!: number;
+    private _jitter!: number;
+    private _packetsLost!: number;
+    private _nack!: number;
 
     /**
      * Constructs a new Player instance, optionally with a custom connector
@@ -584,16 +637,6 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Resets incremental metrics (skipped audio/video, stalls)
-     */
-    resetMetrics() {
-        // Reset incremental metrics
-        this.skippedAudio = 0;
-        this.skippedVideo = 0;
-        this.stalls = 0;
-    }
-
-    /**
      * Stops playing the stream
      * @param error error description on an improper stop
      */
@@ -766,9 +809,26 @@ export class Player extends EventEmitter {
         }
 
         // Stalls
-        const freezeCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
-        this._stalls = Math.max(0, freezeCount - this._stallsBaseline);
-        this._prevFreezeCount = freezeCount;
+        const stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
+        this._stalls = Math.max(0, stallCount - this._stallsBaseline);
+        this._prevStallCount = stallCount;
+
+        // RTT
+        this._rtt = infos?.candidate?.currentRoundTripTime ?? 0;
+
+        // Jitter
+        this._jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
+
+        // Packets lost : cumulative, but can go down because of how packet loss is computed in WebRTC :
+        // received count - expected count, without taking duplicate into account, which can lead to negative values
+        const packetLost = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
+        this._packetsLost = packetLost - this._packetsLostBaseline;
+        this._prevPacketLost = packetLost;
+
+        // Nack : cumulative
+        const nack = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
+        this._nack = nack - this._nackBaseline;
+        this._prevNack = nack;
     }
 
     private _clearState() {
@@ -777,7 +837,6 @@ export class Player extends EventEmitter {
         this._playingInfos = undefined;
         this._metadata = undefined;
 
-        this.resetMetrics();
         this._dataTracks.length = 0;
         this._prevAudioBytes = 0;
         this._prevVideoBytes = 0;
@@ -788,10 +847,22 @@ export class Player extends EventEmitter {
         this._prevAudioEmittedCount = 0;
         this._prevAudioConcealedSamples = 0;
         this._prevVideoDroppedFrames = 0;
+        this._prevStallCount = 0;
+        this._prevNack = 0;
+        this._prevPacketLost = 0;
+        this._prevNack = 0;
         this._bandwidth = 0;
         this._bufferAmount = 0;
         this._fps = 0;
-        this._prevFreezeCount = 0;
         this._stallsBaseline = 0;
+        this._packetsLostBaseline = 0;
+        this._nackBaseline = 0;
+        this._rtt = 0;
+        this._jitter = 0;
+        this._packetsLost = 0;
+        this._nack = 0;
+        this.skippedAudio = 0;
+        this.skippedVideo = 0;
+        this.stalls = 0;
     }
 }
