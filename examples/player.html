@@ -240,8 +240,7 @@
                                 skippedVideo.push(player.skippedVideo.toFixed(1) + 's');
                                 stalls.push(player.stalls);
 
-                                const tracks = player.metadata?.tracks;
-                                console.log("videoelbuffer", videoElement.buffered);
+                                const tracks = player.metadata?.tracks;;
                                 if (tracks) {
                                     const audioTrack = tracks.get(player.audioTrack);
                                     const videoTrack = tracks.get(player.videoTrack);
