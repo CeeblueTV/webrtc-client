@@ -6,6 +6,7 @@
 
 import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
 import { ILog, Connect, Util, EventEmitter, WebSocketReliableError, NetAddress } from '@ceeblue/web-utils';
+import { PlayerStats } from '@ceeblue/web-utils';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
 import { WSController } from './connectors/WSController';
@@ -277,6 +278,21 @@ export class Player extends EventEmitter {
     private _streamData?: IStreamData;
     private _streamDataReconnectTimeout?: NodeJS.Timeout;
     private _metadata?: Metadata;
+    private _videoElement?: HTMLVideoElement;
+    private _playerStats?: PlayerStats;
+    // Metrics state
+    private _prevAudioBytes!: number;
+    private _prevVideoBytes!: number;
+    private _prevTime!: number;
+    private _prevVideoJitterDelay!: number;
+    private _prevVideoEmittedCount!: number;
+    private _prevAudioJitterDelay!: number;
+    private _prevAudioEmittedCount!: number;
+    private _prevAudioConcealedSamples!: number;
+    private _prevVideoDroppedFrames!: number;
+    private _prevVideoTime?: number;
+    private _prevRealTime?: number;
+
     /**
      * Constructs a new Player instance, optionally with a custom connector
      * This doesn't start the playback, you must call {@link Player.start} method
@@ -302,6 +318,7 @@ export class Player extends EventEmitter {
     constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
         super();
         this._dataTracks = new Array<number>();
+        this._clearState();
     }
 
     /**
@@ -461,6 +478,7 @@ export class Player extends EventEmitter {
             }
             this._playingInfos = playing;
             this._updateTracks();
+            this.getStats();
             this.onPlaying(playing);
             if (!mbr) {
                 return;
@@ -521,12 +539,8 @@ export class Player extends EventEmitter {
         }
         // Signaling
         connector.close();
-        // Reset some value
-        this._audioTrack = undefined;
-        this._videoTrack = undefined;
-        this._dataTracks.length = 0;
-        this._playingInfos = undefined;
-        this._metadata = undefined;
+        // Reset states
+        this._clearState();
         // User event (always in last)
         this.onStop(error);
     }
@@ -608,5 +622,148 @@ export class Player extends EventEmitter {
                 streamData.tracks = this._dataTracks;
             }, RECONNECTION_TIMEOUT);
         };
+    }
+    /**
+     * Calculate and return current player statistics
+     */
+    async getStats(): Promise<PlayerStats> {
+        if (!this._connector) {
+            // Return a copy to avoid exposing internal state when player is stopped
+            return this._playerStats!;
+        }
+        const infos = await this._controller?.connectionInfos(100);
+        const audioIn = infos?.inputs?.audio;
+        const videoIn = infos?.inputs?.video;
+
+        // recvByteRate (labeled Bandwidth inside the player.html)
+        let now = performance.now();
+        const deltaTime = Math.max(1, now - this._prevTime);
+        const audioBytes = audioIn?.bytesReceived ?? 0;
+        const videoBytes = videoIn?.bytesReceived ?? 0;
+        const deltaAudio = audioBytes - this._prevAudioBytes;
+        const deltaVideo = videoBytes - this._prevVideoBytes;
+        this._prevAudioBytes = audioBytes;
+        this._prevVideoBytes = videoBytes;
+        this._prevTime = now;
+        if (deltaAudio > 0 || deltaVideo > 0) {
+            this._playerStats!.recvByteRate = (deltaAudio + deltaVideo) / deltaTime;
+        }
+
+        // bufferAmount, computed as the max of audio/video jitter (labeled Buffer inside the player.html)
+        const videoJitterDelay = videoIn?.jitterBufferDelay ?? 0;
+        const videoEmittedCount = videoIn?.jitterBufferEmittedCount ?? 0;
+        const audioJitterDelay = audioIn?.jitterBufferDelay ?? 0;
+        const audioEmittedCount = audioIn?.jitterBufferEmittedCount ?? 0;
+        const videoDeltaCount = videoEmittedCount - this._prevVideoEmittedCount;
+        const audioDeltaCount = audioEmittedCount - this._prevAudioEmittedCount;
+        if (videoDeltaCount > 0 || audioDeltaCount > 0) {
+            const videoBuffering =
+                (1000 * (videoJitterDelay - this._prevVideoJitterDelay)) / Math.max(1, videoDeltaCount);
+            const audioBuffering =
+                (1000 * (audioJitterDelay - this._prevAudioJitterDelay)) / Math.max(1, audioDeltaCount);
+            this._playerStats!.bufferAmount = Math.max(videoBuffering, audioBuffering);
+        }
+        this._prevVideoJitterDelay = videoJitterDelay;
+        this._prevAudioJitterDelay = audioJitterDelay;
+        this._prevVideoEmittedCount = videoEmittedCount;
+        this._prevAudioEmittedCount = audioEmittedCount;
+
+        // videoPerSecond (labeled Video FPS inside the player.html)
+        const videoPerSecond = videoIn?.framesPerSecond ?? 0;
+        this._playerStats!.videoPerSecond = videoPerSecond;
+
+        // skippedAudioCount: incremental (labeled Skipped audio inside the player.html)
+        if (this.audioTrack) {
+            const audioTrack = this.metadata?.tracks.get(this.audioTrack);
+            const audioCurrentConcealedSamples = audioIn?.concealedSamples ?? 0;
+            const deltaConcealedSamples = audioCurrentConcealedSamples - this._prevAudioConcealedSamples;
+            if (audioTrack && audioTrack.rate) {
+                this._playerStats!.skippedAudioCount =
+                    (this._playerStats!.skippedAudioCount ?? 0) + deltaConcealedSamples / audioTrack.rate;
+            }
+            this._prevAudioConcealedSamples = audioCurrentConcealedSamples;
+        }
+
+        // skippedVideoCount: incremental (labeled Skipped video inside the player.html)
+        const videoCurrentDroppedFrames = videoIn?.framesDropped ?? 0;
+        if (videoPerSecond > 0) {
+            const currentDroppedFrames = Math.max(this._prevVideoDroppedFrames, videoCurrentDroppedFrames);
+            const deltaDroppedFrames = currentDroppedFrames - this._prevVideoDroppedFrames;
+            this._playerStats!.skippedVideoCount =
+                (this._playerStats!.skippedVideoCount ?? 0) + deltaDroppedFrames / videoPerSecond;
+            this._prevVideoDroppedFrames = currentDroppedFrames;
+        }
+
+        // stallCount: incremental (labeled Stalls inside the player.html)
+        this._playerStats!.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
+
+        // Tracks bandwidth and id
+        const tracks = this.metadata?.tracks;
+        if (tracks) {
+            const audioTrack = tracks.get(this.audioTrack ?? 0);
+            const videoTrack = tracks.get(this.videoTrack ?? 0);
+            if (audioTrack) {
+                this._playerStats!.audioTrackId = audioTrack.idx;
+                // audioTrackBandwidth (labeled Track audio inside the player.html)
+                this._playerStats!.audioTrackBandwidth = audioTrack.ebps;
+            }
+            if (videoTrack) {
+                this._playerStats!.videoTrackId = videoTrack.idx;
+                // videoTrackBandwidth (labeled Track video inside the player.html)
+                this._playerStats!.videoTrackBandwidth = videoTrack.ebps;
+            }
+        }
+
+        // playbackSpeed (labeled Playback speed inside the player.html)
+        now = performance.now();
+        const videoTime = this._videoElement?.currentTime ?? 0;
+        let measuredSpeed = 0;
+        if (this._prevVideoTime !== undefined && this._prevRealTime !== undefined) {
+            const deltaVideoTime = videoTime - this._prevVideoTime;
+            const deltaRealTime = (now - this._prevRealTime) / 1000;
+            if (deltaVideoTime >= 0 && deltaRealTime > 0.05) {
+                measuredSpeed = deltaVideoTime / deltaRealTime;
+            }
+        }
+        this._prevVideoTime = videoTime;
+        this._prevRealTime = now;
+        this._playerStats!.playbackSpeed = measuredSpeed;
+
+        // rtt (labeled RTT inside the player.html)
+        this._playerStats!.rtt = infos?.candidate?.currentRoundTripTime ?? 0;
+
+        // jitter (labeled Jitter inside the player.html)
+        this._playerStats!.jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
+
+        // lostPacketCount : incremental, but can go down because of how packet loss is computed in WebRTC :  received count - expected count, without taking duplicate into account, which can lead to negative values
+        // (labeled Packet loss inside the player.html)
+        this._playerStats!.lostPacketCount = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
+        // nackCount : incremental
+        // (labeled Nacks inside the player.html)
+        this._playerStats!.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
+
+        return this._playerStats!;
+    }
+
+    private _clearState() {
+        this._audioTrack = undefined;
+        this._videoTrack = undefined;
+        this._playingInfos = undefined;
+        this._videoElement = undefined;
+        this._metadata = undefined;
+        this._playerStats = new PlayerStats();
+
+        this._dataTracks.length = 0;
+        this._prevAudioBytes = 0;
+        this._prevVideoBytes = 0;
+        this._prevTime = performance.now();
+        this._prevVideoJitterDelay = 0;
+        this._prevVideoEmittedCount = 0;
+        this._prevAudioJitterDelay = 0;
+        this._prevAudioEmittedCount = 0;
+        this._prevAudioConcealedSamples = 0;
+        this._prevVideoDroppedFrames = 0;
+        this._prevVideoTime = undefined;
+        this._prevRealTime = undefined;
     }
 }
