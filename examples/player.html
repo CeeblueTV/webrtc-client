@@ -344,23 +344,15 @@
                         this.videoTracks = new Map();
 
                         for (const [id, track] of metadata.tracks) {
-                            const readableBitrate = (bytes) => {
-                                if (bytes === 0)
-                                    return '';
-                                let i = Math.floor(Math.log(bytes) / Math.log(1000)),
-                                    sizes = ['bps', 'kbps', 'mbps', 'gbps'];
-                                return (bytes / Math.pow(1000, i)).toFixed(1) * 1 + ' ' + sizes[i];
-                            }
-
                             if (track.type === 'video') {
                                 this.videoTracks.set(
                                     id,
-                                    `${track.codec} ${track.width}x${track.height} ${readableBitrate(track.bps * 8)}`
+                                    `${track.codec} ${track.width}x${track.height} ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
                                 );
                             } else if (track.type === 'audio') {
                                 this.audioTracks.set(
                                     id,
-                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${readableBitrate(track.bps * 8)}`
+                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
                                 );
                             }
                         }
