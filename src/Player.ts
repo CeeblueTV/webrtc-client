@@ -628,7 +628,6 @@ export class Player extends EventEmitter {
      */
     async getStats(): Promise<PlayerStats> {
         if (!this._connector) {
-            // Return a copy to avoid exposing internal state when player is stopped
             return this._playerStats!;
         }
         const infos = await this._controller?.connectionInfos(100);
