@@ -231,7 +231,7 @@
 
                     setInterval(async () => {
                         const player = this.player;
-                        if (player && player.controller.opened) {
+                        if (player?.controller?.opened) {
                             this.hasMetrics = true;
                             let playerStats = await player.getStats();
                             // Display only the basic stats
