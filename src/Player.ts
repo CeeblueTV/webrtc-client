@@ -264,6 +264,12 @@ export class Player extends EventEmitter {
             this._streamData.tracks = tracks;
         }
     }
+    /**
+     * Sets the video element
+     */
+    set videoElement(element: HTMLVideoElement) {
+        this._videoElement = element;
+    }
 
     private _connector?: IConnector;
     private _controller?: IController;
