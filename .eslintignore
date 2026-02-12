@@ -1,6 +1,6 @@
 # path/to/project/root/.eslintignore
 
-# /node_modules/_ and /bower_components/_ in the project root are ignored by default
+# /node_modules/* and /bower_components/* in the project root are ignored by default
 
 # Ignore built files except build/index.js
 
