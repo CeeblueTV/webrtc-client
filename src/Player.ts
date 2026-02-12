@@ -674,7 +674,10 @@ export class Player extends EventEmitter {
         // skippedAudioCount: incremental (labeled Skipped audio inside the player.html)
         if (this.audioTrack) {
             const audioTrack = this.metadata?.tracks.get(this.audioTrack);
-            const audioCurrentConcealedSamples = audioIn?.concealedSamples ?? 0;
+            const audioCurrentConcealedSamples = Math.max(
+                audioIn?.concealedSamples ?? 0,
+                this._prevAudioConcealedSamples
+            );
             const deltaConcealedSamples = audioCurrentConcealedSamples - this._prevAudioConcealedSamples;
             if (audioTrack && audioTrack.rate) {
                 this._playerStats!.skippedAudioCount =
