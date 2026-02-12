@@ -418,7 +418,6 @@
                             this.times.length = 0;
                             this.deltaStats = { stallCount: 0, skippedAudioCount: 0, skippedVideoCount: 0, lostPacketCount: 0, nackCount: 0 };
                         }
-                    	
                     },
                     download(name, data, type) {
                         const url = URL.createObjectURL(new Blob([data], {type}));
