@@ -636,7 +636,7 @@ export class Player extends EventEmitter {
         if (!this._connector) {
             return Promise.reject('Cannot get stats: start the player first');
         }
-        const infos = await this._controller?.connectionInfos(100);
+        const infos = await this.connector?.connectionInfos(100);
         const audioIn = infos?.inputs?.audio;
         const videoIn = infos?.inputs?.video;
 
