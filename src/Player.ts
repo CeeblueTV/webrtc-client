@@ -713,12 +713,12 @@ export class Player extends EventEmitter {
             if (audioTrack) {
                 this._playerStats.audioTrackId = audioTrack.idx;
                 // audioTrackBandwidth (labeled Track audio inside the player.html)
-                this._playerStats.audioTrackBandwidth = audioTrack.ebps;
+                this._playerStats.audioTrackBandwidth = audioTrack.ebps ?? audioTrack.bps;
             }
             if (videoTrack) {
                 this._playerStats.videoTrackId = videoTrack.idx;
                 // videoTrackBandwidth (labeled Track video inside the player.html)
-                this._playerStats.videoTrackBandwidth = videoTrack.ebps;
+                this._playerStats.videoTrackBandwidth = videoTrack.ebps ?? videoTrack.bps;
             }
         }
 
