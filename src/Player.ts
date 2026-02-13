@@ -19,6 +19,8 @@ import { MBRLinear } from './mbr/MBRLinear';
 
 // Reconnection timeout, 3 seconds
 const RECONNECTION_TIMEOUT: number = 3000;
+// Stats polling timeout, 1 second
+const STATS_POLLING_TIMEOUT: number = 1000;
 
 export type PlayerError =
     /**
@@ -283,6 +285,8 @@ export class Player extends EventEmitter {
     private _playingInfos?: PlayingInfos;
     private _streamData?: IStreamData;
     private _streamDataReconnectTimeout?: NodeJS.Timeout;
+    private _statsPollingInterval?: NodeJS.Timeout;
+    private _statsPollingInProgress: boolean;
     private _metadata?: Metadata;
     private _videoElement?: HTMLVideoElement;
     private _playerStats!: PlayerStats;
@@ -324,6 +328,7 @@ export class Player extends EventEmitter {
     constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
         super();
         this._dataTracks = new Array<number>();
+        this._statsPollingInProgress = false;
         this._clearState();
     }
 
@@ -413,6 +418,7 @@ export class Player extends EventEmitter {
         );
         this._connector.log = this.log.bind(this, 'Signaling:') as ILog;
         this._connector.onOpen = stream => {
+            this._startStatsPolling();
             this.onStart(stream);
             // metadata in first!
             if (this._streamMetadata?.metadata) {
@@ -484,7 +490,6 @@ export class Player extends EventEmitter {
             }
             this._playingInfos = playing;
             this._updateTracks();
-            this.getStats();
             this.onPlaying(playing);
             if (!mbr) {
                 return;
@@ -544,6 +549,7 @@ export class Player extends EventEmitter {
             this._streamData = undefined;
         }
         // Signaling
+        this._stopStatsPolling();
         connector.close();
         // Reset states
         this._clearState();
@@ -753,7 +759,31 @@ export class Player extends EventEmitter {
         return this._playerStats!;
     }
 
+    private _startStatsPolling() {
+        this._stopStatsPolling();
+        this._statsPollingInterval = setInterval(async () => {
+            if (this._statsPollingInProgress || !this._connector || !this._connector.opened) {
+                return;
+            }
+            this._statsPollingInProgress = true;
+            try {
+                await this.getStats();
+            } catch {
+                // ignore temporary failures while polling stats
+            } finally {
+                this._statsPollingInProgress = false;
+            }
+        }, STATS_POLLING_TIMEOUT);
+    }
+
+    private _stopStatsPolling() {
+        this._statsPollingInProgress = false;
+        clearInterval(this._statsPollingInterval);
+        this._statsPollingInterval = undefined;
+    }
+
     private _clearState() {
+        this._stopStatsPolling();
         this._audioTrack = undefined;
         this._videoTrack = undefined;
         this._playingInfos = undefined;
