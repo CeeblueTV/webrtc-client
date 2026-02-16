@@ -284,8 +284,7 @@
                             videoElement.play();
                         };
 
-                        this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                        this.player.videoElement = videoElement;
+                        this.player = new Player(videoElement, this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
                         this.player.onStart = this.onStart.bind(this);
                         this.player.onStop = this.onStop.bind(this);
                         this.player.onPlaying = this.onPlaying.bind(this);

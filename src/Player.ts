@@ -266,12 +266,6 @@ export class Player extends EventEmitter {
             this._streamData.tracks = tracks;
         }
     }
-    /**
-     * Sets the video element
-     */
-    set videoElement(element: HTMLVideoElement) {
-        this._videoElement = element;
-    }
 
     private _connector?: IConnector;
     private _controller?: IController;
@@ -288,7 +282,7 @@ export class Player extends EventEmitter {
     private _statsPollingInterval?: NodeJS.Timeout;
     private _statsPollingInProgress: boolean;
     private _metadata?: Metadata;
-    private _videoElement?: HTMLVideoElement;
+    private _videoElement: HTMLVideoElement;
     private _playerStats!: PlayerStats;
     // Metrics state
     private _prevAudioBytes!: number;
@@ -325,9 +319,13 @@ export class Player extends EventEmitter {
      *  streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
      * })
      */
-    constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
+    constructor(
+        videoElement: HTMLVideoElement,
+        private Connector?: { new (connectParams: Connect.Params): IConnector }
+    ) {
         super();
         this._dataTracks = new Array<number>();
+        this._videoElement = videoElement;
         this._statsPollingInProgress = false;
         this._clearState();
     }
@@ -534,6 +532,15 @@ export class Player extends EventEmitter {
             return;
         }
         this._connector = undefined;
+
+        this._stopStatsPolling();
+        // Detach video
+        this._videoElement.pause();
+        this._videoElement.srcObject = null;
+
+        // Safari/iOS workaround to release WebRTC resources and avoid Safari bugs on next play
+        this._videoElement.load();
+
         // Stream metadata
         clearTimeout(this._streamMetadataReconnectTimeout);
         if (this._streamMetadata) {
@@ -548,8 +555,8 @@ export class Player extends EventEmitter {
             this._streamData.close();
             this._streamData = undefined;
         }
+
         // Signaling
-        this._stopStatsPolling();
         connector.close();
         // Reset states
         this._clearState();
@@ -730,7 +737,7 @@ export class Player extends EventEmitter {
 
         // playbackSpeed (labeled Playback speed inside the player.html)
         now = performance.now();
-        const videoTime = this._videoElement?.currentTime ?? 0;
+        const videoTime = this._videoElement.currentTime ?? 0;
         let measuredSpeed = 0;
         if (this._prevVideoTime !== undefined && this._prevRealTime !== undefined) {
             const deltaVideoTime = videoTime - this._prevVideoTime;
@@ -787,7 +794,6 @@ export class Player extends EventEmitter {
         this._audioTrack = undefined;
         this._videoTrack = undefined;
         this._playingInfos = undefined;
-        this._videoElement = undefined;
         this._metadata = undefined;
         this._playerStats = new PlayerStats();
 
