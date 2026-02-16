@@ -283,7 +283,6 @@ export class Player extends EventEmitter {
     private _statsPollingInProgress: boolean;
     private _metadata?: Metadata;
     private _videoElement: HTMLVideoElement;
-    private _playerStats!: PlayerStats;
     // Metrics state
     private _prevAudioBytes!: number;
     private _prevVideoBytes!: number;
@@ -296,6 +295,8 @@ export class Player extends EventEmitter {
     private _prevVideoDroppedFrames!: number;
     private _prevVideoTime?: number;
     private _prevRealTime?: number;
+    private _prevSkippedVideoCount: number = 0;
+    private _prevSkippedAudioCount: number = 0;
 
     /**
      * Constructs a new Player instance, optionally with a custom connector
@@ -649,6 +650,8 @@ export class Player extends EventEmitter {
         if (!this._connector) {
             return Promise.reject('Cannot get stats: start the player first');
         }
+        const playerStats = new PlayerStats();
+
         const infos = await this.connector?.connectionInfos(100);
         const audioIn = infos?.inputs?.audio;
         const videoIn = infos?.inputs?.video;
@@ -664,7 +667,7 @@ export class Player extends EventEmitter {
         this._prevVideoBytes = videoBytes;
         this._prevTime = now;
         if (deltaAudio > 0 || deltaVideo > 0) {
-            this._playerStats.recvByteRate = (deltaAudio + deltaVideo) / deltaTime;
+            playerStats.recvByteRate = (deltaAudio + deltaVideo) / deltaTime;
         }
 
         // bufferAmount, computed as the max of audio/video jitter (labeled Buffer inside the player.html)
@@ -679,7 +682,7 @@ export class Player extends EventEmitter {
                 (1000 * (videoJitterDelay - this._prevVideoJitterDelay)) / Math.max(1, videoDeltaCount);
             const audioBuffering =
                 (1000 * (audioJitterDelay - this._prevAudioJitterDelay)) / Math.max(1, audioDeltaCount);
-            this._playerStats.bufferAmount = Math.max(videoBuffering, audioBuffering);
+            playerStats.bufferAmount = Math.max(videoBuffering, audioBuffering);
         }
         this._prevVideoJitterDelay = videoJitterDelay;
         this._prevAudioJitterDelay = audioJitterDelay;
@@ -688,35 +691,33 @@ export class Player extends EventEmitter {
 
         // videoPerSecond (labeled Video FPS inside the player.html)
         const videoPerSecond = videoIn?.framesPerSecond ?? 0;
-        this._playerStats.videoPerSecond = videoPerSecond;
+        playerStats.videoPerSecond = videoPerSecond;
 
         // skippedAudioCount: incremental (labeled Skipped audio inside the player.html)
-        if (this.audioTrack) {
+        playerStats.skippedAudioCount = this._prevSkippedAudioCount;
+        if (this.audioTrack != null) {
             const audioTrack = this.metadata?.tracks.get(this.audioTrack);
-            const audioCurrentConcealedSamples = Math.max(
-                audioIn?.concealedSamples ?? 0,
-                this._prevAudioConcealedSamples
-            );
-            const deltaConcealedSamples = audioCurrentConcealedSamples - this._prevAudioConcealedSamples;
+            const currentAudioConcealedSamples = audioIn?.concealedSamples ?? 0;
+            const deltaConcealedSamples = Math.max(currentAudioConcealedSamples - this._prevAudioConcealedSamples, 0);
+            this._prevAudioConcealedSamples = currentAudioConcealedSamples; // in samples
             if (audioTrack && audioTrack.rate) {
-                this._playerStats.skippedAudioCount =
-                    (this._playerStats.skippedAudioCount ?? 0) + deltaConcealedSamples / audioTrack.rate;
+                playerStats.skippedAudioCount += deltaConcealedSamples / audioTrack.rate;
+                this._prevSkippedAudioCount = playerStats.skippedAudioCount; // in seconds
             }
-            this._prevAudioConcealedSamples = audioCurrentConcealedSamples;
         }
 
         // skippedVideoCount: incremental (labeled Skipped video inside the player.html)
-        const videoCurrentDroppedFrames = videoIn?.framesDropped ?? 0;
+        playerStats.skippedVideoCount = this._prevSkippedVideoCount;
+        const currentVideoDroppedFrames = videoIn?.framesDropped ?? 0;
         if (videoPerSecond > 0) {
-            const currentDroppedFrames = Math.max(this._prevVideoDroppedFrames, videoCurrentDroppedFrames);
-            const deltaDroppedFrames = currentDroppedFrames - this._prevVideoDroppedFrames;
-            this._playerStats.skippedVideoCount =
-                (this._playerStats.skippedVideoCount ?? 0) + deltaDroppedFrames / videoPerSecond;
-            this._prevVideoDroppedFrames = currentDroppedFrames;
+            const deltaDroppedFrames = Math.max(currentVideoDroppedFrames - this._prevVideoDroppedFrames, 0);
+            this._prevVideoDroppedFrames = currentVideoDroppedFrames; // in frames
+            playerStats.skippedVideoCount += deltaDroppedFrames / videoPerSecond;
+            this._prevSkippedVideoCount = playerStats.skippedVideoCount; // in seconds
         }
 
         // stallCount: incremental (labeled Stalls inside the player.html)
-        this._playerStats.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
+        playerStats.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
 
         // Tracks bandwidth and id
         const tracks = this.metadata?.tracks;
@@ -724,14 +725,14 @@ export class Player extends EventEmitter {
             const audioTrack = tracks.get(this.audioTrack ?? 0);
             const videoTrack = tracks.get(this.videoTrack ?? 0);
             if (audioTrack) {
-                this._playerStats.audioTrackId = audioTrack.idx;
+                playerStats.audioTrackId = audioTrack.idx;
                 // audioTrackBandwidth (labeled Track audio inside the player.html)
-                this._playerStats.audioTrackBandwidth = audioTrack.ebps ?? audioTrack.bps;
+                playerStats.audioTrackBandwidth = audioTrack.ebps ?? audioTrack.bps;
             }
             if (videoTrack) {
-                this._playerStats.videoTrackId = videoTrack.idx;
+                playerStats.videoTrackId = videoTrack.idx;
                 // videoTrackBandwidth (labeled Track video inside the player.html)
-                this._playerStats.videoTrackBandwidth = videoTrack.ebps ?? videoTrack.bps;
+                playerStats.videoTrackBandwidth = videoTrack.ebps ?? videoTrack.bps;
             }
         }
 
@@ -748,22 +749,22 @@ export class Player extends EventEmitter {
         }
         this._prevVideoTime = videoTime;
         this._prevRealTime = now;
-        this._playerStats.playbackSpeed = measuredSpeed;
+        playerStats.playbackSpeed = measuredSpeed;
 
         // rtt (labeled RTT inside the player.html)
-        this._playerStats.rtt = infos?.candidate?.currentRoundTripTime ?? 0;
+        playerStats.rtt = infos?.candidate?.currentRoundTripTime ?? 0;
 
         // jitter (labeled Jitter inside the player.html)
-        this._playerStats.jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
+        playerStats.jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
 
         // lostPacketCount : incremental, but can go down because of how packet loss is computed in WebRTC :  received count - expected count, without taking duplicate into account, which can lead to negative values
         // (labeled Packet loss inside the player.html)
-        this._playerStats.lostPacketCount = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
+        playerStats.lostPacketCount = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
         // nackCount : incremental
         // (labeled Nacks inside the player.html)
-        this._playerStats.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
+        playerStats.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
 
-        return this._playerStats!;
+        return playerStats;
     }
 
     private _startStatsPolling() {
@@ -795,7 +796,6 @@ export class Player extends EventEmitter {
         this._videoTrack = undefined;
         this._playingInfos = undefined;
         this._metadata = undefined;
-        this._playerStats = new PlayerStats();
 
         this._dataTracks.length = 0;
         this._prevAudioBytes = 0;
@@ -809,5 +809,7 @@ export class Player extends EventEmitter {
         this._prevVideoDroppedFrames = 0;
         this._prevVideoTime = undefined;
         this._prevRealTime = undefined;
+        this._prevSkippedVideoCount = 0;
+        this._prevSkippedAudioCount = 0;
     }
 }
