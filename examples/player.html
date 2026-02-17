@@ -233,6 +233,9 @@
                         if (player?.controller?.opened) {
                             this.hasMetrics = true;
                             let playerStats = player.getStats();
+                            if (!playerStats) {
+                                return;
+                            }
 
                             // Display only the basic stats
                             if (this.displayStats >= 1) {
