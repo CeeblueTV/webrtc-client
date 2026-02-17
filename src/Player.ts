@@ -280,6 +280,7 @@ export class Player extends EventEmitter {
     private _statsPollingTimeout?: NodeJS.Timeout;
     private _metadata?: Metadata;
     private _videoElement: HTMLVideoElement;
+    private _playerStats!: PlayerStats;
     // Metrics state
     private _prevAudioBytes!: number;
     private _prevVideoBytes!: number;
@@ -325,6 +326,7 @@ export class Player extends EventEmitter {
         this._dataTracks = new Array<number>();
         this._videoElement = videoElement;
         this._clearState();
+        this._playerStats = new PlayerStats();
     }
 
     /**
@@ -531,6 +533,7 @@ export class Player extends EventEmitter {
         this._connector = undefined;
 
         clearTimeout(this._statsPollingTimeout);
+        this._playerStats = new PlayerStats();
 
         // Detach video
         this._videoElement.pause();
@@ -560,6 +563,13 @@ export class Player extends EventEmitter {
         this._clearState();
         // User event (always in last)
         this.onStop(error);
+    }
+
+    /**
+     * Return the current player statistics as a {@link PlayerStats}  object
+     */
+    getStats(): PlayerStats {
+        return this._playerStats;
     }
 
     private _updateTracks() {
@@ -641,13 +651,12 @@ export class Player extends EventEmitter {
         };
     }
     /**
-     * Calculate and return current player statistics
+     * Compute player statistics, update _playerStats
      */
-    async getStats(): Promise<PlayerStats> {
+    private async _computeStats(): Promise<void> {
         if (!this._connector) {
             return Promise.reject('Cannot get stats: start the player first');
         }
-        const playerStats = new PlayerStats();
 
         const infos = await this.connector?.connectionInfos(100);
         const audioIn = infos?.inputs?.audio;
@@ -664,7 +673,7 @@ export class Player extends EventEmitter {
         this._prevVideoBytes = videoBytes;
         this._prevTime = now;
         if (deltaAudio > 0 || deltaVideo > 0) {
-            playerStats.recvByteRate = (deltaAudio + deltaVideo) / deltaTime;
+            this._playerStats.recvByteRate = (deltaAudio + deltaVideo) / deltaTime;
         }
 
         // bufferAmount, computed as the max of audio/video jitter (labeled Buffer inside the player.html)
@@ -679,7 +688,7 @@ export class Player extends EventEmitter {
                 (1000 * (videoJitterDelay - this._prevVideoJitterDelay)) / Math.max(1, videoDeltaCount);
             const audioBuffering =
                 (1000 * (audioJitterDelay - this._prevAudioJitterDelay)) / Math.max(1, audioDeltaCount);
-            playerStats.bufferAmount = Math.max(videoBuffering, audioBuffering);
+            this._playerStats.bufferAmount = Math.max(videoBuffering, audioBuffering);
         }
         this._prevVideoJitterDelay = videoJitterDelay;
         this._prevAudioJitterDelay = audioJitterDelay;
@@ -688,33 +697,33 @@ export class Player extends EventEmitter {
 
         // videoPerSecond (labeled Video FPS inside the player.html)
         const videoPerSecond = videoIn?.framesPerSecond ?? 0;
-        playerStats.videoPerSecond = videoPerSecond;
+        this._playerStats.videoPerSecond = videoPerSecond;
 
         // skippedAudioCount: incremental (labeled Skipped audio inside the player.html)
-        playerStats.skippedAudioCount = this._prevSkippedAudioCount;
+        this._playerStats.skippedAudioCount = this._prevSkippedAudioCount;
         if (this.audioTrack != null) {
             const audioTrack = this.metadata?.tracks.get(this.audioTrack);
             const currentAudioConcealedSamples = audioIn?.concealedSamples ?? 0;
             const deltaConcealedSamples = Math.max(currentAudioConcealedSamples - this._prevAudioConcealedSamples, 0);
             this._prevAudioConcealedSamples = currentAudioConcealedSamples; // in samples
             if (audioTrack && audioTrack.rate) {
-                playerStats.skippedAudioCount += deltaConcealedSamples / audioTrack.rate;
-                this._prevSkippedAudioCount = playerStats.skippedAudioCount; // in seconds
+                this._playerStats.skippedAudioCount += deltaConcealedSamples / audioTrack.rate;
+                this._prevSkippedAudioCount = this._playerStats.skippedAudioCount; // in seconds
             }
         }
 
         // skippedVideoCount: incremental (labeled Skipped video inside the player.html)
-        playerStats.skippedVideoCount = this._prevSkippedVideoCount;
+        this._playerStats.skippedVideoCount = this._prevSkippedVideoCount;
         const currentVideoDroppedFrames = videoIn?.framesDropped ?? 0;
         if (videoPerSecond > 0) {
             const deltaDroppedFrames = Math.max(currentVideoDroppedFrames - this._prevVideoDroppedFrames, 0);
             this._prevVideoDroppedFrames = currentVideoDroppedFrames; // in frames
-            playerStats.skippedVideoCount += deltaDroppedFrames / videoPerSecond;
-            this._prevSkippedVideoCount = playerStats.skippedVideoCount; // in seconds
+            this._playerStats.skippedVideoCount += deltaDroppedFrames / videoPerSecond;
+            this._prevSkippedVideoCount = this._playerStats.skippedVideoCount; // in seconds
         }
 
         // stallCount: incremental (labeled Stalls inside the player.html)
-        playerStats.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
+        this._playerStats.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
 
         // Tracks bandwidth and id
         const tracks = this.metadata?.tracks;
@@ -722,14 +731,14 @@ export class Player extends EventEmitter {
             const audioTrack = tracks.get(this.audioTrack ?? 0);
             const videoTrack = tracks.get(this.videoTrack ?? 0);
             if (audioTrack) {
-                playerStats.audioTrackId = audioTrack.idx;
+                this._playerStats.audioTrackId = audioTrack.idx;
                 // audioTrackBandwidth (labeled Track audio inside the player.html)
-                playerStats.audioTrackBandwidth = audioTrack.ebps ?? audioTrack.bps;
+                this._playerStats.audioTrackBandwidth = audioTrack.ebps ?? audioTrack.bps;
             }
             if (videoTrack) {
-                playerStats.videoTrackId = videoTrack.idx;
+                this._playerStats.videoTrackId = videoTrack.idx;
                 // videoTrackBandwidth (labeled Track video inside the player.html)
-                playerStats.videoTrackBandwidth = videoTrack.ebps ?? videoTrack.bps;
+                this._playerStats.videoTrackBandwidth = videoTrack.ebps ?? videoTrack.bps;
             }
         }
 
@@ -746,29 +755,27 @@ export class Player extends EventEmitter {
         }
         this._prevVideoTime = videoTime;
         this._prevRealTime = now;
-        playerStats.playbackSpeed = measuredSpeed;
+        this._playerStats.playbackSpeed = measuredSpeed;
 
         // rtt (labeled RTT inside the player.html)
-        playerStats.rtt = infos?.candidate?.currentRoundTripTime ?? 0;
+        this._playerStats.rtt = infos?.candidate?.currentRoundTripTime ?? 0;
 
         // jitter (labeled Jitter inside the player.html)
-        playerStats.jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
+        this._playerStats.jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
 
         // lostPacketCount : incremental, but can go down because of how packet loss is computed in WebRTC :  received count - expected count, without taking duplicate into account, which can lead to negative values
         // (labeled Packet loss inside the player.html)
-        playerStats.lostPacketCount = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
+        this._playerStats.lostPacketCount = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
         // nackCount : incremental
         // (labeled Nacks inside the player.html)
-        playerStats.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
-
-        return playerStats;
+        this._playerStats.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
     }
 
     private _pollStats() {
         this._statsPollingTimeout = setTimeout(async () => {
             try {
-                await this.getStats();
-            } catch {
+                await this._computeStats();
+            } catch (e) {
                 // ignore failures while polling stats
             }
             this._pollStats();
