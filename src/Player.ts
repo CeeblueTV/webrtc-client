@@ -556,7 +556,7 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * compute the current player statistics as a {@link PlayerStats}  object
+     * Compute the current player statistics as a {@link utils.PlayerStats}  object
      */
     computeStats(): utils.PlayerStats {
         return (this._playerStats as utils.PlayerStats) ?? new utils.PlayerStats();

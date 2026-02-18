@@ -232,7 +232,7 @@
                         const player = this.player;
                         if (player?.controller?.opened) {
                             this.hasMetrics = true;
-                            let playerStats = player.getStats();
+                            let playerStats = player.computeStats();
 
                             // Display only the basic stats
                             if (this.displayStats >= 1) {
@@ -398,7 +398,7 @@
                     async resetMetrics(all = false) {
                         // Reset only incremental metrics from the player if all = false
                         if (this.player){
-                            let playerStats = await this.player.getStats();
+                            let playerStats = await this.player.computeStats();
                             const {skippedAudioCount, skippedVideoCount, stallCount, lostPacketCount, nackCount} = playerStats;
                             this.deltaStats = { stallCount, skippedAudioCount, skippedVideoCount, lostPacketCount, nackCount };
                         }

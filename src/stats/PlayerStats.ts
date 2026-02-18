@@ -7,9 +7,9 @@
 import { IStats } from './IStats';
 import { IConnector } from '../connectors/IConnector';
 import { Metadata } from '../metadata/Metadata';
-import { PlayerStats as WebUtilsPlayerStats } from '@ceeblue/web-utils';
+import * as utils from '@ceeblue/web-utils';
 
-export class PlayerStats extends WebUtilsPlayerStats implements IStats {
+export class PlayerStats extends utils.PlayerStats implements IStats {
     // References to external objects and current track indices used for stats computation
     private _connector?: IConnector | undefined;
     private _videoElement: HTMLVideoElement;
