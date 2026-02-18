@@ -311,7 +311,6 @@ export class Player extends EventEmitter {
         super();
         this._dataTracks = new Array<number>();
         this._videoElement = videoElement;
-        this._clearState();
     }
 
     /**
@@ -545,8 +544,12 @@ export class Player extends EventEmitter {
 
         // Signaling
         connector.close();
-        // Reset states
-        this._clearState();
+        // Clear state
+        this._audioTrack = undefined;
+        this._videoTrack = undefined;
+        this._playingInfos = undefined;
+        this._metadata = undefined;
+        this._dataTracks.length = 0;
         // User event (always in last)
         this.onStop(error);
     }
@@ -652,13 +655,5 @@ export class Player extends EventEmitter {
             }
             this._pollStats();
         }, 1000);
-    }
-
-    private _clearState() {
-        this._audioTrack = undefined;
-        this._videoTrack = undefined;
-        this._playingInfos = undefined;
-        this._metadata = undefined;
-        this._dataTracks.length = 0;
     }
 }
