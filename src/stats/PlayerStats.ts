@@ -7,16 +7,12 @@
 import { IStats } from './IStats';
 import { IConnector } from '../connectors/IConnector';
 import { Metadata } from '../metadata/Metadata';
-import { PlayerStats as WebUtilsPlayerStats, Util } from '@ceeblue/web-utils';
+import { PlayerStats as WebUtilsPlayerStats } from '@ceeblue/web-utils';
 
 export class PlayerStats extends WebUtilsPlayerStats implements IStats {
     // References to external objects and current track indices used for stats computation
     private _connector?: IConnector | undefined;
     private _videoElement: HTMLVideoElement;
-
-    private _metadata?: Metadata | undefined;
-    private _audioTrack?: number;
-    private _videoTrack?: number;
 
     // States used for incremental stats computation
     private _states = {
@@ -48,58 +44,10 @@ export class PlayerStats extends WebUtilsPlayerStats implements IStats {
     onRelease() {}
 
     async serialize(): Promise<object> {
-        if (!this._connector) {
-            return Promise.reject('Cannot serialize stats: no active connector');
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const metrics: any = {
-            recvByteRate: this.recvByteRate,
-            bufferAmount: this.bufferAmount,
-            playbackSpeed: this.playbackSpeed,
-            videoPerSecond: this.videoPerSecond,
-            audioTrackId: this.audioTrackId,
-            audioTrackBandwidth: this.audioTrackBandwidth,
-            videoTrackId: this.videoTrackId,
-            videoTrackBandwidth: this.videoTrackBandwidth,
-            skippedAudioCount: this.skippedAudioCount,
-            skippedVideoCount: this.skippedVideoCount,
-            stallCount: this.stallCount,
-            lostPacketCount: this.lostPacketCount,
-            nackCount: this.nackCount,
-            rtt: this.rtt,
-            jitter: this.jitter
-        };
-
-        // Refresh stats before returning them
-        try {
-            await this.compute();
-
-            // Update fields with refreshed values
-            metrics.recvByteRate = this.recvByteRate;
-            metrics.bufferAmount = this.bufferAmount;
-            metrics.playbackSpeed = this.playbackSpeed;
-            metrics.videoPerSecond = this.videoPerSecond;
-            metrics.audioTrackId = this.audioTrackId;
-            metrics.audioTrackBandwidth = this.audioTrackBandwidth;
-            metrics.videoTrackId = this.videoTrackId;
-            metrics.videoTrackBandwidth = this.videoTrackBandwidth;
-            metrics.skippedAudioCount = this.skippedAudioCount;
-            metrics.skippedVideoCount = this.skippedVideoCount;
-            metrics.stallCount = this.stallCount;
-            metrics.lostPacketCount = this.lostPacketCount;
-            metrics.nackCount = this.nackCount;
-            metrics.rtt = this.rtt;
-            metrics.jitter = this.jitter;
-        } catch (e) {
-            this.log(`Report stats without refresh, ${Util.stringify(e)}`).warn();
-            return metrics;
-        }
-
-        return metrics;
+        return this;
     }
 
-    public async compute(): Promise<void> {
+    public async compute(metadata: Metadata, audioTrackId?: number, videoTrackId?: number): Promise<void> {
         if (!this._connector) {
             return;
         }
@@ -107,6 +55,11 @@ export class PlayerStats extends WebUtilsPlayerStats implements IStats {
         const infos = await this._connector.connectionInfos(100);
         const audioIn = infos?.inputs?.audio;
         const videoIn = infos?.inputs?.video;
+
+        // videoTrackId (unused in the player.html)
+        this.videoTrackId = videoTrackId;
+        // audioTrackId (unused in the player.html)
+        this.audioTrackId = audioTrackId;
 
         // recvByteRate (labeled Bandwidth inside the player.html)
         let now = performance.now();
@@ -147,8 +100,8 @@ export class PlayerStats extends WebUtilsPlayerStats implements IStats {
 
         // skippedAudioCount: incremental (labeled Skipped audio inside the player.html)
         this.skippedAudioCount = this._states.prevSkippedAudioCount;
-        if (this._audioTrack != null) {
-            const audioTrack = this._metadata?.tracks.get(this._audioTrack);
+        if (audioTrackId != null) {
+            const audioTrack = metadata?.tracks.get(audioTrackId);
             const currentAudioConcealedSamples = audioIn?.concealedSamples ?? 0;
             const deltaConcealedSamples = Math.max(
                 currentAudioConcealedSamples - this._states.prevAudioConcealedSamples,
@@ -174,18 +127,16 @@ export class PlayerStats extends WebUtilsPlayerStats implements IStats {
         // stallCount: incremental (labeled Stalls inside the player.html)
         this.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
 
-        // Tracks bandwidth and id
-        const tracks = this._metadata?.tracks;
+        // Tracks bandwidth
+        const tracks = metadata?.tracks;
         if (tracks) {
-            const audioTrack = tracks.get(this._audioTrack ?? 0);
-            const videoTrack = tracks.get(this._videoTrack ?? 0);
+            const audioTrack = tracks.get(audioTrackId ?? 0);
+            const videoTrack = tracks.get(videoTrackId ?? 0);
             if (audioTrack) {
-                this.audioTrackId = audioTrack.idx;
                 // audioTrackBandwidth (labeled Track audio inside the player.html)
                 this.audioTrackBandwidth = audioTrack.ebps ?? audioTrack.bps;
             }
             if (videoTrack) {
-                this.videoTrackId = videoTrack.idx;
                 // videoTrackBandwidth (labeled Track video inside the player.html)
                 this.videoTrackBandwidth = videoTrack.ebps ?? videoTrack.bps;
             }
@@ -218,29 +169,5 @@ export class PlayerStats extends WebUtilsPlayerStats implements IStats {
         // nackCount : incremental
         // (labeled Nacks inside the player.html)
         this.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
-    }
-
-    /**
-     * Set the current audio track index.
-     */
-    public setAudioTrack(audioTrack?: number): PlayerStats {
-        this._audioTrack = audioTrack;
-        return this;
-    }
-
-    /**
-     * Set the current video track index.
-     */
-    public setVideoTrack(videoTrack?: number): PlayerStats {
-        this._videoTrack = videoTrack;
-        return this;
-    }
-
-    /**
-     * Set the current metadata object.
-     */
-    public setMetadata(metadata?: Metadata): PlayerStats {
-        this._metadata = metadata;
-        return this;
     }
 }

@@ -580,11 +580,9 @@ export class Player extends EventEmitter {
         // In this case wait end of MBR switch
         if (audios.length === 1) {
             this._audioTrack = audios[0];
-            this._playerStats?.setAudioTrack(audios[0]);
         }
         if (videos.length === 1) {
             this._videoTrack = videos[0];
-            this._playerStats?.setVideoTrack(videos[0]);
         }
     }
 
@@ -597,7 +595,6 @@ export class Player extends EventEmitter {
                 return;
             }
             this._metadata = metadata.subset(this._connector.codecs);
-            this._playerStats?.setMetadata(this._metadata);
             this._updateTracks();
             this.onMetadata(this._metadata);
         };
@@ -646,7 +643,7 @@ export class Player extends EventEmitter {
                 return;
             }
             try {
-                await this._playerStats?.compute();
+                await this._playerStats?.compute(this._metadata!, this._audioTrack, this._videoTrack);
             } catch (e) {
                 // ignore failures while polling stats
             }
