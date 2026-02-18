@@ -6,6 +6,7 @@
 
 import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
 import { ILog, Connect, Util, EventEmitter, WebSocketReliableError, NetAddress } from '@ceeblue/web-utils';
+import * as utils from '@ceeblue/web-utils';
 import { PlayerStats } from './stats/PlayerStats';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
@@ -555,10 +556,10 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Return the current player statistics as a {@link PlayerStats}  object
+     * compute the current player statistics as a {@link PlayerStats}  object
      */
-    getStats(): PlayerStats | undefined {
-        return this._playerStats;
+    computeStats(): utils.PlayerStats {
+        return (this._playerStats as utils.PlayerStats) ?? new utils.PlayerStats();
     }
 
     private _updateTracks() {
@@ -642,18 +643,14 @@ export class Player extends EventEmitter {
 
     private _pollStats() {
         this._statsPollingTimeout = setTimeout(async () => {
-            if (!this._connector || !this._playerStats) {
-                return;
-            }
             try {
                 await this._playerStats?.compute(this._metadata!, this._audioTrack, this._videoTrack);
             } catch (e) {
                 // ignore failures while polling stats
             }
-            if (!this._connector || !this._playerStats) {
-                return;
+            if (this.running) {
+                this._pollStats();
             }
-            this._pollStats();
         }, 1000);
     }
 }
