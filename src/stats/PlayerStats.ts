@@ -23,9 +23,9 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         prevAudioEmittedCount: 0,
         prevVideoJitterDelay: 0,
         prevAudioJitterDelay: 0,
-        prevSkippedAudioCount: 0,
+        prevskippedAudio: 0,
         prevAudioConcealedSamples: 0,
-        prevSkippedVideoCount: 0,
+        prevskippedVideo: 0,
         prevVideoDroppedFrames: 0,
         prevVideoTime: 0,
         prevRealTime: 0
@@ -98,8 +98,8 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         const videoPerSecond = videoIn?.framesPerSecond ?? 0;
         this.videoPerSecond = videoPerSecond;
 
-        // skippedAudioCount: incremental (labeled Skipped audio inside the player.html)
-        this.skippedAudioCount = this._states.prevSkippedAudioCount;
+        // skippedAudio: incremental (labeled Skipped audio inside the player.html)
+        this.skippedAudio = this._states.prevskippedAudio;
         if (audioTrackId != null) {
             const audioTrack = metadata?.tracks.get(audioTrackId);
             const currentAudioConcealedSamples = audioIn?.concealedSamples ?? 0;
@@ -109,19 +109,19 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
             );
             this._states.prevAudioConcealedSamples = currentAudioConcealedSamples; // in samples
             if (audioTrack && audioTrack.rate) {
-                this.skippedAudioCount += deltaConcealedSamples / audioTrack.rate;
-                this._states.prevSkippedAudioCount = this.skippedAudioCount; // in seconds
+                this.skippedAudio += deltaConcealedSamples / audioTrack.rate;
+                this._states.prevskippedAudio = this.skippedAudio; // in seconds
             }
         }
 
-        // skippedVideoCount: incremental (labeled Skipped video inside the player.html)
-        this.skippedVideoCount = this._states.prevSkippedVideoCount;
+        // skippedVideo: incremental (labeled Skipped video inside the player.html)
+        this.skippedVideo = this._states.prevskippedVideo;
         const currentVideoDroppedFrames = videoIn?.framesDropped ?? 0;
         if (videoPerSecond > 0) {
             const deltaDroppedFrames = Math.max(currentVideoDroppedFrames - this._states.prevVideoDroppedFrames, 0);
             this._states.prevVideoDroppedFrames = currentVideoDroppedFrames; // in frames
-            this.skippedVideoCount += deltaDroppedFrames / videoPerSecond;
-            this._states.prevSkippedVideoCount = this.skippedVideoCount; // in seconds
+            this.skippedVideo += deltaDroppedFrames / videoPerSecond;
+            this._states.prevskippedVideo = this.skippedVideo; // in seconds
         }
 
         // stallCount: incremental (labeled Stalls inside the player.html)
