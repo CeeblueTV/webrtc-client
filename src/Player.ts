@@ -555,7 +555,8 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Compute the current player statistics as a {@link PlayerStats}  object
+     * Compute the current player statistics as a {@link PlayerStats} object
+     * @returns {PlayerStats} the current player statistics
      */
     computeStats(): PlayerStats {
         return this._playerStats;
@@ -640,6 +641,7 @@ export class Player extends EventEmitter {
         };
     }
 
+    // Poll stats every second to update the values inside our PlayerStats object
     private _pollStats() {
         this._statsPollingTimeout = setTimeout(async () => {
             if (!this._connector) {

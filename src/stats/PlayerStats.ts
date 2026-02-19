@@ -37,10 +37,22 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
      */
     onRelease() {}
 
+    /**
+     * @returns a JSON representation of the player stats, which is the object itself in this case
+     */
     async serialize(): Promise<object> {
         return this;
     }
 
+    /**
+     * Computes and updates all player statistics based on the current connection infos, metadata, and playback state.
+     * Updates the internal properties of this class including those inherited from {@link utils.PlayerStats}.
+     * @param infos        ConnectionInfos: WebRTC connection and input stats.
+     * @param metadata     Metadata: Stream metadata and track info.
+     * @param currentTime  number: Current playback time (media time) in seconds.
+     * @param audioTrackId number (optional): Selected audio track ID.
+     * @param videoTrackId number (optional): Selected video track ID.
+     */
     public async compute(
         infos: ConnectionInfos,
         metadata: Metadata,
