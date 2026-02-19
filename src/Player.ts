@@ -555,10 +555,10 @@ export class Player extends EventEmitter {
     }
 
     /**
-     * Compute the current player statistics as a {@link utils.PlayerStats}  object
+     * Compute the current player statistics as a {@link PlayerStats}  object
      */
-    computeStats(): utils.PlayerStats {
-        return (this._playerStats as utils.PlayerStats) ?? new utils.PlayerStats();
+    computeStats(): PlayerStats {
+        return this._playerStats;
     }
 
     private _updateTracks() {
