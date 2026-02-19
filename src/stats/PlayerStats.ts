@@ -5,15 +5,11 @@
  */
 
 import { IStats } from './IStats';
-import { IConnector } from '../connectors/IConnector';
+import { ConnectionInfos } from '../connectors/IConnector';
 import { Metadata } from '../metadata/Metadata';
 import * as utils from '@ceeblue/web-utils';
 
 export class PlayerStats extends utils.PlayerStats implements IStats {
-    // References to external objects and current track indices used for stats computation
-    private _connector?: IConnector | undefined;
-    private _videoElement: HTMLVideoElement;
-
     // States used for incremental stats computation
     private _states = {
         prevTime: 0,
@@ -31,10 +27,8 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         prevRealTime: 0
     };
 
-    constructor(videoElement: HTMLVideoElement, connector?: IConnector) {
+    constructor() {
         super();
-        this._connector = connector;
-        this._videoElement = videoElement!;
     }
 
     /**
@@ -47,14 +41,15 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         return this;
     }
 
-    public async compute(metadata: Metadata, audioTrackId?: number, videoTrackId?: number): Promise<void> {
-        if (!this._connector) {
-            return;
-        }
-
-        const infos = await this._connector.connectionInfos(100);
-        const audioIn = infos?.inputs?.audio;
-        const videoIn = infos?.inputs?.video;
+    public async compute(
+        infos: ConnectionInfos,
+        metadata: Metadata,
+        currentTime: number,
+        audioTrackId?: number,
+        videoTrackId?: number
+    ): Promise<void> {
+        const audioIn = infos.inputs?.audio;
+        const videoIn = infos.inputs?.video;
 
         // videoTrackId (unused in the player.html)
         this.videoTrackId = videoTrackId;
@@ -101,7 +96,7 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         // skippedAudio: incremental (labeled Skipped audio inside the player.html)
         this.skippedAudio = this._states.prevskippedAudio;
         if (audioTrackId != null) {
-            const audioTrack = metadata?.tracks.get(audioTrackId);
+            const audioTrack = metadata.tracks.get(audioTrackId);
             const currentAudioConcealedSamples = audioIn?.concealedSamples ?? 0;
             const deltaConcealedSamples = Math.max(
                 currentAudioConcealedSamples - this._states.prevAudioConcealedSamples,
@@ -128,7 +123,7 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         this.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
 
         // Tracks bandwidth
-        const tracks = metadata?.tracks;
+        const tracks = metadata.tracks;
         if (tracks) {
             const audioTrack = tracks.get(audioTrackId ?? 0);
             const videoTrack = tracks.get(videoTrackId ?? 0);
@@ -144,7 +139,7 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
 
         // playbackSpeed (labeled Playback speed inside the player.html)
         now = performance.now();
-        const videoTime = this._videoElement.currentTime ?? 0;
+        const videoTime = currentTime;
         let measuredSpeed = 0;
         if (this._states.prevVideoTime !== undefined && this._states.prevRealTime !== undefined) {
             const deltaVideoTime = videoTime - this._states.prevVideoTime;

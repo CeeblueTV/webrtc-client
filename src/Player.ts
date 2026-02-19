@@ -6,7 +6,6 @@
 
 import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
 import { ILog, Connect, Util, EventEmitter, WebSocketReliableError, NetAddress } from '@ceeblue/web-utils';
-import * as utils from '@ceeblue/web-utils';
 import { PlayerStats } from './stats/PlayerStats';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
@@ -281,7 +280,7 @@ export class Player extends EventEmitter {
     private _statsPollingTimeout?: NodeJS.Timeout;
     private _metadata?: Metadata;
     private _videoElement: HTMLVideoElement;
-    private _playerStats?: PlayerStats;
+    private _playerStats: PlayerStats;
 
     /**
      * Constructs a new Player instance, optionally with a custom connector
@@ -312,6 +311,7 @@ export class Player extends EventEmitter {
         super();
         this._dataTracks = new Array<number>();
         this._videoElement = videoElement;
+        this._playerStats = new PlayerStats();
     }
 
     /**
@@ -398,7 +398,6 @@ export class Player extends EventEmitter {
         this._connector = new (this.Connector || (params.endPoint.startsWith('http') ? HTTPConnector : WSController))(
             params
         );
-        this._playerStats = new PlayerStats(this._videoElement, this._connector);
         this._connector.log = this.log.bind(this, 'Signaling:') as ILog;
         this._connector.onOpen = stream => {
             this._pollStats(); // Start polling stats
@@ -519,7 +518,7 @@ export class Player extends EventEmitter {
         this._connector = undefined;
 
         clearTimeout(this._statsPollingTimeout);
-        this._playerStats = undefined;
+        this._playerStats = new PlayerStats(); // reset stats
 
         // Detach video
         this._videoElement.pause();
@@ -643,8 +642,17 @@ export class Player extends EventEmitter {
 
     private _pollStats() {
         this._statsPollingTimeout = setTimeout(async () => {
+            if (!this._connector) {
+                return;
+            }
             try {
-                await this._playerStats?.compute(this._metadata!, this._audioTrack, this._videoTrack);
+                await this._playerStats.compute(
+                    await this._connector.connectionInfos(100),
+                    this._metadata ?? new Metadata(),
+                    this._videoElement.currentTime,
+                    this._audioTrack,
+                    this._videoTrack
+                );
             } catch (e) {
                 // ignore failures while polling stats
             }
