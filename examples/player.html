@@ -21,6 +21,11 @@
             body {
                 margin-top: 1em;
                 margin-bottom: 3em;
+                background-color: #edf0f3;
+            }
+
+            .card-body {
+                background-color: #edf0f3;
             }
 
             video {
@@ -117,6 +122,16 @@
                     </button>
 
                 </div>
+                <div class="form-row">
+                    <ul class="list-group list-group-flush" ref="stats" style="width: 100%;">
+                    </ul>
+                </div>
+                <div class="form-row" v-show="hasMetrics && displayStats">
+                    <div class="form-group mx-auto">
+                        <img class="m-1" alt="Reset metrics view" title="Reset incremental metrics and rescale the chart" type="button" @click="resetMetrics()" src="./assets/reload.png" style="object-fit:contain" height="32">
+                        <img class="m-1" alt="Download metrics" title="Download metrics as a CSV file" type="button" @click="downloadStats()" src="./assets/download.png" style="object-fit:contain" height="32">
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -127,7 +142,7 @@
             // production version, optimized for size and speed
             import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
 
-            const { Util, Connect, log } = utils;
+            const { Util, Connect, log, UIMetrics } = utils;
 
             log('webrtc-client version:', VERSION).info();
             log('web-utils version:', utils.VERSION).info();
@@ -148,7 +163,9 @@
                         accessToken: null,
                         muted: true,
                         endPoint: null,
-
+                        displayStats: null,
+                        hasMetrics: false,
+                        
                         streamMetadata: null,
                         videoTracks: new Map(),
                         videoTrack: 'Video',
@@ -160,11 +177,16 @@
                         audioTrackId: undefined,
                         streamErrorMessage: null,
                         startTime: 0,
+                        stats: new Map(),
+                        uiStats: null,
+                        times: new Array(),
 
-                        player: null
+                        player: null,
+                        playerStats: null,
+                        deltaStats: {},
                     }
                 },
-                created() {
+                mounted() {
                     const options = Util.caseInsensitive(Util.options());
                     // init values
                     const params = {
@@ -181,6 +203,63 @@
                     this.streamName = params.streamName;
                     this.accessToken = params.accessToken;
                     this.connectorType = options.whip ? this.connectorTypes[1] : this.connectorTypes[0];
+                    // Choses stats display level: 0: none, 1:basic, 2:full
+                    if (options.stats === 'none') {
+                        this.displayStats = 0;
+                    } else if (options.stats === 'full') {
+                        this.displayStats = 2;
+                    } else {
+                        this.displayStats = 1;
+                    }
+
+                    this.uiStats = new UIMetrics(this.$refs.stats);
+                    // Stats to be displayed in the UI
+                    const bandwidths = []; this.stats.set("Bandwidth", bandwidths);
+                    const bufferAmounts = []; this.stats.set("Buffer", bufferAmounts);
+                    const playbackSpeeds = []; this.stats.set("Playback speed", playbackSpeeds);
+                    const fps = []; this.stats.set("Video FPS", fps);
+                    const trackAudio = []; this.stats.set("Track audio", trackAudio);
+                    const trackVideo = []; this.stats.set("Track video", trackVideo);
+                    const skippedAudio = []; this.stats.set("Skipped audio", skippedAudio);
+                    const skippedVideo = []; this.stats.set("Skipped video", skippedVideo);
+                    const stalls = []; this.stats.set("Stalls", stalls);
+                    const packetsLost = []; this.stats.set("Packet loss", packetsLost);
+                    const nack = []; this.stats.set("Nack", nack);
+                    const rtt = []; this.stats.set("RTT", rtt);
+                    const jitter = []; this.stats.set("Jitter", jitter);
+
+                    setInterval(async () => {
+                        const player = this.player;
+                        if (player?.controller?.opened) {
+                            this.hasMetrics = true;
+                            let playerStats = player.computeStats();
+
+                            // Display only the basic stats
+                            if (this.displayStats >= 1) {
+                                bandwidths.push(((playerStats.recvByteRate ?? 0) * 8).toFixed(0) + 'kbps');
+                                bufferAmounts.push((playerStats.bufferAmount ?? 0).toFixed(0) + 'ms');
+                                playbackSpeeds.push((playerStats.playbackSpeed ?? 0).toFixed(2));
+                                fps.push(playerStats.videoPerSecond ?? 0);
+                                trackAudio.push(((playerStats.audioTrackBandwidth ?? 0) * 8 / 1000).toFixed(0) + 'kbps');
+                                trackVideo.push(((playerStats.videoTrackBandwidth ?? 0) * 8 / 1000).toFixed(0) + 'kbps');
+                                skippedAudio.push(((playerStats.skippedAudio ?? 0) - (this.deltaStats.skippedAudio ?? 0)).toFixed(1) + 's');
+                                skippedVideo.push(((playerStats.skippedVideo ?? 0) - (this.deltaStats.skippedVideo ?? 0)).toFixed(1) + 's');
+                                stalls.push((playerStats.stallCount ?? 0) - (this.deltaStats.stallCount ?? 0));
+                                this.times.push({
+                                    time: new Date().toISOString(),
+                                    mediaTime: this.$refs.video.currentTime || 0
+                                });
+                            }
+                            // Full stats
+                            if (this.displayStats >= 2) {
+                                packetsLost.push((playerStats.lostPacketCount ?? 0) - (this.deltaStats.lostPacketCount ?? 0));
+                                nack.push((playerStats.nackCount ?? 0) - (this.deltaStats.nackCount ?? 0));
+                                rtt.push(((playerStats.rtt ?? 0) * 1000).toFixed(0) + 'ms');
+                                jitter.push(((playerStats.jitter ?? 0) * 1000).toFixed(0) + 'ms');
+                            }
+                        }
+                        this.uiStats.display(this.stats);
+                    }, 700);
                 },
                 methods: {
                     play() {
@@ -191,6 +270,7 @@
                             return;
                         }
                         this.streamErrorMessage = null;
+                        this.resetMetrics(true);
                         if (!this.streamName) {
                             this.streamErrorMessage = "Enter a non-empty stream name to play";
                             return;
@@ -205,7 +285,7 @@
                             videoElement.play();
                         };
 
-                        this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
+                        this.player = new Player(videoElement, this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
                         this.player.onStart = this.onStart.bind(this);
                         this.player.onStop = this.onStop.bind(this);
                         this.player.onPlaying = this.onPlaying.bind(this);
@@ -269,23 +349,15 @@
                         this.videoTracks = new Map();
 
                         for (const [id, track] of metadata.tracks) {
-                            const readableBitrate = (bytes) => {
-                                if (bytes === 0)
-                                    return '';
-                                let i = Math.floor(Math.log(bytes) / Math.log(1000)),
-                                    sizes = ['bps', 'kbps', 'mbps', 'gbps'];
-                                return (bytes / Math.pow(1000, i)).toFixed(1) * 1 + ' ' + sizes[i];
-                            }
-
                             if (track.type === 'video') {
                                 this.videoTracks.set(
                                     id,
-                                    `${track.codec} ${track.width}x${track.height} ${readableBitrate(track.bps * 8)}`
+                                    `${track.codec} ${track.width}x${track.height} ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
                                 );
                             } else if (track.type === 'audio') {
                                 this.audioTracks.set(
                                     id,
-                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${readableBitrate(track.bps * 8)}`
+                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
                                 );
                             }
                         }
@@ -322,7 +394,65 @@
                         if (this.player) {
                             this.player.audioTrack = this.audioTrackId;
                         }
-                    }
+                    },
+                    async resetMetrics(all = false) {
+                        // Reset only incremental metrics from the player if all = false
+                        if (this.player){
+                            let playerStats = await this.player.computeStats();
+                            const {skippedAudio, skippedVideo, stallCount, lostPacketCount, nackCount} = playerStats;
+                            this.deltaStats = { stallCount, skippedAudio, skippedVideo, lostPacketCount, nackCount };
+                        }
+                        // Clear stored metric arrays when a full reset is requested
+                        if (all) {
+                            for (const arr of this.stats.values()) {
+                                arr.length = 0;
+                            }
+                            // Reset UI widget and display cleared stats
+                            if (this.uiStats) {
+                                this.uiStats.reset();
+                                this.uiStats.display(this.stats);
+                            }
+                            // Reset local trackers
+                            this.hasMetrics = false;
+                            this.times.length = 0;
+                            this.deltaStats = { stallCount: 0, skippedAudio: 0, skippedVideo: 0, lostPacketCount: 0, nackCount: 0 };
+                        }
+                    },
+                    download(name, data, type) {
+                        const url = URL.createObjectURL(new Blob([data], {type}));
+                        const link = document.createElement("a");
+                        link.setAttribute("href", url);
+                        link.setAttribute("download", name);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    },
+                    downloadStats() {
+                        // Write headers and compute max values
+                        let csv = "";
+                        let max = this.times.length;
+                        let headers = ["localTime" , "mediaTime"];
+                        for (const [header, values] of this.stats) {
+                            headers.push(header);
+                            max = Math.max(max, values.length);
+                        }
+                        csv = headers.join(';');
+                        
+                        // Write CSV
+                        for (let i = 0; i < max; ++i) {
+                            csv += '\n';
+                            const {time, mediaTime} = this.times[i];
+                            csv += (time || '') + ';' + (mediaTime || '') + ';';
+                            for(let [name, stats] of this.stats) {
+                                csv += (stats[i] == null ? '' : parseFloat(stats[i])) + ';';
+                            }
+                        }
+
+                        // Download the csv !
+                        this.download("stats.csv", csv, 'text/csv;charset=utf-8;');
+                    },
+
                 },
             }).mount('#main');
         </script>

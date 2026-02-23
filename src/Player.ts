@@ -6,6 +6,7 @@
 
 import { StreamMetadata, StreamMetadataError, StreamState } from './metadata/StreamMetadata';
 import { ILog, Connect, Util, EventEmitter, WebSocketReliableError, NetAddress } from '@ceeblue/web-utils';
+import { PlayerStats } from './stats/PlayerStats';
 import { ConnectionInfos, ConnectorError, IConnector } from './connectors/IConnector';
 import { IController, IsController, PlayingInfos } from './connectors/IController';
 import { WSController } from './connectors/WSController';
@@ -276,7 +277,11 @@ export class Player extends EventEmitter {
     private _playingInfos?: PlayingInfos;
     private _streamData?: IStreamData;
     private _streamDataReconnectTimeout?: NodeJS.Timeout;
+    private _statsPollingTimeout?: NodeJS.Timeout;
     private _metadata?: Metadata;
+    private _videoElement: HTMLVideoElement;
+    private _playerStats: PlayerStats;
+
     /**
      * Constructs a new Player instance, optionally with a custom connector
      * This doesn't start the playback, you must call {@link Player.start} method
@@ -299,9 +304,14 @@ export class Player extends EventEmitter {
      *  streamName: 'as+bc3f535f-37f3-458b-8171-b4c5e77a6137'
      * })
      */
-    constructor(private Connector?: { new (connectParams: Connect.Params): IConnector }) {
+    constructor(
+        videoElement: HTMLVideoElement,
+        private Connector?: { new (connectParams: Connect.Params): IConnector }
+    ) {
         super();
         this._dataTracks = new Array<number>();
+        this._videoElement = videoElement;
+        this._playerStats = new PlayerStats();
     }
 
     /**
@@ -390,6 +400,7 @@ export class Player extends EventEmitter {
         );
         this._connector.log = this.log.bind(this, 'Signaling:') as ILog;
         this._connector.onOpen = stream => {
+            this._pollStats(); // Start polling stats
             this.onStart(stream);
             // metadata in first!
             if (this._streamMetadata?.metadata) {
@@ -505,6 +516,17 @@ export class Player extends EventEmitter {
             return;
         }
         this._connector = undefined;
+
+        clearTimeout(this._statsPollingTimeout);
+        this._playerStats = new PlayerStats(); // reset stats
+
+        // Detach video
+        this._videoElement.pause();
+        this._videoElement.srcObject = null;
+
+        // Safari/iOS workaround to release WebRTC resources and avoid Safari bugs on next play
+        this._videoElement.load();
+
         // Stream metadata
         clearTimeout(this._streamMetadataReconnectTimeout);
         if (this._streamMetadata) {
@@ -519,16 +541,25 @@ export class Player extends EventEmitter {
             this._streamData.close();
             this._streamData = undefined;
         }
+
         // Signaling
         connector.close();
-        // Reset some value
+        // Clear state
         this._audioTrack = undefined;
         this._videoTrack = undefined;
-        this._dataTracks.length = 0;
         this._playingInfos = undefined;
         this._metadata = undefined;
+        this._dataTracks.length = 0;
         // User event (always in last)
         this.onStop(error);
+    }
+
+    /**
+     * Compute the current player statistics as a {@link PlayerStats} object
+     * @returns {PlayerStats} the current player statistics
+     */
+    computeStats(): PlayerStats {
+        return this._playerStats;
     }
 
     private _updateTracks() {
@@ -608,5 +639,28 @@ export class Player extends EventEmitter {
                 streamData.tracks = this._dataTracks;
             }, RECONNECTION_TIMEOUT);
         };
+    }
+
+    // Poll stats every second to update the values inside our PlayerStats object
+    private _pollStats() {
+        this._statsPollingTimeout = setTimeout(async () => {
+            if (!this._connector) {
+                return;
+            }
+            try {
+                await this._playerStats.compute(
+                    await this._connector.connectionInfos(100),
+                    this._metadata ?? new Metadata(),
+                    this._videoElement.currentTime,
+                    this._audioTrack,
+                    this._videoTrack
+                );
+            } catch (e) {
+                // ignore failures while polling stats
+            }
+            if (this.running) {
+                this._pollStats();
+            }
+        }, 1000);
     }
 }
