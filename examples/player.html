@@ -458,14 +458,15 @@
 
                         for (const [id, track] of metadata.tracks) {
                             if (track.type === 'video') {
+                                const bitrate = ((track.ebps || track.bps) * 8 / 1000).toFixed(0);
                                 this.videoTracks.set(
-                                    id,
-                                    `${track.codec} ${track.width}x${track.height} ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
+                                    id, `${track.codec} ${track.width}x${track.height} ${bitrate} kbps`
                                 );
                             } else if (track.type === 'audio') {
+                                const bitrate = ((track.ebps || track.bps) * 8 / 1000).toFixed(0);
                                 this.audioTracks.set(
                                     id,
-                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${(track.ebps * 8 / 1000).toFixed(0)} kbps`
+                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${bitrate} kbps`
                                 );
                             }
                         }
