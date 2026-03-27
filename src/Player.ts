@@ -655,7 +655,7 @@ export class Player extends EventEmitter {
                     this._audioTrack,
                     this._videoTrack
                 );
-            } catch (e) {
+            } catch {
                 // ignore failures while polling stats
             }
             if (this.running) {
