@@ -28,9 +28,6 @@
                 background-color: #edf0f3;
             }
 
-            .tab-panel {
-                /*text-align: left;*/
-            }
             .tab-panel .nav-tabs {
                 border-bottom: 1px solid rgba(0, 0, 0, 0.08);
             }
@@ -184,14 +181,14 @@
 
                 </div>
 
-                <div class="tab-panel">
+                <div class="tab-panel" v-show="displayStats || displayMessages">
                     <ul class="nav nav-tabs">
-                        <li class="nav-item">
+                        <li class="nav-item" v-show="displayStats">
                             <a class="nav-link" :class="{ active: activeBottomTab === 'graph' }" @click="selectBottomTab('graph')">
                                 Graph
                             </a>
                         </li>
-                        <li class="nav-item">
+                        <li class="nav-item" v-show="displayMessages">
                             <a class="nav-link" :class="{ active: activeBottomTab === 'messages' }" @click="selectBottomTab('messages')">
                                 Messages
                                 <span class="badge badge-primary tab-badge" v-if="unreadMessages > 0">{{ unreadMessages }}</span>
@@ -199,20 +196,20 @@
                         </li>
                     </ul>
                     <div class="tab-panel-content">
-                        <div class="tab-panel-pane" :class="{ 'is-hidden': activeBottomTab !== 'graph' }">
+                        <div class="tab-panel-pane" :class="{ 'is-hidden': activeBottomTab !== 'graph' }" v-show="displayStats">
                             <div class="form-row">
                                 <ul class="list-group list-group-flush" ref="stats" style="width: 100%;">
                                 </ul>
                             </div>
-                            <div class="form-row" v-show="hasMetrics">
+                            <div class="form-row" v-show="hasMetrics && displayStats">
                                 <div class="form-group mx-auto">
                                     <img class="m-1" alt="Reset metrics view" title="Reset incremental metrics and rescale the chart" type="button" @click="resetMetrics()" src="./assets/reload.png" style="object-fit:contain" height="32">
                                     <img class="m-1" alt="Download metrics" title="Download metrics as a CSV file" type="button" @click="downloadStats()" src="./assets/download.png" style="object-fit:contain" height="32">
                                 </div>
                             </div>
                         </div>
-                        <div class="tab-panel-pane tab-panel-pane--overlay" :class="{ 'is-hidden': activeBottomTab !== 'messages' }">
-                            <div class="messages-panel" ref="messagesPanel">
+                        <div class="tab-panel-pane tab-panel-pane--overlay" :class="{ 'is-hidden': activeBottomTab !== 'messages' }" v-show="displayMessages">
+                            <div class="messages-panel" ref="messagesPanel" @mousedown="onMessagesMouseDown">
                                 <div class="messages-empty" v-if="messages.length === 0">No data messages received yet.</div>
                                 <ul class="messages-list" v-else>
                                     <li v-for="(message, idx) in messages" :key="idx">[{{ message.track }}] {{ message.receivedAt }} : {{ message.text }}</li>
@@ -258,6 +255,7 @@
                         endPoint: null,
                         displayStats: null,
                         hasMetrics: false,
+                        displayMessages: false,
                         
                         streamMetadata: null,
                         videoTracks: new Map(),
@@ -265,6 +263,7 @@
                         videoTrackId: undefined,
                         activeBottomTab: 'graph',
                         messages: [],
+                        isMessagesMouseDown: false,
                         unreadMessages: 0,
                         connectorType:'WebSocket (WS)',
                         connectorTypes:['WebSocket (WS)', 'WHEP (HTTP)'],
@@ -283,6 +282,8 @@
                     }
                 },
                 mounted() {
+                    window.addEventListener('mouseup', this.onMessagesMouseUp);
+
                     const options = Util.caseInsensitive(Util.options());
                     // init values
                     const params = {
@@ -302,11 +303,13 @@
                     // Choses stats display level: 0: none, 1:basic, 2:full
                     if (options.stats === 'none') {
                         this.displayStats = 0;
+                        this.activeBottomTab = 'messages';
                     } else if (options.stats === 'full') {
                         this.displayStats = 2;
                     } else {
                         this.displayStats = 1;
                     }
+                    this.displayMessages = options.messages !== false;
 
                     this.uiStats = new UIMetrics(this.$refs.stats);
                     // Stats to be displayed in the UI
@@ -357,6 +360,9 @@
                         this.uiStats.display(this.stats);
                     }, 700);
                 },
+                beforeUnmount() {
+                    window.removeEventListener('mouseup', this.onMessagesMouseUp);
+                },
                 methods: {
                     play() {
                         this.startTime = Util.time();
@@ -405,7 +411,7 @@
                         this.$refs.video.srcObject = stream;
                     },
                     onStop(error) {
-                        if(error) {
+                        if (error) {
                             log('onStop', error).error();
                             this.streamErrorMessage = error.name;
                         } else {
@@ -425,11 +431,11 @@
                         this.playState = PlayState.STOPPED;
                     },
                     onPlaying(playing) {
-                        if(this.videoTrackId != null) {
+                        if (this.videoTrackId != null) {
                             this.videoTrackId = this.player.videoTrack;
                         }
                         this.videoTrack = this.videoTracks.get(this.player.videoTrack);
-                        if(this.audioTrackId != null) {
+                        if (this.audioTrackId != null) {
                             this.audioTrackId = this.player.audioTrack;
                         }
                         this.audioTrack = this.audioTracks.get(this.player.audioTrack);
@@ -473,15 +479,15 @@
                     },
                     selectBottomTab(tab) {
                         this.activeBottomTab = tab;
-                        if(tab === 'messages') {
+                        if (tab === 'messages') {
                             this.unreadMessages = 0;
                             this.scrollMessagesToBottom();
                         }
                     },
                     resetMessages() {
                         this.messages = [];
+                        this.isMessagesMouseDown = false;
                         this.unreadMessages = 0;
-                        this.activeBottomTab = 'graph';
                     },
                     formatReceptionTime(date = new Date()) {
                         return date.toLocaleTimeString([], {
@@ -490,37 +496,36 @@
                             second: '2-digit'
                         });
                     },
+                    onMessagesMouseDown() {
+                        this.isMessagesMouseDown = true;
+                    },
+                    onMessagesMouseUp() {
+                        this.isMessagesMouseDown = false;
+                    },
                     scrollMessagesToBottom() {
                         nextTick(() => {
                             const panel = this.$refs.messagesPanel;
-                            if(panel) {
+                            if (panel) {
                                 panel.scrollTop = panel.scrollHeight;
                             }
                         });
                     },
                     pushMessage(track, time, data) {
-                        const decoder = new TextDecoder();
-                        let message;
-                        try {
-                            message = decoder.decode(data).trim();
-                        } catch(_) {
-                            message = Array.from(data).join(' ');
-                        }
-                        if(!message) {
-                            message = Util.stringify(data);
-                        }
+                        const message = Util.stringify(data);
                         this.messages.push({
                             track,
                             receivedAt: this.formatReceptionTime(),
                             text: message.replace(/[\r\n]+/g, ' ')
                         });
-                        if(this.messages.length > 200) {
+                        if (this.messages.length > 200) {
                             this.messages.splice(0, this.messages.length - 200);
                         }
-                        if(this.activeBottomTab !== 'messages') {
+                        if (this.activeBottomTab !== 'messages') {
                             this.unreadMessages += 1;
                         }
-                        this.scrollMessagesToBottom();
+                        if (this.activeBottomTab === 'messages' && !this.isMessagesMouseDown) {
+                            this.scrollMessagesToBottom();
+                        }
                     },
                     mute() {
                         this.muted = !this.muted;
