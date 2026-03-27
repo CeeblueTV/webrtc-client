@@ -101,7 +101,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@ceeblue/web-utils": "^7.5.1",
+        "@ceeblue/web-utils": "^7.6.0",
         "sdp-transform": "^2.14.2"
     }
 }

@@ -142,7 +142,6 @@ To help you get started, we provide the following examples:
 
 - [/examples/streamer.html](./examples/streamer.html) - Publish a stream with your webcam
 - [/examples/player.html](./examples/player.html) - Play a stream
-- [/examples/player-with-timed-metadata.html](./examples/player-with-timed-metadata.html) - Play a stream with timed metadata
 
 > [!TIP]
 > 
