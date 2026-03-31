@@ -51,13 +51,13 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
      * @param audioTrackId number (optional): Selected audio track ID.
      * @param videoTrackId number (optional): Selected video track ID.
      */
-    public async compute(
+    public compute(
         infos: ConnectionInfos,
         metadata: Metadata,
         currentTime: number,
         audioTrackId?: number,
         videoTrackId?: number
-    ): Promise<void> {
+    ) {
         const audioIn = infos.inputs?.audio;
         const videoIn = infos.inputs?.video;
 

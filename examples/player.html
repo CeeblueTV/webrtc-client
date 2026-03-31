@@ -563,7 +563,7 @@
                     async resetMetrics(all = false) {
                         // Reset only incremental metrics from the player if all = false
                         if (this.player){
-                            let playerStats = await this.player.computeStats();
+                            let playerStats = this.player.computeStats();
                             const {skippedAudio, skippedVideo, stallCount, lostPacketCount, nackCount} = playerStats;
                             this.deltaStats = { stallCount, skippedAudio, skippedVideo, lostPacketCount, nackCount };
                         }
@@ -607,7 +607,7 @@
                         // Write CSV
                         for (let i = 0; i < max; ++i) {
                             csv += '\n';
-                            const {time, mediaTime} = this.times[i];
+                            const {time, mediaTime} = this.times[i] ?? {};
                             csv += (time || '') + ';' + (mediaTime || '') + ';';
                             for(let [name, stats] of this.stats) {
                                 csv += (stats[i] == null ? '' : parseFloat(stats[i])) + ';';
