@@ -61,90 +61,103 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         const audioIn = infos.inputs?.audio;
         const videoIn = infos.inputs?.video;
 
-        // videoTrackId (unused in the player.html)
+        // videoTrackId
         this.videoTrackId = videoTrackId;
-        // audioTrackId (unused in the player.html)
-        this.audioTrackId = audioTrackId;
+        const videoTrack = videoTrackId != null ? metadata.tracks.get(videoTrackId) : undefined;
 
-        // recvByteRate (labeled Bandwidth inside the player.html)
+        // audioTrackId
+        this.audioTrackId = audioTrackId;
+        const audioTrack = audioTrackId != null ? metadata.tracks.get(audioTrackId) : undefined;
+
+        // recvByteRate
         let now = performance.now();
         const deltaTime = Math.max(1, now - this._prevTime);
-        const audioBytes = audioIn?.bytesReceived ?? 0;
-        const videoBytes = videoIn?.bytesReceived ?? 0;
-        const deltaAudio = audioBytes - this._prevAudioBytes;
-        const deltaVideo = videoBytes - this._prevVideoBytes;
-        this._prevAudioBytes = audioBytes;
-        this._prevVideoBytes = videoBytes;
         this._prevTime = now;
-        if (deltaAudio > 0 || deltaVideo > 0) {
-            this.recvByteRate = (deltaAudio + deltaVideo) / deltaTime;
+
+        // audioByteRate
+        const audioBytes = audioIn?.bytesReceived;
+        if (audioBytes != null) {
+            this.audioByteRate = Math.max(0, audioBytes - this._prevAudioBytes) / deltaTime;
+            this._prevAudioBytes = audioBytes;
+        } else {
+            this.audioByteRate = undefined;
         }
 
-        // bufferAmount, computed as the max of audio/video jitter (labeled Buffer inside the player.html)
-        const videoJitterDelay = videoIn?.jitterBufferDelay ?? 0;
-        const videoEmittedCount = videoIn?.jitterBufferEmittedCount ?? 0;
-        const audioJitterDelay = audioIn?.jitterBufferDelay ?? 0;
-        const audioEmittedCount = audioIn?.jitterBufferEmittedCount ?? 0;
-        const videoDeltaCount = videoEmittedCount - this._prevVideoEmittedCount;
-        const audioDeltaCount = audioEmittedCount - this._prevAudioEmittedCount;
-        if (videoDeltaCount > 0 || audioDeltaCount > 0) {
-            const videoBuffering =
-                (1000 * (videoJitterDelay - this._prevVideoJitterDelay)) / Math.max(1, videoDeltaCount);
-            const audioBuffering =
-                (1000 * (audioJitterDelay - this._prevAudioJitterDelay)) / Math.max(1, audioDeltaCount);
-            this.bufferAmount = Math.max(videoBuffering, audioBuffering);
+        // videoByteRate
+        const videoBytes = videoIn?.bytesReceived;
+        if (videoBytes != null) {
+            this.videoByteRate = Math.max(0, videoBytes - this._prevVideoBytes) / deltaTime;
+            this._prevVideoBytes = videoBytes;
+        } else {
+            this.videoByteRate = undefined;
         }
-        this._prevVideoJitterDelay = videoJitterDelay;
-        this._prevAudioJitterDelay = audioJitterDelay;
-        this._prevVideoEmittedCount = videoEmittedCount;
-        this._prevAudioEmittedCount = audioEmittedCount;
 
-        // videoPerSecond (labeled Video FPS inside the player.html)
-        const videoPerSecond = videoIn?.framesPerSecond ?? 0;
-        this.videoPerSecond = videoPerSecond;
-
-        // skippedAudio: incremental (labeled Skipped audio inside the player.html)
-        this.skippedAudio = this._prevSkippedAudio;
-        if (audioTrackId != null) {
-            const audioTrack = metadata.tracks.get(audioTrackId);
-            const currentAudioConcealedSamples = audioIn?.concealedSamples ?? 0;
-            const deltaConcealedSamples = Math.max(currentAudioConcealedSamples - this._prevAudioConcealedSamples, 0);
-            this._prevAudioConcealedSamples = currentAudioConcealedSamples; // in samples
-            if (audioTrack && audioTrack.rate) {
-                this.skippedAudio += deltaConcealedSamples / audioTrack.rate;
-                this._prevSkippedAudio = this.skippedAudio; // in seconds
+        // bufferAmount, computed as the max of audio/video jitter
+        const videoJitterDelay = videoIn?.jitterBufferDelay;
+        const videoEmittedCount = videoIn?.jitterBufferEmittedCount;
+        let videoBuffering;
+        if (videoJitterDelay != null && videoEmittedCount != null) {
+            if (videoEmittedCount > this._prevVideoEmittedCount) {
+                videoBuffering =
+                    (1000 * Math.max(0, videoJitterDelay - this._prevVideoJitterDelay)) /
+                    (videoEmittedCount - this._prevVideoEmittedCount);
             }
+            this._prevVideoEmittedCount = videoEmittedCount;
+            this._prevVideoJitterDelay = videoJitterDelay;
         }
-
-        // skippedVideo: incremental (labeled Skipped video inside the player.html)
-        this.skippedVideo = this._prevSkippedVideo;
-        const currentVideoDroppedFrames = videoIn?.framesDropped ?? 0;
-        if (videoPerSecond > 0) {
-            const deltaDroppedFrames = Math.max(currentVideoDroppedFrames - this._prevVideoDroppedFrames, 0);
-            this._prevVideoDroppedFrames = currentVideoDroppedFrames; // in frames
-            this.skippedVideo += deltaDroppedFrames / videoPerSecond;
-            this._prevSkippedVideo = this.skippedVideo; // in seconds
-        }
-
-        // stallCount: incremental (labeled Stalls inside the player.html)
-        this.stallCount = (videoIn as { freezeCount?: number })?.freezeCount ?? 0;
-
-        // Tracks bandwidth
-        const tracks = metadata.tracks;
-        if (tracks) {
-            const audioTrack = tracks.get(audioTrackId ?? 0);
-            const videoTrack = tracks.get(videoTrackId ?? 0);
-            if (audioTrack) {
-                // audioTrackBandwidth (labeled Track audio inside the player.html)
-                this.audioTrackBandwidth = audioTrack.ebps ?? audioTrack.bps;
+        const audioJitterDelay = audioIn?.jitterBufferDelay;
+        const audioEmittedCount = audioIn?.jitterBufferEmittedCount;
+        let audioBuffering;
+        if (audioJitterDelay != null && audioEmittedCount != null) {
+            if (audioEmittedCount > this._prevAudioEmittedCount) {
+                audioBuffering =
+                    (1000 * Math.max(0, audioJitterDelay - this._prevAudioJitterDelay)) /
+                    (audioEmittedCount - this._prevAudioEmittedCount);
             }
-            if (videoTrack) {
-                // videoTrackBandwidth (labeled Track video inside the player.html)
-                this.videoTrackBandwidth = videoTrack.ebps ?? videoTrack.bps;
-            }
+            this._prevAudioEmittedCount = audioEmittedCount;
+            this._prevAudioJitterDelay = audioJitterDelay;
+        }
+        if (videoBuffering != null || audioBuffering != null) {
+            this.bufferAmount = Math.max(videoBuffering ?? 0, audioBuffering ?? 0);
+        } else {
+            this.bufferAmount = undefined;
         }
 
-        // playbackSpeed (labeled Playback speed inside the player.html)
+        // videoPerSecond
+        this.videoPerSecond = videoIn?.framesPerSecond;
+
+        // skippedAudio
+        const audioConcealedSamples = audioIn?.concealedSamples;
+        if (audioConcealedSamples != null && audioTrack && audioTrack.rate) {
+            const deltaConcealedSamples = Math.max(audioConcealedSamples - this._prevAudioConcealedSamples, 0);
+            this._prevAudioConcealedSamples = audioConcealedSamples; // in samples
+            this.skippedAudio = this._prevSkippedAudio + (deltaConcealedSamples / audioTrack.rate) * 1000;
+            this._prevSkippedAudio = this.skippedAudio; // in ms
+        } else {
+            this.skippedAudio = undefined;
+        }
+
+        // skippedVideo
+        const videoDroppedFrames = videoIn?.framesDropped;
+        if (videoDroppedFrames != null && this.videoPerSecond) {
+            const deltaDroppedFrames = Math.max(videoDroppedFrames - this._prevVideoDroppedFrames, 0);
+            this._prevVideoDroppedFrames = videoDroppedFrames; // in frames
+            this.skippedVideo = this._prevSkippedVideo + (deltaDroppedFrames / this.videoPerSecond) * 1000;
+            this._prevSkippedVideo = this.skippedVideo; // in ms
+        } else {
+            this.skippedVideo = undefined;
+        }
+
+        // stallCount
+        this.stallCount = (videoIn as { freezeCount?: number })?.freezeCount;
+
+        // audioTrackBandwidth
+        this.audioTrackBandwidth = audioTrack?.ebps ?? audioTrack?.bps;
+
+        // videoTrackBandwidth
+        this.videoTrackBandwidth = videoTrack?.ebps ?? videoTrack?.bps;
+
+        // playbackSpeed
         now = performance.now();
         const videoTime = currentTime;
         let measuredSpeed = 0;
@@ -159,17 +172,27 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         this._prevRealTime = now;
         this.playbackSpeed = measuredSpeed;
 
-        // rtt (labeled RTT inside the player.html)
-        this.rtt = infos?.candidate?.currentRoundTripTime ?? 0;
+        // rtt
+        this.rtt = infos?.candidate?.currentRoundTripTime;
 
-        // jitter (labeled Jitter inside the player.html)
-        this.jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
+        // jitter
+        if (videoIn?.jitter != null || audioIn?.jitter != null) {
+            this.jitter = Math.max(videoIn?.jitter ?? 0, audioIn?.jitter ?? 0);
+        } else {
+            this.jitter = undefined;
+        }
 
-        // lostPacketCount : incremental, but can go down because of how packet loss is computed in WebRTC :  received count - expected count, without taking duplicate into account, which can lead to negative values
-        // (labeled Packet loss inside the player.html)
-        this.lostPacketCount = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
-        // nackCount : incremental
-        // (labeled Nacks inside the player.html)
-        this.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
+        // lostPacketCount, can go down because of how packet loss is computed in WebRTC :  received count - expected count, without taking duplicate into account, which can lead to negative values
+        if (videoIn?.packetsLost != null || audioIn?.packetsLost != null) {
+            this.lostPacketCount = (videoIn?.packetsLost ?? 0) + (audioIn?.packetsLost ?? 0);
+        } else {
+            this.lostPacketCount = undefined;
+        }
+        // nackCount
+        if (videoIn?.nackCount != null || audioIn?.nackCount != null) {
+            this.nackCount = (videoIn?.nackCount ?? 0) + (audioIn?.nackCount ?? 0);
+        } else {
+            this.nackCount = undefined;
+        }
     }
 }
