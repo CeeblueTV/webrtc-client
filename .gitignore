@@ -18,3 +18,4 @@ docs/assets
 *.sublime-project
 *.tmproj
 .vscode/
+.codex
