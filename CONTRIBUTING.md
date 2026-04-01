@@ -21,12 +21,15 @@ To contribute fork the project, then submit a Pull-Request with your changes, ta
 
 We use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) for continuous deployment, versioning, and changelog creation.
 
-Once `npm install` is executed, **git hooks** provided by Husky are set up to assist in the committing process. These hooks automatically enforce commit message standards using **commitlint**, as configured in `.husky/prepare-commit-msg`. This ensures that our commit messages are consistent and well-structured, which helps both our team and our tools work more effectively.
+Once `npm install` is executed, git hooks are automatically configured to aid in the committing process. Use `git commit` to commit your changes. The commit message will be validated against conventional commit standards.
 
-If the hooks do not install automatically, you can run:
-```shell
-npm rebuild husky
+If you previously used Husky in this clone, clear the old local Git setting before reinstalling dependencies:
+
+```bash
+git config --local --unset core.hooksPath
 ```
+
+Otherwise Git may keep pointing hooks to `.husky`, causing `simple-git-hooks` to recreate Husky-style hook files there instead of using `.git/hooks`.
 
 ## Code Formatting and Linting Process
 
