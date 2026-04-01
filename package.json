@@ -28,7 +28,7 @@
         "build": "rollup -c",
         "build:cjs": "rollup -c --format cjs",
         "build:iife": "rollup -c --format iife",
-        "build:docs": "typedoc index.ts",
+        "build:docs": "typedoc --tsconfig tsconfig.json index.ts",
         "watch": "rollup -c -w",
         "watch:cjs": "rollup -c -w --format cjs",
         "watch:iife": "rollup -c -w --format iife",

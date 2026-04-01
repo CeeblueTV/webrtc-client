@@ -3,6 +3,7 @@
     "compilerOptions": {
         "strictPropertyInitialization": true,
         "noImplicitAny": true,
+        "skipLibCheck": true,
         "esModuleInterop": true,
         "strict": true,
         "moduleResolution": "Node",
