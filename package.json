@@ -12,13 +12,13 @@
         "live",
         "cdn"
     ],
-    "homepage": "https://github.com/ceebluetv/webrtc-client#readme",
+    "homepage": "https://github.com/CeeblueTV/webrtc-client#readme",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/ceebluetv/webrtc-client.git"
+        "url": "git+https://github.com/CeeblueTV/webrtc-client.git"
     },
     "bugs": {
-        "url": "https://github.com/ceebluetv/webrtc-client/issues"
+        "url": "https://github.com/CeeblueTV/webrtc-client/issues"
     },
     "main": "dist/webrtc-client.js",
     "browser": "dist/webrtc-client.bundle.js",
