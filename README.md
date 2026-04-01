@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://npmjs.org/package/@ceeblue/webrtc-client"><img src="https://img.shields.io/npm/v/@ceeblue/webrtc-client.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/@ceeblue/webrtc-client"><img src="https://img.shields.io/npm/dm/@ceeblue/webrtc-client.svg" alt="npm downloads"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-yellow.svg" alt="License: AGPL v3"></a>
+  <a href="https://github.com/CeeblueTV/webrtc-client/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-yellow.svg" alt="License: AGPL v3"></a>
 </p>
 
 This library addresses common challenges faced by developers:
@@ -90,7 +90,7 @@ import * as WebRTC from '@ceeblue/webrtc-client';
 
 ### Publish a stream
 
-To publish a stream use the [Streamer](./src/Streamer.ts) class with the `<endpoint>` you saved while [creating the stream](#3-create-a-stream). A complete example is available in [streamer.html](./examples/player.html) under [Examples](#examples).
+To publish a stream use the [Streamer] class with the `<endpoint>` you saved while [creating the stream](#3-create-a-stream). A complete example is available in [streamer.html](https://github.com/CeeblueTV/webrtc-client/blob/main/examples/streamer.html) under [Examples](#examples).
 
 ```javascript
 import { Streamer } from '@ceeblue/webrtc-client';
@@ -113,7 +113,7 @@ streamer.start(stream, {
 
 ### Play a stream
 
-To play the stream use the [Player](./src/Player.ts) class with the `WebRTC <endpoint>` you saved while [creating the stream](#3-create-a-stream). A complete example is available in [player.html](./examples/player.html) under [Examples](#examples).
+To play the stream use the [Player] class with the `WebRTC <endpoint>` you saved while [creating the stream](#3-create-a-stream). A complete example is available in [player.html](https://github.com/CeeblueTV/webrtc-client/blob/main/examples/player.html) under [Examples](#examples).
 
 ```javascript
 import { Player } from '@ceeblue/webrtc-client';
@@ -140,8 +140,8 @@ player.start({
 
 To help you get started, we provide the following examples:
 
-- [/examples/streamer.html](./examples/streamer.html) - Publish a stream with your webcam
-- [/examples/player.html](./examples/player.html) - Play a stream
+- [/examples/streamer.html](https://github.com/CeeblueTV/webrtc-client/blob/main/examples/streamer.html) - Publish a stream with your webcam
+- [/examples/player.html](https://github.com/CeeblueTV/webrtc-client/blob/main/examples/player.html) - Play a stream
 
 > [!TIP]
 > 
@@ -268,15 +268,17 @@ This generates documentation files, which you can view by opening `./docs/index.
 
 ## Contribution
 
-All contributions are welcome. Please see [our contribution guide](/CONTRIBUTING.md) for details.
+All contributions are welcome. Please see [our contribution guide](https://github.com/CeeblueTV/webrtc-client/blob/main/CONTRIBUTING.md) for details.
 
 
 ## License
 
-By contributing code to this project, you agree to license your contribution under the [GNU Affero General Public License](/LICENSE).
+By contributing code to this project, you agree to license your contribution under the [GNU Affero General Public License](https://github.com/CeeblueTV/webrtc-client/blob/main/LICENSE).
 
 
 [web-utils project]: https://github.com/CeeblueTV/web-utils
+[Player]: https://ceebluetv.github.io/webrtc-client/classes/Player.html
+[Streamer]: https://ceebluetv.github.io/webrtc-client/classes/Streamer.html
 [Connect.Params.iceServer]: https://ceebluetv.github.io/web-utils/types/Connect.Params.html
 [Player.start]: https://ceebluetv.github.io/webrtc-client/classes/Player.html#start
 [Streamer.start]: https://ceebluetv.github.io/webrtc-client/classes/Streamer.html#start
@@ -292,4 +294,3 @@ By contributing code to this project, you agree to license your contribution und
 [Connect.Params type]: https://ceebluetv.github.io/web-utils/types/Connect.Params.html
 [WHIP]: https://www.ietf.org/archive/id/draft-ietf-wish-whip-01.html
 [WHEP]: https://www.ietf.org/archive/id/draft-murillo-whep-03.html
-
