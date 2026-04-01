@@ -38,6 +38,7 @@ export type MTrack = {
     firstms: number;
     lastms: number;
     bps: number;
+    ebps: number;
     maxbps: number;
     init: string;
     channels: number;

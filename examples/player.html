@@ -21,6 +21,69 @@
             body {
                 margin-top: 1em;
                 margin-bottom: 3em;
+                background-color: #edf0f3;
+            }
+
+            .card-body {
+                background-color: #edf0f3;
+            }
+
+            .tab-panel .nav-tabs {
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            }
+            .tab-panel .nav-link {
+                cursor: pointer;
+            }
+            .tab-panel-content {
+                position: relative;
+                min-height: 18rem;
+                padding-top: 0.75rem;
+            }
+            .tab-panel-pane {
+                width: 100%;
+            }
+            .tab-panel-pane.is-hidden {
+                visibility: hidden;
+                pointer-events: none;
+            }
+            .tab-panel-pane--overlay {
+                position: absolute;
+                inset: 0;
+                padding-top: 0.75rem;
+            }
+            .tab-panel-pane--overlay.is-hidden {
+                display: block;
+            }
+            .messages-panel {
+                background-color: #ffffff;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 0.25rem;
+                padding: 0.25rem 0;
+                height: calc(12 * 2rem);
+                overflow-x: auto;
+                overflow-y: auto;
+            }
+            .messages-list {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                font-family: monospace;
+                font-size: 0.9rem;
+            }
+            .messages-list li {
+                padding: 0.35rem 0.75rem;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+                white-space: pre;
+                min-width: max-content;
+                line-height: 1.3rem;
+            }
+            .messages-empty {
+                color: #6c757d;
+                font-style: italic;
+                padding: 1rem 0.75rem;
+            }
+            .tab-badge {
+                margin-left: 0.35rem;
             }
 
             video {
@@ -117,6 +180,44 @@
                     </button>
 
                 </div>
+
+                <div class="tab-panel" v-show="displayStats || displayMessages">
+                    <ul class="nav nav-tabs">
+                        <li class="nav-item" v-show="displayStats">
+                            <a class="nav-link" :class="{ active: activeBottomTab === 'graph' }" @click="selectBottomTab('graph')">
+                                Graph
+                            </a>
+                        </li>
+                        <li class="nav-item" v-show="displayMessages">
+                            <a class="nav-link" :class="{ active: activeBottomTab === 'messages' }" @click="selectBottomTab('messages')">
+                                Messages
+                                <span class="badge badge-primary tab-badge" v-if="unreadMessages > 0">{{ unreadMessages }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                    <div class="tab-panel-content">
+                        <div class="tab-panel-pane" :class="{ 'is-hidden': activeBottomTab !== 'graph' }" v-show="displayStats">
+                            <div class="form-row">
+                                <ul class="list-group list-group-flush" ref="stats" style="width: 100%;">
+                                </ul>
+                            </div>
+                            <div class="form-row" v-show="hasMetrics && displayStats">
+                                <div class="form-group mx-auto">
+                                    <img class="m-1" alt="Reset metrics view" title="Reset incremental metrics and rescale the chart" type="button" @click="resetMetrics()" src="./assets/reload.png" style="object-fit:contain" height="32">
+                                    <img class="m-1" alt="Download metrics" title="Download metrics as a CSV file" type="button" @click="downloadStats()" src="./assets/download.png" style="object-fit:contain" height="32">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-panel-pane tab-panel-pane--overlay" :class="{ 'is-hidden': activeBottomTab !== 'messages' }" v-show="displayMessages">
+                            <div class="messages-panel" ref="messagesPanel" @mousedown="onMessagesMouseDown">
+                                <div class="messages-empty" v-if="messages.length === 0">No data messages received yet.</div>
+                                <ul class="messages-list" v-else>
+                                    <li v-for="(message, idx) in messages" :key="idx">[{{ message.track }}] {{ message.receivedAt }} : {{ message.text }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -125,10 +226,14 @@
             // development version, includes helpful console warnings
             // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
             // production version, optimized for size and speed
-            import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
+            import { createApp, nextTick } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
 
-            const { Util, Connect, log } = utils;
+            const { Util, Connect, LogLevel, log, UIMetrics } = utils;
 
+
+            // displays logs ERROR, WARN & INFO logs,
+            // can be even more detailed with LogLevel.DEBUG
+            log.level = LogLevel.INFO;
             log('webrtc-client version:', VERSION).info();
             log('web-utils version:', utils.VERSION).info();
 
@@ -148,22 +253,37 @@
                         accessToken: null,
                         muted: true,
                         endPoint: null,
-
+                        displayStats: null,
+                        hasMetrics: false,
+                        displayMessages: false,
+                        
                         streamMetadata: null,
                         videoTracks: new Map(),
                         videoTrack: 'Video',
                         videoTrackId: undefined,
+                        activeBottomTab: 'graph',
+                        messages: [],
+                        isMessagesMouseDown: false,
+                        unreadMessages: 0,
                         connectorType:'WebSocket (WS)',
                         connectorTypes:['WebSocket (WS)', 'WHEP (HTTP)'],
                         audioTracks: new Map(),
                         audioTrack: 'Audio',
                         audioTrackId: undefined,
                         streamErrorMessage: null,
+                        startTime: 0,
+                        stats: new Map(),
+                        uiStats: null,
+                        times: new Array(),
 
-                        player: null
+                        player: null,
+                        playerStats: null,
+                        deltaStats: {},
                     }
                 },
-                created() {
+                mounted() {
+                    window.addEventListener('mouseup', this.onMessagesMouseUp);
+
                     const options = Util.caseInsensitive(Util.options());
                     // init values
                     const params = {
@@ -180,14 +300,81 @@
                     this.streamName = params.streamName;
                     this.accessToken = params.accessToken;
                     this.connectorType = options.whip ? this.connectorTypes[1] : this.connectorTypes[0];
+                    // Choses stats display level: 0: none, 1:basic, 2:full
+                    if (options.stats === 'none') {
+                        this.displayStats = 0;
+                        this.activeBottomTab = 'messages';
+                    } else if (options.stats === 'full') {
+                        this.displayStats = 2;
+                    } else {
+                        this.displayStats = 1;
+                    }
+                    this.displayMessages = options.messages !== false;
+
+                    this.uiStats = new UIMetrics(this.$refs.stats);
+                    // Stats to be displayed in the UI
+                    const bandwidths = []; this.stats.set("Bandwidth", bandwidths);
+                    const bufferAmounts = []; this.stats.set("Buffer", bufferAmounts);
+                    const playbackSpeeds = []; this.stats.set("Playback speed", playbackSpeeds);
+                    const fps = []; this.stats.set("Video FPS", fps);
+                    const trackAudio = []; this.stats.set("Track audio", trackAudio);
+                    const trackVideo = []; this.stats.set("Track video", trackVideo);
+                    const skippedAudio = []; this.stats.set("Skipped audio", skippedAudio);
+                    const skippedVideo = []; this.stats.set("Skipped video", skippedVideo);
+                    const stalls = []; this.stats.set("Stalls", stalls);
+                    const packetsLost = []; this.stats.set("Packet loss", packetsLost);
+                    const nack = []; this.stats.set("Nack", nack);
+                    const rtt = []; this.stats.set("RTT", rtt);
+                    const jitter = []; this.stats.set("Jitter", jitter);
+
+                    setInterval(async () => {
+                        const player = this.player;
+                        if (player?.controller?.opened) {
+                            this.hasMetrics = true;
+                            let playerStats = player.computeStats();
+
+                            // Display only the basic stats
+                            if (this.displayStats >= 1) {
+                                const byteRate = (playerStats.audioByteRate ?? 0) + (playerStats.videoByteRate ?? 0) + (playerStats.dataByteRate ?? 0);
+                                bandwidths.push((byteRate * 8).toFixed(0) + 'kbps');
+                                bufferAmounts.push((playerStats.bufferAmount ?? 0).toFixed(0) + 'ms');
+                                playbackSpeeds.push((playerStats.playbackSpeed ?? 0).toFixed(2));
+                                fps.push(playerStats.videoPerSecond ?? 0);
+                                trackAudio.push(((playerStats.audioTrackBandwidth ?? 0) * 8 / 1000).toFixed(0) + 'kbps');
+                                trackVideo.push(((playerStats.videoTrackBandwidth ?? 0) * 8 / 1000).toFixed(0) + 'kbps');
+                                skippedAudio.push((((playerStats.skippedAudio ?? 0) - (this.deltaStats.skippedAudio ?? 0)) / 1000).toFixed(1) + 's');
+                                skippedVideo.push((((playerStats.skippedVideo ?? 0) - (this.deltaStats.skippedVideo ?? 0)) / 1000).toFixed(1) + 's');
+                                stalls.push((playerStats.stallCount ?? 0) - (this.deltaStats.stallCount ?? 0));
+                                this.times.push({
+                                    time: new Date().toISOString(),
+                                    mediaTime: this.$refs.video.currentTime || 0
+                                });
+                            }
+                            // Full stats
+                            if (this.displayStats >= 2) {
+                                packetsLost.push((playerStats.lostPacketCount ?? 0) - (this.deltaStats.lostPacketCount ?? 0));
+                                nack.push((playerStats.nackCount ?? 0) - (this.deltaStats.nackCount ?? 0));
+                                rtt.push(((playerStats.rtt ?? 0) * 1000).toFixed(0) + 'ms');
+                                jitter.push(((playerStats.jitter ?? 0) * 1000).toFixed(0) + 'ms');
+                            }
+                        }
+                        this.uiStats.display(this.stats);
+                    }, 700);
+                },
+                beforeUnmount() {
+                    window.removeEventListener('mouseup', this.onMessagesMouseUp);
                 },
                 methods: {
                     play() {
+                        this.startTime = Util.time();
+                        log('Starting WebRTC playback').info();
                         if (this.player) {
                             this.player.stop();
                             return;
                         }
                         this.streamErrorMessage = null;
+                        this.resetMetrics(true);
+                        this.resetMessages();
                         if (!this.streamName) {
                             this.streamErrorMessage = "Enter a non-empty stream name to play";
                             return;
@@ -198,15 +385,19 @@
                         videoElement.muted = this.muted;
                         videoElement.autoplay = true;
                         videoElement.onloadeddata = () => {
-                            log('WebRTC loadeddata').info();
+                            log('TTFF :', Util.time()-this.startTime).info();
                             videoElement.play();
                         };
 
-                        this.player = new Player(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
+                        this.player = new Player(videoElement, this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
                         this.player.onStart = this.onStart.bind(this);
                         this.player.onStop = this.onStop.bind(this);
                         this.player.onPlaying = this.onPlaying.bind(this);
                         this.player.onMetadata = this.onMetadata.bind(this);
+                        this.player.onData = (time, track, data) => {
+                            this.pushMessage(track, time, data);
+                            log(`onData time:${time} track:${track} data:${Util.stringify(data)}`).info();
+                        };
                         this.player.start(
                             {
                                 endPoint:this.endPoint,
@@ -221,7 +412,7 @@
                         this.$refs.video.srcObject = stream;
                     },
                     onStop(error) {
-                        if(error) {
+                        if (error) {
                             log('onStop', error).error();
                             this.streamErrorMessage = error.name;
                         } else {
@@ -241,11 +432,11 @@
                         this.playState = PlayState.STOPPED;
                     },
                     onPlaying(playing) {
-                        if(this.videoTrackId != null) {
+                        if (this.videoTrackId != null) {
                             this.videoTrackId = this.player.videoTrack;
                         }
                         this.videoTrack = this.videoTracks.get(this.player.videoTrack);
-                        if(this.audioTrackId != null) {
+                        if (this.audioTrackId != null) {
                             this.audioTrackId = this.player.audioTrack;
                         }
                         this.audioTrack = this.audioTracks.get(this.player.audioTrack);
@@ -265,26 +456,76 @@
                         this.audioTracks = new Map();
                         this.videoTracks = new Map();
 
-                        for (const [id, track] of metadata.tracks) {
-                            const readableBitrate = (bytes) => {
-                                if (bytes === 0)
-                                    return '';
-                                let i = Math.floor(Math.log(bytes) / Math.log(1000)),
-                                    sizes = ['bps', 'kbps', 'mbps', 'gbps'];
-                                return (bytes / Math.pow(1000, i)).toFixed(1) * 1 + ' ' + sizes[i];
-                            }
+                        // Subcribe to all data tracks by default, can be changed later with player.dataTracks = [idx1, idx2]
+                        const dataTracks = [];
+                        for (const track of metadata.datas) {
+                            dataTracks.push(track.idx);
+                        }
+                        this.player.dataTracks = dataTracks;
 
+                        for (const [id, track] of metadata.tracks) {
                             if (track.type === 'video') {
+                                const bitrate = ((track.ebps || track.bps) * 8 / 1000).toFixed(0);
                                 this.videoTracks.set(
-                                    id,
-                                    `${track.codec} ${track.width}x${track.height} ${readableBitrate(track.bps * 8)}`
+                                    id, `${track.codec} ${track.width}x${track.height} ${bitrate} kbps`
                                 );
                             } else if (track.type === 'audio') {
+                                const bitrate = ((track.ebps || track.bps) * 8 / 1000).toFixed(0);
                                 this.audioTracks.set(
                                     id,
-                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${readableBitrate(track.bps * 8)}`
+                                    `${track.codec} ${track.channels}ch ${track.rate}Hz ${bitrate} kbps`
                                 );
                             }
+                        }
+                    },
+                    selectBottomTab(tab) {
+                        this.activeBottomTab = tab;
+                        if (tab === 'messages') {
+                            this.unreadMessages = 0;
+                            this.scrollMessagesToBottom();
+                        }
+                    },
+                    resetMessages() {
+                        this.messages = [];
+                        this.isMessagesMouseDown = false;
+                        this.unreadMessages = 0;
+                    },
+                    formatReceptionTime(date = new Date()) {
+                        return date.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                    },
+                    onMessagesMouseDown() {
+                        this.isMessagesMouseDown = true;
+                    },
+                    onMessagesMouseUp() {
+                        this.isMessagesMouseDown = false;
+                    },
+                    scrollMessagesToBottom() {
+                        nextTick(() => {
+                            const panel = this.$refs.messagesPanel;
+                            if (panel) {
+                                panel.scrollTop = panel.scrollHeight;
+                            }
+                        });
+                    },
+                    pushMessage(track, time, data) {
+                        const message = Util.stringify(data);
+                        this.messages.push({
+                            track,
+                            receivedAt: this.formatReceptionTime(),
+                            text: message.replace(/[\r\n]+/g, ' ')
+                        });
+                        if (this.messages.length > 200) {
+                            this.messages.splice(0, this.messages.length - 200);
+                        }
+                        if (this.activeBottomTab !== 'messages') {
+                            this.unreadMessages += 1;
+                        }
+                        if (this.activeBottomTab === 'messages' && !this.isMessagesMouseDown) {
+                            this.scrollMessagesToBottom();
                         }
                     },
                     mute() {
@@ -319,7 +560,65 @@
                         if (this.player) {
                             this.player.audioTrack = this.audioTrackId;
                         }
-                    }
+                    },
+                    async resetMetrics(all = false) {
+                        // Reset only incremental metrics from the player if all = false
+                        if (this.player){
+                            let playerStats = this.player.computeStats();
+                            const {skippedAudio, skippedVideo, stallCount, lostPacketCount, nackCount} = playerStats;
+                            this.deltaStats = { stallCount, skippedAudio, skippedVideo, lostPacketCount, nackCount };
+                        }
+                        // Clear stored metric arrays when a full reset is requested
+                        if (all) {
+                            for (const arr of this.stats.values()) {
+                                arr.length = 0;
+                            }
+                            // Reset UI widget and display cleared stats
+                            if (this.uiStats) {
+                                this.uiStats.reset();
+                                this.uiStats.display(this.stats);
+                            }
+                            // Reset local trackers
+                            this.hasMetrics = false;
+                            this.times.length = 0;
+                            this.deltaStats = { stallCount: 0, skippedAudio: 0, skippedVideo: 0, lostPacketCount: 0, nackCount: 0 };
+                        }
+                    },
+                    download(name, data, type) {
+                        const url = URL.createObjectURL(new Blob([data], {type}));
+                        const link = document.createElement("a");
+                        link.setAttribute("href", url);
+                        link.setAttribute("download", name);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    },
+                    downloadStats() {
+                        // Write headers and compute max values
+                        let csv = "";
+                        let max = this.times.length;
+                        let headers = ["localTime" , "mediaTime"];
+                        for (const [header, values] of this.stats) {
+                            headers.push(header);
+                            max = Math.max(max, values.length);
+                        }
+                        csv = headers.join(';');
+                        
+                        // Write CSV
+                        for (let i = 0; i < max; ++i) {
+                            csv += '\n';
+                            const {time, mediaTime} = this.times[i] ?? {};
+                            csv += (time || '') + ';' + (mediaTime || '') + ';';
+                            for(let [name, stats] of this.stats) {
+                                csv += (stats[i] == null ? '' : parseFloat(stats[i])) + ';';
+                            }
+                        }
+
+                        // Download the csv !
+                        this.download("stats.csv", csv, 'text/csv;charset=utf-8;');
+                    },
+
                 },
             }).mount('#main');
         </script>
