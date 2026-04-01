@@ -10,6 +10,9 @@ import { Metadata } from '../metadata/Metadata';
 import * as utils from '@ceeblue/web-utils';
 
 export class PlayerStats extends utils.PlayerStats implements IStats {
+    public declare audioByteRate?: number;
+    public declare videoByteRate?: number;
+
     // States used for incremental stats computation
     private _prevTime: number = 0;
     private _prevAudioBytes: number = 0;
