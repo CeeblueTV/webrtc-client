@@ -12,13 +12,13 @@
         "live",
         "cdn"
     ],
-    "homepage": "https://github.com/ceebluetv/webrtc-client#readme",
+    "homepage": "https://github.com/CeeblueTV/webrtc-client#readme",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/ceebluetv/webrtc-client.git"
+        "url": "git+https://github.com/CeeblueTV/webrtc-client.git"
     },
     "bugs": {
-        "url": "https://github.com/ceebluetv/webrtc-client/issues"
+        "url": "https://github.com/CeeblueTV/webrtc-client/issues"
     },
     "main": "dist/webrtc-client.js",
     "browser": "dist/webrtc-client.bundle.js",
@@ -36,7 +36,12 @@
         "eslint": "eslint --fix .",
         "prettier": "prettier --write --ignore-unknown .",
         "semantic-release": "semantic-release",
-        "prepare": "is-ci || husky install"
+        "prepare": "is-ci || simple-git-hooks"
+    },
+    "simple-git-hooks": {
+        "pre-commit": "npx lint-staged",
+        "pre-push": "npm run build",
+        "prepare-commit-msg": "npx --no -- commitlint --edit $1"
     },
     "author": "Ceeblue B.V.",
     "license": "AGPL-3.0-or-later",
@@ -65,17 +70,17 @@
         "@typescript-eslint/parser": "~8.57.2",
         "eslint": "~9.39.4",
         "eslint-plugin-headers": "~1.0.4",
-        "husky": "~8.0.3",
         "is-ci": "~3.0.0",
         "lint-staged": "~15.5.2",
         "prettier": "3.2.4",
         "rollup": "~3.30.0",
         "rollup-plugin-auto-external": "^2.0.0",
         "rollup-plugin-dts": "~6.0.2",
-        "semantic-release": "~24.2.9",
+        "semantic-release": "^25.0.1",
+        "simple-git-hooks": "^2.13.1",
         "tslib": "~2.6.2",
         "typedoc": "~0.28.18",
-        "typescript": "~5.2.2",
+        "typescript": "^5.9.3",
         "undici-types": "~6.3.0"
     },
     "overrides": {
