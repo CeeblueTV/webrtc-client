@@ -329,7 +329,7 @@
 
                     setInterval(async () => {
                         const player = this.player;
-                        if (player?.controller?.opened) {
+                        if (player) {
                             this.hasMetrics = true;
                             let playerStats = player.computeStats();
 
