@@ -291,15 +291,15 @@
                         streamName: options.streamName,
                         accessToken: options.accessToken
                     }
-                    options.whip ||= params.endPoint.startsWith('http');
+                    options.whep ||= params.endPoint.startsWith('http');
 
                     // WIP change UI to have just one input for endPoint (OR streamName)?
                     // In this case we can remove this buildURL here just to unpack streamName from endPoint when set
-                    Connect.buildURL(Connect.Type.WEBRTC, params, options.whip ? 'https' : 'wss');
+                    Connect.buildURL(Connect.Type.WEBRTC, params, options.whep ? 'https' : 'wss');
                     this.endPoint = params.endPoint;
                     this.streamName = params.streamName;
                     this.accessToken = params.accessToken;
-                    this.connectorType = options.whip ? this.connectorTypes[1] : this.connectorTypes[0];
+                    this.connectorType = options.whep ? this.connectorTypes[1] : this.connectorTypes[0];
                     // Choses stats display level: 0: none, 1:basic, 2:full
                     if (options.stats === 'none') {
                         this.displayStats = 0;
