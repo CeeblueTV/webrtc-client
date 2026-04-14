@@ -23,13 +23,13 @@ We use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) fo
 
 Once `npm install` is executed, git hooks are automatically configured to aid in the committing process. Use `git commit` to commit your changes. The commit message will be validated against conventional commit standards.
 
-If you previously used Husky in this clone, clear the old local Git setting before reinstalling dependencies:
+If you have previously used Husky, clear the old local Git settings before reinstalling the dependencies using the following command:
 
 ```bash
 git config --local --unset core.hooksPath
 ```
 
-Otherwise Git may keep pointing hooks to `.husky`, causing `simple-git-hooks` to recreate Husky-style hook files there instead of using `.git/hooks`.
+Otherwise, Git may continue to point hooks at the `.husky` directory, causing `simple-git-hooks` to recreate Husky-style hook files there instead of using the `.git/hooks` directory.
 
 ## Code Formatting and Linting Process
 
