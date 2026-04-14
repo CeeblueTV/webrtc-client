@@ -30,6 +30,7 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
 
     constructor() {
         super();
+        this.protocol = 'WebRTC';
     }
 
     /**
