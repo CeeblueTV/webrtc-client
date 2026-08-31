@@ -228,7 +228,7 @@
             // production version, optimized for size and speed
             import { createApp, nextTick } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
 
-            const { Util, Connect, LogLevel, log, UIMetrics } = utils;
+            const { EpochTime, Util, Connect, LogLevel, log, UIMetrics } = utils;
 
 
             // displays logs ERROR, WARN & INFO logs,
@@ -312,9 +312,13 @@
                     this.displayMessages = options.messages !== false;
 
                     this.uiStats = new UIMetrics(this.$refs.stats);
+                    // Offscreen canvas used to decode the EpochTime timestamp burnt in the video image
+                    const canvas = document.createElement('canvas');
+                    const drawContext = canvas.getContext('2d');
                     // Stats to be displayed in the UI
                     const bandwidths = []; this.stats.set("Bandwidth", bandwidths);
                     const bufferAmounts = []; this.stats.set("Buffer", bufferAmounts);
+                    const e2eLatencies = []; this.stats.set("Latency e2e", e2eLatencies);
                     const playbackSpeeds = []; this.stats.set("Playback speed", playbackSpeeds);
                     const fps = []; this.stats.set("Video FPS", fps);
                     const trackAudio = []; this.stats.set("Track audio", trackAudio);
@@ -345,6 +349,11 @@
                                 skippedAudio.push((((playerStats.skippedAudio ?? 0) - (this.deltaStats.skippedAudio ?? 0)) / 1000).toFixed(1) + 's');
                                 skippedVideo.push((((playerStats.skippedVideo ?? 0) - (this.deltaStats.skippedVideo ?? 0)) / 1000).toFixed(1) + 's');
                                 stalls.push((playerStats.stallCount ?? 0) - (this.deltaStats.stallCount ?? 0));
+                                // Displayed only when the stream carries a decodable EpochTime timestamp
+                                const e2eLatency = EpochTime.getLatency(this.$refs.video, canvas, drawContext);
+                                if (e2eLatencies.length || (e2eLatency > 0 && e2eLatency < 0xFFFF)) {
+                                    e2eLatencies.push(e2eLatency + 'ms');
+                                }
                                 this.times.push({
                                     time: new Date().toISOString(),
                                     mediaTime: this.$refs.video.currentTime || 0
