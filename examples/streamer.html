@@ -78,8 +78,8 @@
 
                 <div class="card text-center border-0">
                     <div class="card-body">
-                        <video autoplay class="view-window" id="video-preview" playsinline ref="camera" v-bind:class="{ 'active-view-window': !permanentLandscape, 'hidden-view-window': permanentLandscape }"></video>
-                        <canvas class="view-window" id="canvas-preview" ref="canvas" v-bind:class="{ 'active-view-window': permanentLandscape, 'hidden-view-window': !permanentLandscape }"></canvas>
+                        <video autoplay class="view-window" id="video-preview" playsinline ref="camera" v-bind:class="{ 'active-view-window': !canvasSource, 'hidden-view-window': canvasSource }"></video>
+                        <canvas class="view-window" id="canvas-preview" ref="canvas" v-bind:class="{ 'active-view-window': canvasSource, 'hidden-view-window': !canvasSource }"></canvas>
                     </div>
                 </div>
 
@@ -156,6 +156,10 @@
                         <input :disabled="!isIdle()" class="form-check-input" id="landscapeCheck" type="checkbox" v-model="permanentLandscape">
                         <label class="form-check-label" for="landscapeCheck">Landscape</label>
                     </div>
+                    <div class="col-5 form-check form-group">
+                        <input :disabled="!isIdle()" class="form-check-input" id="epochTimestampCheck" type="checkbox" v-model="epochTimestamp">
+                        <label class="form-check-label" for="epochTimestampCheck" title="Burn a machine-readable timestamp in the video image to let the player measure the end-to-end latency">Epoch timestamp</label>
+                    </div>
                 </div>
 
                 <div class="d-flex justify-content-center">
@@ -172,7 +176,7 @@
         <script type="module">
             import { Streamer, StreamerStats, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.bundle.js";
 
-            const { Util, log, Connect } = utils;
+            const { EpochTime, Util, log, Connect } = utils;
 
             log('webrtc-client version:', VERSION).info();
             log('web-utils version:', utils.VERSION).info();
@@ -219,6 +223,7 @@
 
                     permanentLandscape: DEFAULT_PERMANENT_LANDSCAPE,
                     overlayTimestamp: true,
+                    epochTimestamp: false,
                     streamer: null,
 
                     state: StreamingState.IDLE,
@@ -238,6 +243,12 @@
                     selectedAudioDeviceId: null,
                     resolutionOptions: [{ key: 'auto', label: 'Auto (camera default)', w: null, h: null }],
                     selectedResolutionKey: 'auto'
+                },
+                computed: {
+                    // Both options need the canvas to become the streamed video source
+                    canvasSource() {
+                        return this.permanentLandscape || this.epochTimestamp;
+                    }
                 },
                 created() {
                     const options = Util.caseInsensitive(Util.options());
@@ -260,6 +271,7 @@
                     this.diagnostics = options.diagnostics || options.debug;
                     this.permanentLandscape = options.landscape? true : false;
                     this.overlayTimestamp = options.timestamp? true : false;
+                    this.epochTimestamp = options.epochTime? true : false;
                 },
                 mounted() {
                     this.updateCanvasAndVideoSize();
@@ -552,8 +564,8 @@
                                     this.diagnostics = { timestamps: []};
                                     window.requestAnimationFrame(this.onDrawFrame);
                                 }
-                                if (this.permanentLandscape) {
-                                    stream = this.setupLandscapeAnimation(stream);
+                                if (this.canvasSource) {
+                                    stream = this.setupCanvasStream(stream);
                                     window.requestAnimationFrame(this.onDrawFrame);
                                 } else if (this.overlayTimestamp) {
                                     window.requestAnimationFrame(this.onDrawFrame);
@@ -664,25 +676,27 @@
                             this.streaming.rtp.drop = props.drop;
                         }
                     },
-                    setupLandscapeAnimation(cameraStream) {
-                        log('* SetupLandscapeAnimation').info();
+                    setupCanvasStream(cameraStream) {
+                        log('* SetupCanvasStream').info();
                         const videoTrack = cameraStream.getVideoTracks()[0];
 
-                        const capabilities = videoTrack.getCapabilities?.() || {};
-                        log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
+                        if (videoTrack) {
+                            const capabilities = videoTrack.getCapabilities?.() || {};
+                            log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
 
-                        try {
-                            if (capabilities.frameRate && capabilities.frameRate.max) {
-                                videoTrack.applyConstraints({
-                                    frameRate: {
-                                        ideal: capabilities.frameRate.max,
-                                        min: capabilities.frameRate.max,
-                                        max: (capabilities.frameRate.max > this.streaming.framerate ? this.streaming.framerate : capabilities.frameRate.max)
-                                    }
-                                });
+                            try {
+                                if (capabilities.frameRate && capabilities.frameRate.max) {
+                                    videoTrack.applyConstraints({
+                                        frameRate: {
+                                            ideal: capabilities.frameRate.max,
+                                            min: capabilities.frameRate.max,
+                                            max: (capabilities.frameRate.max > this.streaming.framerate ? this.streaming.framerate : capabilities.frameRate.max)
+                                        }
+                                    });
+                                }
+                            } catch (e) {
+                                log('Constraint error (ignoring):', e).error();
                             }
-                        } catch (e) {
-                            log('Constraint error (ignoring):', e).error();
                         }
 
                         // Create a stream which captures canvas image + has the same audio tracks that original media-stream
@@ -691,7 +705,7 @@
                         stream.addTrack(this.$refs.canvas.captureStream(this.streaming.framerate).getVideoTracks()[0]);
                         /// add audio from camera
                         cameraStream.getAudioTracks().forEach(track => stream.addTrack(track));
-                        this.streaming.videoSource = videoTrack;
+                        this.streaming.videoSource = videoTrack || null;
                         return stream;
                     },
                     onDrawFrame: function () {
@@ -770,6 +784,13 @@
                                 this.streaming.width / 2, this.streaming.height - 50);
                             context.fillText(`${timestamp.toISOString()}`,
                                 this.streaming.width / 2, this.streaming.height - 10);
+                        }
+
+                        if (this.epochTimestamp) {
+                            // Machine-readable timestamp burnt at the top of the image, decoded by the
+                            // player with EpochTime.getLatency() to measure the end-to-end latency.
+                            // Drawn last so nothing overwrites the blocks.
+                            EpochTime.encodeTimestamp(context, this.streaming.width);
                         }
 
                         window.requestAnimationFrame(this.onDrawFrame);
