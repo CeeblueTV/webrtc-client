@@ -1,0 +1,807 @@
+/*
+    Copyright 2025 Ceeblue B.V.
+    This file is part of https://github.com/CeeblueTV/webrtc-client which is released under GNU Affero General Public License.
+    See file LICENSE or go to https://spdx.org/licenses/AGPL-3.0-or-later.html for full license details.
+*/
+/* ── Design tokens ── */
+:root {
+    --accent:   #78b5bf;
+    --accent-b: #5e97a1;
+    --accent-d: rgba(120,181,191,.18);
+
+    --ok:   #28a745;
+    --warn: #e6a817;
+    --err:  #c0392b;
+
+    --r-sm:   6px;
+    --r-md:   12px;
+    --r-lg:   16px;
+    --r-pill: 999px;
+
+    --f-body: 'Poppins', system-ui, sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    --t: 160ms ease;
+}
+
+html[data-theme="light"] {
+    --bg:       #ffffff;
+    --bg-s:     #f4f7fb;
+    --bg-e:     #ebeff5;
+    --bg-h:     #dde4ee;
+    --border:   rgba(103,114,148,.18);
+    --border-s: rgba(103,114,148,.38);
+    --txt:      #3d4459;
+    --txt-2:    #677294;
+    --txt-m:    #9ba4bc;
+    --navy:     #051441;
+    --shadow:   0 4px 24px rgba(61,68,89,.10);
+    --shadow-modal: 0 24px 64px rgba(5,20,65,.18);
+    --modal-back: rgba(5,20,65,.35);
+}
+
+html[data-theme="dark"] {
+    --bg:       #0f1622;
+    --bg-s:     #161e2d;
+    --bg-e:     #1d2638;
+    --bg-h:     #283248;
+    --border:   rgba(255,255,255,.08);
+    --border-s: rgba(255,255,255,.18);
+    --txt:      #e7ecf3;
+    --txt-2:    #aab4c8;
+    --txt-m:    #6c7894;
+    --navy:     #ffffff;
+    --shadow:   0 4px 24px rgba(0,0,0,.45);
+    --shadow-modal: 0 24px 64px rgba(0,0,0,.6);
+    --modal-back: rgba(0,0,0,.55);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: var(--bg);
+    color: var(--txt);
+    font-family: var(--f-body);
+    font-size: 13.5px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Shell ── */
+.shell {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 14px 14px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ── Header ── */
+.hdr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.hdr img { height: 28px; }
+.hdr h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--navy);
+    flex: 1;
+}
+.hdr h1 em { color: var(--accent); font-style: normal; }
+
+.theme-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-s);
+    color: var(--txt-2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    transition: all var(--t);
+}
+.theme-btn:hover { color: var(--accent); border-color: var(--border-s); }
+
+/* ── Video player ── */
+.player {
+    position: relative;
+    background: #000;
+    aspect-ratio: 16/9;
+    /* Cap both height AND width so the box stays 16:9 even in short viewports,
+       then center horizontally. Otherwise short viewports stretched the box
+       wider than 16:9 and the video appeared offset inside the letterboxing. */
+    max-height: 60vh;
+    max-width: calc(60vh * 16 / 9);
+    width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+/* When fullscreened, drop the size caps. (WebKit/standard split — combining
+   them with a comma would invalidate the rule on older browsers.) */
+.player:fullscreen { max-height: none; max-width: none; aspect-ratio: auto; }
+.player:-webkit-full-screen { max-height: none; max-width: none; aspect-ratio: auto; }
+.player video {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+    background: #000;
+}
+.player video::-webkit-media-controls,
+.player video::-webkit-media-controls-start-playback-button { display: none !important; }
+
+/* Error banner (bottom of video) */
+.player-alert {
+    position: absolute; bottom: 10px; left: 10px; right: 10px;
+    z-index: 12;
+    background: rgba(192,57,43,.94);
+    border-radius: var(--r-sm);
+    padding: 9px 10px 9px 12px;
+    font-size: 12.5px;
+    color: #fff;
+    display: flex; align-items: flex-start; gap: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.3);
+    max-height: 55%;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,.35) transparent;
+}
+.player-alert > i.fa-exclamation-triangle {
+    flex-shrink: 0;
+    font-size: 14px;
+    margin-top: 2px;
+}
+.player-alert-body { flex: 1; min-width: 0; }
+.player-alert-title {
+    display: flex; align-items: center; gap: 6px;
+    flex-wrap: wrap;
+    line-height: 1.35;
+}
+.player-alert-type {
+    font-family: var(--f-mono);
+    font-size: 9.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em;
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    background: rgba(255,255,255,.22);
+    color: #fff;
+    white-space: nowrap;
+}
+.player-alert-name { font-weight: 600; }
+.player-alert-detail {
+    margin-top: 3px;
+    color: rgba(255,255,255,.94);
+    word-break: break-word;
+    line-height: 1.45;
+}
+.player-alert-fields {
+    margin-top: 5px;
+    display: flex; flex-wrap: wrap;
+    gap: 3px 6px;
+    font-family: var(--f-mono); font-size: 11px;
+}
+.player-alert-field {
+    background: rgba(0,0,0,.22);
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    color: rgba(255,255,255,.92);
+    word-break: break-all;
+}
+.player-alert-field strong {
+    font-weight: 600;
+    color: rgba(255,255,255,.65);
+    margin-right: 4px;
+}
+.player-alert-x {
+    flex-shrink: 0;
+    background: none; border: none;
+    color: rgba(255,255,255,.7);
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 13px;
+    line-height: 1;
+    transition: color var(--t);
+}
+.player-alert-x:hover { color: #fff; }
+
+/* Centred big circular action — used for play / spinner / pause-resume */
+.player-action {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    z-index: 8;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    transition: transform 220ms ease, background var(--t);
+}
+.player-action:hover { background: var(--accent-b); transform: translate(-50%, -50%) scale(1.06); }
+.player-action i { font-size: 32px; margin-left: 4px; }
+.player-action.is-loading {
+    /* Tinted Ceeblue disc with a thick spinning rim so the state reads clearly */
+    background: rgba(120,181,191,.18);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    cursor: default;
+    pointer-events: none;
+}
+.player-action.is-loading:hover { transform: translate(-50%, -50%); background: rgba(120,181,191,.18); }
+.player-action .ring {
+    position: absolute; inset: -2px;
+    border-radius: 50%;
+    border: 5px solid rgba(255,255,255,.18);
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+    animation: spin 900ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Mid-stream resume — secondary style (less prominent than initial play) */
+.player-action.is-resume {
+    width: 64px; height: 64px;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+}
+.player-action.is-resume:hover { background: rgba(0,0,0,.7); }
+.player-action.is-resume i { font-size: 22px; }
+
+/* Hover/touch-revealed playback controls (fullscreen / stop), centered with a gap */
+.player-ctrls {
+    position: absolute; inset: 0;
+    z-index: 6;
+    display: flex; align-items: center; justify-content: center;
+    gap: 32px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 240ms ease;
+    background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, transparent 35%, transparent 65%, rgba(0,0,0,.35) 100%);
+}
+/* Visibility is driven purely by `is-visible` (set from JS). Tempting as it was,
+   `.player:hover` here defeats the auto-hide timer on desktop and gets stuck in
+   "sticky hover" on mobile after a tap, leaving the controls permanently shown.
+   mouseenter/mousemove handlers in JS reveal them on hover instead. */
+.player-ctrls.is-active.is-visible { opacity: 1; pointer-events: auto; }
+.pc-btn {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    transition: all 180ms ease;
+    box-shadow: 0 8px 22px rgba(0,0,0,.45);
+}
+.pc-btn:hover { background: var(--accent-b); transform: scale(1.08); }
+
+@media (max-width: 580px) {
+    .player-action { width: 72px; height: 72px; }
+    .player-action i { font-size: 26px; }
+    .pc-btn { width: 64px; height: 64px; font-size: 22px; }
+    .player-ctrls { gap: 28px; }
+}
+
+/* ── Field label ── */
+.lbl {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--txt-m);
+    margin-bottom: 3px;
+}
+
+/* ── Inputs ── */
+.inp, .sel {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--txt);
+    font-family: var(--f-body);
+    font-size: 13px;
+    padding: 7px 11px;
+    outline: none;
+    transition: border-color var(--t), box-shadow var(--t);
+    appearance: none;
+}
+.inp:focus, .sel:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-d);
+}
+.inp::placeholder { color: var(--txt-m); }
+.inp:disabled, .sel:disabled { opacity: .5; cursor: not-allowed; background: var(--bg-e); }
+.inp[type="number"] { text-align: center; padding-left: 6px; padding-right: 6px; }
+
+.sel {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ba4bc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+}
+select option { background: var(--bg); color: var(--txt); }
+
+/* ── Buttons ── */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--bg-e);
+    color: var(--txt-2);
+    font-family: var(--f-body);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--t);
+    white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: var(--bg-h); border-color: var(--border-s); color: var(--txt); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-icon { padding: 7px 9px; }
+
+/* Teal-tinted secondary (active DRM indicator) */
+.btn-cyan {
+    background: var(--accent-d); border-color: rgba(120,181,191,.4);
+    color: var(--accent-b);
+}
+.btn-cyan:hover:not(:disabled) { background: rgba(120,181,191,.25); border-color: var(--accent); }
+.btn-cyan:disabled {
+    opacity: 1;
+    color: var(--accent-b);
+    background: rgba(120,181,191,.08);
+    border-color: rgba(120,181,191,.25);
+    cursor: not-allowed;
+}
+
+/* Red text/icon — Live button when behind live edge (buffer above bufferLimitMiddle) */
+.btn-red, .btn-red:hover:not(:disabled) { color: var(--err); }
+
+/* Modal confirm — accent pill */
+.btn-primary {
+    background: var(--accent); border-color: var(--accent);
+    color: #fff; font-weight: 600;
+    border-radius: var(--r-pill);
+    padding: 7px 18px;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-b); border-color: var(--accent-b); }
+
+/* ── Toggle (switch + label) ── */
+.tog {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--bg-e);
+    cursor: pointer;
+    transition: all var(--t);
+    white-space: nowrap;
+    user-select: none;
+}
+.tog:hover { border-color: var(--border-s); }
+.tog.off { opacity: .4; pointer-events: none; }
+.tog input { display: none; }
+.tog-track {
+    width: 26px; height: 14px;
+    background: var(--txt-m);
+    border-radius: 7px;
+    position: relative;
+    transition: background var(--t);
+    flex-shrink: 0;
+}
+.tog-track::after {
+    content: '';
+    position: absolute; top: 2px; left: 2px;
+    width: 10px; height: 10px;
+    background: #fff; border-radius: 50%;
+    transition: transform var(--t);
+}
+.tog.on .tog-track { background: var(--accent); }
+.tog.on .tog-track::after { transform: translateX(12px); }
+.tog span { font-size: 12.5px; color: var(--txt-2); font-weight: 500; }
+
+/* ── Row layouts ── */
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gap-panel { margin-top: 14px; }
+
+/* Stream input takes full width; controls row holds the rest */
+.stream-row .inp { width: 100%; }
+
+/* Collapsible settings panel */
+.settings-panel { margin-top: 14px; }
+.controls-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 5px 2px 7px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: none;
+    color: var(--txt-m);
+    font-family: var(--f-body);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color var(--t), border-color var(--t);
+}
+.controls-toggle:hover { color: var(--txt-2); border-color: var(--border-s); }
+.controls-toggle .fa-sliders { color: var(--accent); font-size: 11px; }
+.controls-toggle span { flex: 1; text-align: left; }
+.controls-toggle .fa-chevron-down { font-size: 10px; transition: transform var(--t); }
+.settings-panel.collapsed .controls-toggle { border-bottom-color: transparent; }
+.settings-panel.collapsed .controls-toggle .fa-chevron-down { transform: rotate(-90deg); }
+
+/* WebRTC player — connector / stream name / access token / mute row */
+.webrtc-connect {
+    display: grid;
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr) minmax(0, 1.2fr) auto;
+    gap: 8px;
+    align-items: end;
+}
+.webrtc-mute { min-width: 112px; }
+
+.ctrl-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    align-items: stretch;
+}
+.ctrl-row .btn, .ctrl-row .tog { width: 100%; justify-content: center; }
+
+/* Legend for the AFS* toggle. */
+.ctrl-note {
+    font-size: 11px;
+    color: var(--txt-m);
+    margin-top: 6px;
+}
+
+/* Network preset + buffer min/max on a single compact line.
+   Grid-template-areas keep the description glued under the preset on mobile. */
+.net-row {
+    display: grid;
+    gap: 8px;
+    align-items: end;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+        'profile bufmin bufmax'
+        'desc    desc   desc';
+}
+.net-row .net-prof { grid-area: profile; }
+.net-row .buf-min  { grid-area: bufmin; }
+.net-row .buf-max  { grid-area: bufmax; }
+.net-row .net-desc { grid-area: desc; }
+.net-row .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.net-desc {
+    font-size: 12px;
+    color: var(--txt-m);
+    padding-top: 6px;
+    margin-top: 2px;
+    border-top: 1px solid var(--border);
+    font-style: italic;
+}
+.net-desc strong { color: var(--txt-2); font-weight: 500; font-style: normal; }
+
+/* ── Tabs ── */
+.tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    gap: 0;
+}
+.tab-btn {
+    background: none; border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--txt-m);
+    font-family: var(--f-body);
+    font-size: 12px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase;
+    padding: 7px 14px 6px;
+    cursor: pointer;
+    transition: all var(--t);
+    position: relative; top: 1px;
+}
+.tab-btn:hover { color: var(--txt-2); }
+.tab-btn.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 17px; height: 17px; padding: 0 4px;
+    background: var(--accent); color: #fff;
+    font-size: 10px; font-weight: 700; font-family: var(--f-mono);
+    border-radius: 9px; margin-left: 5px;
+}
+
+.tab-body { padding-top: 10px; }
+
+/* ── Side-by-side layout: dock the graph/messages panel to the right of the video
+   on large screens (toggle in the tab bar). Bottom-docked by default. ── */
+.layout-btn {
+    display: none;               /* only offered on wide screens */
+    margin-left: auto;           /* push to the right end of the tab bar */
+    align-self: center;
+    background: none; border: none;
+    color: var(--txt-m);
+    font-size: 14px;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: color var(--t);
+}
+.layout-btn:hover { color: var(--txt-2); }
+.layout-btn.on { color: var(--accent); }
+
+@media (min-width: 1200px) {
+    .layout-btn { display: inline-flex; align-items: center; }
+    html.layout-side .shell { max-width: 1600px; }
+    /* Top-aligned flex columns: each keeps its content height (a spanning grid item overgrew the page) */
+    html.layout-side .stage {
+        display: flex;
+        align-items: flex-start;
+        gap: 18px;
+    }
+    html.layout-side .stage-main,
+    html.layout-side .stage-panel {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+/* ── Stats ── */
+.stats-list {
+    background: transparent;
+    list-style: none;
+    padding: 0; margin: 0;
+    display: block;
+    width: 100%;
+}
+/* UIMetrics injects <svg> elements directly as children — force them full-width */
+.stats-list > svg {
+    display: block;
+    width: 100%;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--f-mono);
+    font-size: 12px;
+    fill: var(--txt);
+}
+.stats-list > svg:last-child { border-bottom: none; }
+
+.stats-actions {
+    display: flex; gap: 12px; align-items: center; justify-content: center;
+    margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+}
+.stats-actions img {
+    cursor: pointer; opacity: .4; height: 26px;
+    transition: opacity var(--t);
+}
+.stats-actions img:hover { opacity: .9; }
+
+/* ── Messages ── */
+.msg-box {
+    background: var(--bg-s);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    height: 240px; overflow: auto;
+    font-family: var(--f-mono); font-size: 11.5px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-s) transparent;
+}
+.msg-empty { padding: 14px 12px; color: var(--txt-m); font-style: italic; font-size: 12px; }
+.msg-row {
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--txt-2); white-space: pre; min-width: max-content; line-height: 1.45;
+}
+.msg-row:last-child { border-bottom: none; }
+.msg-track { color: var(--accent-b); font-weight: 500; }
+.msg-time  { color: var(--txt-m); }
+
+/* ── Timeline ── */
+.tl-toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+/* Match the .btn controls (follow, CSV) to the segmented-control size in this row. */
+.tl-toolbar .btn { padding-top: 5px; padding-bottom: 5px; font-size: 12px; }
+.tl-seg {
+    display: inline-flex; border: 1px solid var(--border);
+    border-radius: var(--r-sm); overflow: hidden;
+}
+.tl-seg button {
+    background: var(--bg-e); border: none; color: var(--txt-2);
+    font-family: var(--f-body); font-size: 12px; font-weight: 500;
+    padding: 5px 11px; cursor: pointer; transition: all var(--t);
+}
+.tl-seg button + button { border-left: 1px solid var(--border); }
+.tl-seg button.on { background: var(--accent); color: #fff; }
+.tl-seg button:hover:not(.on) { background: var(--bg-h); color: var(--txt); }
+/* View-tracking state button — color-coded (solid teal = following the latest, amber = frozen). */
+.tl-followbtn { min-width: 96px; justify-content: center; font-weight: 500; gap: 7px; }
+.tl-followbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tl-followbtn.on:hover:not(:disabled) { background: var(--accent-b); border-color: var(--accent-b); color: #fff; }
+.tl-followbtn.off { background: rgba(230,168,23,.16); border-color: rgba(230,168,23,.55); color: var(--warn); }
+.tl-followbtn.off:hover:not(:disabled) { background: rgba(230,168,23,.26); border-color: var(--warn); color: var(--warn); }
+.tl-spacer { flex: 1; }
+.tl-legend {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    font-size: 11px; color: var(--txt-2);
+}
+.tl-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.tl-legend i.dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.tl-box {
+    position: relative;
+    background: var(--bg-s);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    min-height: 60px;
+}
+
+/* ── Modal ── */
+/* Set while a modal is open: the dialog scrolls on its own, the page behind must not */
+body.modal-open { overflow: hidden; }
+
+.modal-back {
+    position: fixed; inset: 0;
+    background: var(--modal-back);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+}
+.modal-wrap {
+    position: fixed; inset: 0; z-index: 201;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.modal-box {
+    background: var(--bg);
+    border: 1px solid var(--border-s);
+    border-radius: var(--r-lg);
+    width: 100%; max-width: 580px;
+    max-height: calc(100vh - 40px);
+    display: flex; flex-direction: column;
+    box-shadow: var(--shadow-modal);
+}
+.modal-hd {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.modal-hd i { color: var(--accent); font-size: 14px; }
+.modal-hd h5 {
+    font-size: 15px; font-weight: 600;
+    letter-spacing: .02em; color: var(--navy);
+}
+.modal-x {
+    margin-left: auto; background: none; border: none;
+    color: var(--txt-m); cursor: pointer; font-size: 16px; line-height: 1;
+    transition: color var(--t);
+}
+.modal-x:hover { color: var(--txt); }
+
+.modal-bd {
+    overflow-y: auto; padding: 14px 18px; flex: 1;
+    scrollbar-width: thin; scrollbar-color: var(--border-s) transparent;
+}
+.modal-hint {
+    font-size: 11.5px; color: var(--txt-2);
+    margin-bottom: 14px; padding: 8px 11px;
+    background: var(--bg-e); border-radius: var(--r-sm);
+    border-left: 3px solid var(--accent);
+    line-height: 1.55;
+}
+
+.drm-card {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-bottom: 10px; overflow: hidden;
+    transition: border-color var(--t);
+}
+.drm-card.enabled { border-color: var(--border-s); }
+.drm-card.active  { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-d); }
+
+.drm-hd {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-e);
+}
+.drm-name {
+    font-size: 13px; font-weight: 600;
+    letter-spacing: .03em; text-transform: uppercase; flex: 1;
+    color: var(--navy);
+}
+.badge-active {
+    font-family: var(--f-mono); font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: var(--r-pill);
+    background: rgba(120,181,191,.15); color: var(--accent-b);
+    border: 1px solid rgba(120,181,191,.4);
+    text-transform: uppercase; letter-spacing: .06em;
+}
+
+.drm-bd {
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.drm-field { display: flex; flex-direction: column; gap: 3px; }
+.drm-field .lbl {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 0;
+}
+.btn-link {
+    background: none; border: none; color: var(--accent);
+    font-size: 11.5px; cursor: pointer; padding: 0;
+    font-family: var(--f-body); transition: color var(--t);
+}
+.btn-link:hover:not(:disabled) { color: var(--accent-b); }
+.btn-link:disabled { opacity: .38; cursor: not-allowed; }
+
+.hdr-list { display: flex; flex-direction: column; gap: 5px; margin-top: 3px; }
+.hdr-row { display: flex; gap: 5px; align-items: center; }
+.hdr-row .inp { flex: 1; }
+.btn-rm {
+    width: 28px; height: 28px; flex-shrink: 0;
+    background: var(--bg-e); border: 1px solid var(--border);
+    border-radius: var(--r-sm); color: var(--txt-m);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 10px; transition: all var(--t);
+}
+.btn-rm:hover:not(:disabled) { background: rgba(192,57,43,.10); border-color: rgba(192,57,43,.35); color: var(--err); }
+.btn-rm:disabled { opacity: .38; cursor: not-allowed; }
+
+.rob-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.modal-ft {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-s); border-radius: 3px; }
+
+[v-cloak] { display: none; }
+
+/* ── Responsive ── */
+@media (max-width: 680px) {
+    /* Stream + Play stack as: input full-width then play button full-width */
+    .ctrl-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .row2 { grid-template-columns: 1fr 1fr; }
+    /* connector + stream name, then access token + mute */
+    .webrtc-connect { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+    .net-row {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            'profile profile'
+            'desc    desc'
+            'bufmin  bufmax';
+    }
+    .row2 { grid-template-columns: 1fr; }
+    .rob-row { grid-template-columns: 1fr; }
+    .webrtc-connect { grid-template-columns: 1fr; }
+    .webrtc-mute { width: 100%; }
+}
