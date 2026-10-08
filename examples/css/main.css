@@ -460,6 +460,46 @@ select option { background: var(--bg); color: var(--txt); }
     align-items: end;
 }
 .webrtc-mute { min-width: 112px; }
+/* Streamer has no mute button */
+.webrtc-connect.no-action { grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr) minmax(0, 1.2fr); }
+
+/* WebRTC streamer — devices row, and bitrate + capture toggles row */
+.row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stream-opts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: end;
+}
+.stream-opts .tog { justify-content: center; }
+
+/* Streamer preview: the canvas replaces the camera when it becomes the video source.
+   The hidden one keeps rendering, the canvas draws the camera frames. */
+.player canvas {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.player .preview-hidden { position: absolute; visibility: hidden; }
+
+/* "On air" badge, top-left of the streamer preview */
+.onair {
+    position: absolute; top: 10px; left: 10px;
+    z-index: 7;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--r-pill);
+    background: var(--err);
+    color: #fff;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+.onair i { font-size: 8px; animation: onair-blink 1.4s ease-in-out infinite; }
+@keyframes onair-blink { 50% { opacity: .3; } }
+/* The play-arrow offset doesn't apply to the symmetric broadcast icon */
+.player-action i.fa-tower-broadcast { margin-left: 0; }
 
 .ctrl-row {
     display: grid;
@@ -790,7 +830,8 @@ body.modal-open { overflow: hidden; }
     .ctrl-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .row2 { grid-template-columns: 1fr 1fr; }
     /* connector + stream name, then access token + mute */
-    .webrtc-connect { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .webrtc-connect, .webrtc-connect.no-action { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .row3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
     .net-row {
@@ -802,6 +843,7 @@ body.modal-open { overflow: hidden; }
     }
     .row2 { grid-template-columns: 1fr; }
     .rob-row { grid-template-columns: 1fr; }
-    .webrtc-connect { grid-template-columns: 1fr; }
+    .webrtc-connect, .webrtc-connect.no-action { grid-template-columns: 1fr; }
     .webrtc-mute { width: 100%; }
+    .row3, .stream-opts { grid-template-columns: 1fr; }
 }

@@ -6,845 +6,928 @@
 -->
 <html lang="en">
     <head>
-        <title>Ceeblue WebRTC Streamer Example</title>
+        <title>Ceeblue WebRTC Streamer</title>
         <meta charset="utf-8">
-        <meta content="width=device-width, initial-scale=1.0" name="viewport">
+        <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+        <meta name="color-scheme" content="light dark">
 
         <link rel="icon" href="./assets/ceeblue-logo-32x32.png" sizes="32x32">
         <link rel="icon" href="./assets/ceeblue-logo-192x192.png" sizes="192x192">
 
-        <link href="./css/bootstrap.css" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
         <link href="./css/solid.css" rel="stylesheet">
         <link href="./css/fontawesome.css" rel="stylesheet">
-
-        <style>
-            body {
-                margin-top: 1em;
-                margin-bottom: 3em;
-            }
-
-            .view-window {
-                background-color: #333333;
-            }
-
-            .active-view-window {
-                max-width: 100%;
-                max-height: 60vh;
-                z-index: 2147483647;
-            }
-
-            .hidden-view-window {
-                position: fixed;
-                visibility: hidden;
-            }
-
-            .error-notifications {
-                position: center;
-                text-align: center;
-                z-index: 1000;
-                width: max-content;
-                margin: 10px auto 10px auto;
-                max-width: 100vh;
-            }
-
-            .error-container {
-                display: flex;
-                flex-direction: column;
-                position: absolute;
-                right: 0;
-                left: 0;
-                margin-left: auto;
-                margin-right: auto;
-            }
-        </style>
+        <link href="./css/main.css" rel="stylesheet">
+        <script src="./js/theme.js"></script>
     </head>
-    <body class="container">
-        <div class="row">
-            <div class="col-md-12">
-                <img alt="Ceeblue B.V." class="rounded mx-auto d-block" src="./assets/ceeblue-logo.png">
-                <h3 class="text-center">WebRTC Client Streamer Example</h3>
+    <body>
+        <div class="shell" id="main" v-cloak>
+
+            <header class="hdr">
+                <img alt="Ceeblue" src="./assets/ceeblue-logo.png">
+                <h1>
+                    WebRTC <em>Streamer</em>
+                </h1>
+                <button class="theme-btn" :title="themeTooltip()" @click="cycleTheme()">
+                    <i class="fas" :class="themeIcon()"></i>
+                </button>
+            </header>
+
+            <div class="stage">
+
+                <!-- Preview + settings: left column in side-by-side mode -->
+                <div class="stage-main">
+                    <!-- Preview: the camera, or the canvas when it becomes the streamed video source -->
+                    <div class="player" ref="player"
+                        @mouseenter="onPlayerActivity()"
+                        @mousemove="onPlayerActivity()"
+                        @mouseleave="onPlayerLeave()"
+                        @touchstart="onPlayerTouch($event)"
+                        @contextmenu="onPlayerContextMenu($event)">
+
+                        <video autoplay id="video-preview" ref="video" playsinline muted
+                            :class="{ 'preview-hidden': canvasSource }"></video>
+                        <canvas id="canvas-preview" ref="canvas"
+                            :class="{ 'preview-hidden': !canvasSource }"></canvas>
+
+                        <div class="onair" v-if="isStreaming()">
+                            <i class="fas fa-circle"></i>
+                            On air
+                        </div>
+
+                        <!-- Hover/touch revealed controls (only while streaming) -->
+                        <div class="player-ctrls"
+                            :class="{ 'is-active': isStreaming(), 'is-visible': controlsVisible }">
+                            <button class="pc-btn pc-full"
+                                :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+                                @click="fullscreen()">
+                                <i class="fas" :class="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+                            </button>
+                            <button class="pc-btn pc-stop" title="Stop streaming" @click="changeState()">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                        </div>
+
+                        <!-- Idle → big Start | Processing → spinner -->
+                        <button class="player-action" title="Start streaming" @click="changeState()" v-if="isIdle()">
+                            <i class="fas fa-tower-broadcast"></i>
+                        </button>
+                        <div class="player-action is-loading" v-else-if="isProcessing()">
+                            <div class="ring"></div>
+                        </div>
+
+                        <div class="player-alert" v-if="streamError">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div class="player-alert-body">
+                                <div class="player-alert-title">
+                                    <span class="player-alert-type" v-if="streamError.type">{{ streamError.type }}</span>
+                                    <span class="player-alert-name">{{ streamError.name }}</span>
+                                </div>
+                                <div class="player-alert-detail" v-if="streamError.detail">{{ streamError.detail }}</div>
+                                <div class="player-alert-fields" v-if="streamError.fields.length">
+                                    <span class="player-alert-field" v-for="f in streamError.fields" :key="f.label">
+                                        <strong>{{ f.label }}</strong>{{ f.value }}
+                                    </span>
+                                </div>
+                            </div>
+                            <button class="player-alert-x" @click="setStreamError(null)"
+                                title="Dismiss" aria-label="Dismiss">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Settings: connection, devices, bitrate and capture options -->
+                    <div class="settings-panel" :class="{ collapsed: controlsHidden }">
+                        <button class="controls-toggle"
+                            :title="controlsHidden ? 'Show stream settings' : 'Hide stream settings'"
+                            :aria-label="controlsHidden ? 'Show stream settings' : 'Hide stream settings'"
+                            :aria-expanded="!controlsHidden"
+                            @click="controlsHidden = !controlsHidden">
+                            <i class="fas fa-sliders"></i>
+                            <span>Stream settings</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div v-show="!controlsHidden">
+                            <!-- Connector + stream name + access token -->
+                            <div class="webrtc-connect no-action gap-panel">
+                                <div>
+                                    <span class="lbl">Connector</span>
+                                    <select class="sel" id="connector-selection" :disabled="!isIdle()" v-model="connectorType">
+                                        <option v-for="type in connectorTypes" :value="type">{{ type }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <span class="lbl">Stream name</span>
+                                    <input class="inp" id="stream-name" :disabled="!isIdle()"
+                                        placeholder="as+30189afc-541d-49b7-9ae0-468d15f62059"
+                                        type="text" v-model="streamName" @keyup.enter="changeState()">
+                                </div>
+                                <div>
+                                    <span class="lbl">Access token</span>
+                                    <input class="inp" id="access-token" :disabled="!isIdle()"
+                                        placeholder="ebb5cf7e-7818-4fd7-a1e1-9b9cc9dcdd7e"
+                                        type="text" v-model="accessToken" @keyup.enter="changeState()">
+                                </div>
+                            </div>
+
+                            <!-- Devices and resolution, switchable while streaming -->
+                            <div class="row3 gap-panel">
+                                <div>
+                                    <span class="lbl">Microphone</span>
+                                    <select class="sel" :disabled="isProcessing()" v-model="selectedAudioDeviceId" @change="onMicSelectionChange">
+                                        <option value="disabled">Disabled</option>
+                                        <option v-for="d in audioInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Microphone' }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <span class="lbl">Camera</span>
+                                    <select class="sel" :disabled="isProcessing()" v-model="selectedVideoDeviceId" @change="onCameraSelectionChange">
+                                        <option value="disabled">Disabled</option>
+                                        <option v-for="d in videoInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <span class="lbl">Resolution</span>
+                                    <select class="sel" :disabled="isProcessing()" v-model="selectedResolutionKey" @change="onResolutionSelectionChange">
+                                        <option v-for="opt in resolutionOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Target bitrate + capture options -->
+                            <div class="stream-opts gap-panel">
+                                <div>
+                                    <span class="lbl">Target bitrate</span>
+                                    <select class="sel" :disabled="!isIdle()" v-model="streaming.bitrate">
+                                        <option v-for="bitrate in bitrates" :value="bitrate">{{ bitrate / 1000000 }} Mbps</option>
+                                    </select>
+                                </div>
+                                <label class="tog" :class="{ on: permanentLandscape, off: !isIdle() }"
+                                    title="Letterbox the camera image into a fixed landscape frame">
+                                    <input type="checkbox" :disabled="!isIdle()" v-model="permanentLandscape">
+                                    <span class="tog-track"></span>
+                                    <span>Landscape</span>
+                                </label>
+                                <label class="tog" :class="{ on: epochTimestamp, off: !isIdle() }"
+                                    title="Burn a machine-readable timestamp in the video image to let the player measure the end-to-end latency">
+                                    <input type="checkbox" :disabled="!isIdle()" v-model="epochTimestamp">
+                                    <span class="tog-track"></span>
+                                    <span>Epoch timestamp</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel: graph (docks bottom by default, or right on wide screens) -->
+                <div class="stage-panel">
+                    <div class="tab-bar">
+                        <button class="tab-btn on">Graph</button>
+                        <button class="layout-btn" :class="{ on: sidePanel }"
+                            :title="sidePanel ? 'Dock the panel to the bottom' : 'Dock the panel to the right (side-by-side)'"
+                            @click="toggleSidePanel()">
+                            <i class="fas fa-table-columns"></i>
+                        </button>
+                    </div>
+
+                    <div class="tab-body">
+                        <ul class="stats-list" ref="stats"></ul>
+                        <div class="stats-actions" v-show="hasMetrics">
+                            <img alt="Reset" title="Reset incremental metrics and rescale the chart"
+                                @click="resetMetrics()" src="./assets/reload.png">
+                            <img alt="Download CSV" title="Download metrics as a CSV file"
+                                @click="downloadStats()" src="./assets/download.png">
+                        </div>
+                    </div>
+                </div>
+
             </div>
-
-            <div class="col-md-12" id="main">
-                <div class="error-container">
-                    <div class="alert alert-danger error-notifications" v-on:click="closeErrorMessage(notification)" role="alert" v-for="notification in errorNotifications" :key="notification.timestamp">
-                        <span> {{ notification.message }} </span>
-                    </div>
-                </div>
-
-                <div class="alert alert-success" id="on-air" role="alert" v-bind:class="{ 'd-none': !isStreaming() }">
-                    <h4 class="text-center font-weight-bold">On Air</h4>
-                </div>
-
-                <div class="card text-center border-0">
-                    <div class="card-body">
-                        <video autoplay class="view-window" id="video-preview" playsinline ref="camera" v-bind:class="{ 'active-view-window': !canvasSource, 'hidden-view-window': canvasSource }"></video>
-                        <canvas class="view-window" id="canvas-preview" ref="canvas" v-bind:class="{ 'active-view-window': canvasSource, 'hidden-view-window': !canvasSource }"></canvas>
-                    </div>
-                </div>
-
-                <div class="row ml-1 mr-1" style="display: none">
-                    <div class="form-group col-sm">
-                        <label for="rtp-props-nack">Nack</label>
-                        <input @change="updateRTP()" class="form-control" id="rtp-props-nack" min="0" type="number" v-model="streaming.rtp.nack">
-                    </div>
-                    <div class="form-group col-sm">
-                        <label for="rtp-props-drop">Drop</label>
-                        <input @change="updateRTP()" class="form-control" id="rtp-props-drop" min="0" type="number" v-model="streaming.rtp.drop">
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="form-group col-sm-2">
-                        <select class="custom-select" id="connector-selection"
-                            :disabled="!isIdle()" v-model="connectorType">
-                            <option v-bind:value="option" v-for="option in connectorTypes">
-                                {{ option }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="form-group col-sm-5">
-                        <input :disabled="!isIdle()" class="form-control" id="stream-name" placeholder="Stream name as+30189afc-541d-49b7-9ae0-468d15f62059" type="text" v-model="streamName">
-                    </div>
-                    <div class="form-group col-sm-5">
-                        <input :disabled="!isIdle()" class="form-control" id="access-token" placeholder="Access token ebb5cf7e-7818-4fd7-a1e1-9b9cc9dcdd7e" type="text" v-model="accessToken">
-                    </div>
-                </div>
-
-                <!-- Devices and Resolution -->
-                <div class="row mb-3">
-                    <div class="form-group col-sm-4">
-                        <label class="mb-1">Microphone</label>
-                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedAudioDeviceId" @change="onMicSelectionChange">
-                            <option value="disabled">Disabled</option>
-                            <option v-for="d in audioInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Microphone' }}</option>
-                        </select>
-                    </div>
-                    <div class="form-group col-sm-4">
-                        <label class="mb-1">Camera</label>
-                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedVideoDeviceId" @change="onCameraSelectionChange">
-                            <option value="disabled">Disabled</option>
-                            <option v-for="d in videoInputDevices" :key="d.deviceId" :value="d.deviceId">{{ d.label || 'Camera' }}</option>
-                        </select>
-                    </div>
-                    <div class="form-group col-sm-4">
-                        <label class="mb-1">Resolution</label>
-                        <select class="custom-select" :disabled="isProcessing()" v-model="selectedResolutionKey" @change="onResolutionSelectionChange">
-                            <option v-for="opt in resolutionOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-4 form-group">
-                        <select :disabled="!isIdle()" class="custom-select" v-model="streaming.bitrate">
-                            <option disabled selected>Target bitrate</option>
-                            <option value="700000">0.7 Mbps</option>
-                            <option value="1000000">1 Mbps</option>
-                            <option value="1200000">1.2 Mbps</option>
-                            <option value="1400000">1.4 Mbps</option>
-                            <option value="1600000">1.6 Mbps</option>
-                            <option value="1800000">1.8 Mbps</option>
-                            <option value="2000000">2 Mbps</option>
-                            <option value="2500000">2.5 Mbps</option>
-                            <option value="3000000">3 Mbps</option>
-                            <option value="4000000">4 Mbps</option>
-                            <option value="5000000">5 Mbps</option>
-                        </select>
-                    </div>
-                    <div class="col-3 form-check form-group">
-                        <input :disabled="!isIdle()" class="form-check-input" id="landscapeCheck" type="checkbox" v-model="permanentLandscape">
-                        <label class="form-check-label" for="landscapeCheck">Landscape</label>
-                    </div>
-                    <div class="col-5 form-check form-group">
-                        <input :disabled="!isIdle()" class="form-check-input" id="epochTimestampCheck" type="checkbox" v-model="epochTimestamp">
-                        <label class="form-check-label" for="epochTimestampCheck" title="Burn a machine-readable timestamp in the video image to let the player measure the end-to-end latency">Epoch timestamp</label>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-center">
-                    <button :disabled="isProcessing()" class="btn" id="streaming" type="button" v-bind:class="{ 'btn-danger': isStreaming(), 'btn-success': isIdle(), 'btn-secondary': isProcessing() }" v-on:click="changeState()">
-                        <i class="fas fa-spinner fa-pulse" v-if="isProcessing()"></i>
-                        <span v-else>{{ getStreamingButtonCaption() }}</span>
-                    </button>
-                </div>
-            </div>
-
+            <!-- #main -->
         </div>
+        <!-- .shell -->
+    </body>
+    <script type="module">
+        import { Streamer, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.bundle.js";
+        // development version, includes helpful console warnings
+        // import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js';
+        // production version, optimized for size and speed
+        import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
+        import {
+            themeMixin, sidePanelMixin, overlayMixin, metricsMixin,
+            normalizeError, setURLParam, replaceURL, setupDebugOverlay
+        } from './js/common.js';
+        const { EpochTime, Util, Connect, LogLevel, log, UIMetrics } = utils;
 
-        <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
-        <script type="module">
-            import { Streamer, StreamerStats, HTTPConnector, WSController, VERSION, utils } from "../dist/webrtc-client.bundle.js";
+        // displays logs ERROR, WARN & INFO logs,
+        // can be even more detailed with LogLevel.DEBUG
+        log.level = LogLevel.INFO;
 
-            const { EpochTime, Util, log, Connect } = utils;
+        const options = Util.caseInsensitive(Util.options());
 
-            log('webrtc-client version:', VERSION).info();
-            log('web-utils version:', utils.VERSION).info();
+        // On-screen log overlay for on-device debugging (e.g. Android with no working
+        // chrome://inspect). Append `?debugoverlay` to the URL to enable.
+        if (options.debugoverlay) {
+            setupDebugOverlay();
+        }
 
-            const DEFAULT_STREAMING_BITRATE = 3000000;
-            const DEFAULT_STREAMING_WIDTH = 1280;
-            const DEFAULT_STREAMING_HEIGHT = 720;
-            const DEFAULT_STREAMING_FRAMERATE = 30;
-            const DEFAULT_PERMANENT_LANDSCAPE = false;
-            const DEFAULT_FACE_MODE = true;
+        log('webrtc-client version:', VERSION).info();
+        log('web-utils version:', utils.VERSION).info();
 
-            const StreamingState = {
-                IDLE: 'IDLE',
-                STREAMING: 'STREAMING',
-                PROCESSING: 'PROCESSING'
-            };
+        const DEFAULT_STREAMING_BITRATE = 3000000;
+        const DEFAULT_STREAMING_WIDTH = 1280;
+        const DEFAULT_STREAMING_HEIGHT = 720;
+        const DEFAULT_STREAMING_FRAMERATE = 30;
 
-            const FacingMode = {
-                USER: 'user',
-                ENVIRONMENT: 'environment'
-            };
+        const StreamingState = {
+            IDLE: 'IDLE',
+            STREAMING: 'STREAMING',
+            PROCESSING: 'PROCESSING'
+        };
 
-            let app;
-            app = new Vue({
-                el: '#main',
-                data: {
-                    streamName: null,
-                    accessToken: null,
+        const CONNECTOR_WS = 'WebSocket (WS)';
+        const CONNECTOR_WHIP = 'WHIP (HTTP)';
+
+        const AUTO_RESOLUTION = { key: 'auto', label: 'Auto (camera default)', w: null, h: null };
+
+        createApp({
+            mixins: [themeMixin, sidePanelMixin, overlayMixin, metricsMixin],
+            data() {
+                return {
+                    endPoint: '',
+                    streamName: '',
+                    accessToken: '',
                     diagnostics: null,
-                    endPoint: null,
 
                     streaming: {
                         bitrate: DEFAULT_STREAMING_BITRATE,
                         width: DEFAULT_STREAMING_WIDTH,
                         height: DEFAULT_STREAMING_HEIGHT,
                         framerate: DEFAULT_STREAMING_FRAMERATE,
-
-                        rtp: {
-                            nack: 0,
-                            drop: 0,
-                        },
                         videoSource: null
                     },
+                    bitrates: [700000, 1000000, 1200000, 1400000, 1600000, 1800000, 2000000, 2500000, 3000000, 4000000, 5000000],
 
-                    permanentLandscape: DEFAULT_PERMANENT_LANDSCAPE,
-                    overlayTimestamp: true,
+                    permanentLandscape: false,
+                    overlayTimestamp: false,
                     epochTimestamp: false,
                     streamer: null,
 
                     state: StreamingState.IDLE,
                     restarting: false,
 
-                    connectorType:'WebSocket (WS)',
-                    connectorTypes:['WebSocket (WS)', 'WHIP (HTTP)'],
+                    connectorType: CONNECTOR_WS,
+                    connectorTypes: [CONNECTOR_WS, CONNECTOR_WHIP],
 
-                    /* UI */
-                    streamingButtonCaption: '',
-                    errorNotifications: [],
+                    sidePanel: options.sidePanel ? true : false, // dock the metrics panel to the right (large screens)
+                    controlsHidden: false,
+                    streamError: null,
 
                     /* Devices / Resolution */
                     videoInputDevices: [],
                     audioInputDevices: [],
                     selectedVideoDeviceId: null,
                     selectedAudioDeviceId: null,
-                    resolutionOptions: [{ key: 'auto', label: 'Auto (camera default)', w: null, h: null }],
+                    resolutionOptions: [AUTO_RESOLUTION],
                     selectedResolutionKey: 'auto'
+                };
+            },
+            computed: {
+                // Both options need the canvas to become the streamed video source
+                canvasSource() {
+                    return this.permanentLandscape || this.epochTimestamp;
+                }
+            },
+            created() {
+                // init values, buildURL unpacks the stream name when the endPoint carries it
+                const params = {
+                    endPoint: options.endPoint?.toLowerCase() || location.hostname,
+                    streamName: options.streamName,
+                    accessToken: options.accessToken
+                };
+                options.whip ||= params.endPoint.startsWith('http');
+                Connect.buildURL(Connect.Type.WEBRTC, params, options.whip ? 'https' : 'wss');
+                this.endPoint = params.endPoint;
+                this.streamName = params.streamName || '';
+                this.accessToken = params.accessToken || '';
+                this.connectorType = options.whip ? CONNECTOR_WHIP : CONNECTOR_WS;
+
+                this.diagnostics = options.diagnostics || options.debug;
+                this.permanentLandscape = options.landscape ? true : false;
+                this.overlayTimestamp = options.timestamp ? true : false;
+                this.epochTimestamp = options.epochTime ? true : false;
+            },
+            mounted() {
+                this.updateCanvasAndVideoSize();
+                this.clearFrame();
+
+                // populate device lists (labels require prior permission on some browsers)
+                this.initDevices();
+
+                // Stats to be displayed in the UI, in this order
+                for (const name of [
+                    'Bandwidth', 'Target bps', 'Track video', 'Track audio', 'Video FPS', 'Encode time',
+                    'RTT', 'Nack', 'Retransmits', 'Server loss', 'Server jitter'
+                ]) {
+                    this.stats.set(name, []);
+                }
+                this.uiStats = new UIMetrics(this.$refs.stats);
+                this._metricsTimer = setInterval(() => this.sampleMetrics(), 700);
+            },
+            beforeUnmount() {
+                clearInterval(this._metricsTimer);
+                if (this.streamer) {
+                    this.streamer.stop();
+                }
+            },
+            methods: {
+                setStreamError(error) {
+                    this.streamError = normalizeError(error);
                 },
-                computed: {
-                    // Both options need the canvas to become the streamed video source
-                    canvasSource() {
-                        return this.permanentLandscape || this.epochTimestamp;
+                // Overlay controls only show while streaming
+                overlayActive() {
+                    return this.isStreaming();
+                },
+
+                /* Devices & Resolution */
+                async initDevices() {
+                    try {
+                        // Trick to get device labels.
+                        const devices0 = await navigator.mediaDevices.enumerateDevices();
+                        const hasLabels = devices0.some(d => d.label);
+                        if (!hasLabels) {
+                            try {
+                                const userMedia = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                                this.stopTracks(userMedia);
+                            } catch (e) {
+                            }
+                        }
+                        await this.refreshDeviceLists();
+                    } catch (e) {
+                        this.setStreamError({ type: 'Device', name: 'Unable to enumerate media devices', detail: e.message || Util.stringify(e) });
                     }
                 },
-                created() {
-                    const options = Util.caseInsensitive(Util.options());
-                    // init values
-                    const params = {
-                        endPoint: options.endPoint?.toLowerCase() || location.hostname,
-                        streamName: options.streamName,
-                        accessToken: options.accessToken
+                async refreshDeviceLists() {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const groups = new Set();
+                    this.videoInputDevices = devices.filter(d => { // keep only unique video devices
+                        if (d.kind !== 'videoinput' || groups.has(d.groupId)) {
+                            return false;
+                        }
+                        groups.add(d.groupId);
+                        return true;
+                    });
+                    groups.clear();
+                    this.audioInputDevices = devices.filter(d => { // keep only unique audio devices
+                        if (d.kind !== 'audioinput' || groups.has(d.groupId)) {
+                            return false;
+                        }
+                        groups.add(d.groupId);
+                        return true;
+                    });
+                    if (!this.selectedVideoDeviceId && this.videoInputDevices.length) {
+                        this.selectedVideoDeviceId = this.videoInputDevices[0].deviceId;
                     }
-                    options.whip ||= params.endPoint.startsWith('http');
-
-                    // WIP change UI to have just one input for endPoint (OR streamName)?
-                    // In this case we can remove this buildURL here just to unpack streamName from endPoint when set
-                    Connect.buildURL(Connect.Type.WEBRTC, params, options.whip ? 'https' : 'wss');
-                    this.endPoint = params.endPoint;
-                    this.streamName = params.streamName;
-                    this.accessToken = params.accessToken;
-                    this.connectorType = options.whip ? this.connectorTypes[1] : this.connectorTypes[0];
-
-                    this.diagnostics = options.diagnostics || options.debug;
-                    this.permanentLandscape = options.landscape? true : false;
-                    this.overlayTimestamp = options.timestamp? true : false;
-                    this.epochTimestamp = options.epochTime? true : false;
+                    if (!this.selectedAudioDeviceId && this.audioInputDevices.length) {
+                        this.selectedAudioDeviceId = this.audioInputDevices[0].deviceId;
+                    }
                 },
-                mounted() {
-                    this.updateCanvasAndVideoSize();
-
-                    // populate device lists (labels require prior permission on some browsers)
-                    this.initDevices();
+                buildResolutionOptionsFromCapabilities(cap) {
+                    // Note that this list may not fit with the capabilities of the camera
+                    // This is just an example to show how to build a list of resolutions.
+                    const PRESETS = [
+                        [640, 360], [640, 480], [960, 540], [1280, 720], [1600, 900],
+                        [1920, 1080], [2560, 1440], [3840, 2160]
+                    ];
+                    const opts = [AUTO_RESOLUTION];
+                    if (!cap || !cap.width || !cap.height) {
+                        return opts;
+                    }
+                    const wmin = cap.width.min || 0, wmax = cap.width.max || 3840;
+                    const hmin = cap.height.min || 0, hmax = cap.height.max || 2160;
+                    for (const [w, h] of PRESETS) {
+                        if (w >= wmin && w <= wmax && h >= hmin && h <= hmax) {
+                            opts.push({ key: w + 'x' + h, label: w + '×' + h, w, h });
+                        }
+                    }
+                    return opts;
                 },
-                beforeUnmount() {
-                    this.errorNotifications.forEach(e => {
-                        try {
-                            clearTimeout(e.closeTimeout);
-                        } catch (e) {
+                async updateResolutionOptionsForTrack(track) {
+                    try {
+                        const cap = track.getCapabilities ? track.getCapabilities() : null;
+                        this.resolutionOptions = this.buildResolutionOptionsFromCapabilities(cap);
+                        if (!this.resolutionOptions.find(o => o.key === this.selectedResolutionKey)) {
+                            this.selectedResolutionKey = 'auto';
+                        }
+                    } catch (e) {
+                        this.resolutionOptions = [AUTO_RESOLUTION];
+                    }
+                },
+                getCurrentConnectorTrack(kind) {
+                    return this.streamer ? (kind === 'video' ? this.streamer.videoTrack : this.streamer.audioTrack) : null;
+                },
+
+                // Stop all tracks in a MediaStream except the specified track
+                stopTracks(userMedia, exceptTrack) {
+                    userMedia.getTracks().forEach(track => {
+                        if (track !== exceptTrack) {
+                            track.stop();
                         }
                     });
-                    this.errorNotifications = [];
                 },
-                methods: {
-                    /* Devices & Resolution */
-                    async initDevices() {
-                        try {
-                            // Trick to get device labels.
-                            const devices0 = await navigator.mediaDevices.enumerateDevices();
-                            const hasLabels = devices0.some(d => d.label);
-                            if (!hasLabels) {
-                                try {
-                                    const userMedia = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                                    this.stopTracks(userMedia);
-                                } catch (e) {
-                                }
-                            }
-                            await this.refreshDeviceLists();
-                        } catch (e) {
-                            this.showErrorMessage('Unable to enumerate media devices. ' + Util.stringify(e));
-                        }
-                    },
-                    async refreshDeviceLists() {
-                        const devices = await navigator.mediaDevices.enumerateDevices();
-                        const groups = new Set();
-                        this.videoInputDevices = devices.filter(d => { // keep only unique video devices
-                            if (d.kind !== 'videoinput' || groups.has(d.groupId)) {
-                                return false;
-                            }
-                            groups.add(d.groupId);
-                            return true;
-                        });
-                        groups.clear();
-                        this.audioInputDevices = devices.filter(d => { // keep only unique audio devices
-                            if (d.kind !== 'audioinput' || groups.has(d.groupId)) {
-                                return false;
-                            }
-                            groups.add(d.groupId);
-                            return true;
-                        });
-                        if (!this.selectedVideoDeviceId && this.videoInputDevices.length) {
-                            this.selectedVideoDeviceId = this.videoInputDevices[0].deviceId;
-                        }
-                        if (!this.selectedAudioDeviceId && this.audioInputDevices.length) {
-                            this.selectedAudioDeviceId = this.audioInputDevices[0].deviceId;
-                        }
-                    },
-                    buildResolutionOptionsFromCapabilities(cap) {
-                        // Note that this list may not fit with the capabilities of the camera
-                        // This is just an example to show how to build a list of resolutions.
-                        const PRESETS = [
-                            [640, 360], [640, 480], [960, 540], [1280, 720], [1600, 900],
-                            [1920, 1080], [2560, 1440], [3840, 2160]
-                        ];
-                        const opts = [{ key: 'auto', label: 'Auto (camera default)', w: null, h: null }];
-                        if (!cap || !cap.width || !cap.height) {
-                            return opts;
-                        }
-                        const wmin = cap.width.min || 0, wmax = cap.width.max || 3840;
-                        const hmin = cap.height.min || 0, hmax = cap.height.max || 2160;
-                        for (const p of PRESETS) {
-                            const w = p[0], h = p[1];
-                            if (w >= wmin && w <= wmax && h >= hmin && h <= hmax) {
-                                opts.push({ key: w + 'x' + h, label: w + '×' + h, w: w, h: h });
-                            }
-                        }
-                        return opts;
-                    },
-                    async updateResolutionOptionsForTrack(track) {
-                        try {
-                            const cap = track.getCapabilities ? track.getCapabilities() : null;
-                            this.resolutionOptions = this.buildResolutionOptionsFromCapabilities(cap);
-                            if (!this.resolutionOptions.find(function(o){ return o.key === app.selectedResolutionKey; })) {
-                                this.selectedResolutionKey = 'auto';
-                            }
-                        } catch (e) {
-                            this.resolutionOptions = [{ key: 'auto', label: 'Auto (camera default)', w: null, h: null }];
-                        }
-                    },
-                    getCurrentConnectorTrack(kind) {
-                        return this.streamer? (kind === 'video' ? this.streamer.videoTrack : this.streamer.audioTrack) : null;
-                    },
-                    
-                    // Stop all tracks in a MediaStream except the specified track
-                    stopTracks(userMedia, exceptTrack) {
-                        userMedia.getTracks().forEach(track => {
-                            if (track !== exceptTrack) {
-                                track.stop();
-                            }
-                        });
-                    },
-                    // Stop a track if it has a stop method
-                    safeStopTrack(track) {
-                        if (track && typeof track.stop === 'function') {
-                            try { track.stop(); } catch (e) {}
-                        }
-                    },
-                    async onCameraSelectionChange() {
-                        if (!this.isStreaming()) {
-                            return;
-                        }
-                        try {
-                            const oldTrack = this.getCurrentConnectorTrack('video');
+                // Stop a track if it has a stop method
+                safeStopTrack(track) {
+                    if (track && typeof track.stop === 'function') {
+                        try { track.stop(); } catch (e) {}
+                    }
+                },
+                async onCameraSelectionChange() {
+                    if (!this.isStreaming()) {
+                        return;
+                    }
+                    try {
+                        const oldTrack = this.getCurrentConnectorTrack('video');
 
-                            if (this.selectedVideoDeviceId === 'disabled') {
-                                await this.tryReplaceTrack('video', null);
-                                this.replacePreviewTrack('video', null);
-                                this.safeStopTrack(oldTrack);
-                                return;
-                            }
-                            const userMedia = await navigator.mediaDevices.getUserMedia({
-                                video: { deviceId: { exact: this.selectedVideoDeviceId } },
-                                audio: false
-                            });
-                            const newTrack = userMedia.getVideoTracks()[0];
-                            await this.tryReplaceTrack('video', newTrack);
-                            this.replacePreviewTrack('video', newTrack);
-                            await this.updateResolutionOptionsForTrack(newTrack);
-                            this.stopTracks(userMedia, newTrack);
+                        if (this.selectedVideoDeviceId === 'disabled') {
+                            await this.tryReplaceTrack('video', null);
+                            this.replacePreviewTrack('video', null);
                             this.safeStopTrack(oldTrack);
-                        } catch (e) {
-                            this.showErrorMessage('Failed to switch camera: ' + Util.stringify(e));
-                        }
-                    },
-                    async onMicSelectionChange() {
-                        if (!this.isStreaming()) {
                             return;
                         }
-                        try {
-                            const oldTrack = this.getCurrentConnectorTrack('audio');
+                        const userMedia = await navigator.mediaDevices.getUserMedia({
+                            video: { deviceId: { exact: this.selectedVideoDeviceId } },
+                            audio: false
+                        });
+                        const newTrack = userMedia.getVideoTracks()[0];
+                        await this.tryReplaceTrack('video', newTrack);
+                        this.replacePreviewTrack('video', newTrack);
+                        await this.updateResolutionOptionsForTrack(newTrack);
+                        this.stopTracks(userMedia, newTrack);
+                        this.safeStopTrack(oldTrack);
+                    } catch (e) {
+                        this.setStreamError({ type: 'Device', name: 'Failed to switch camera', detail: e.message || Util.stringify(e) });
+                    }
+                },
+                async onMicSelectionChange() {
+                    if (!this.isStreaming()) {
+                        return;
+                    }
+                    try {
+                        const oldTrack = this.getCurrentConnectorTrack('audio');
 
-                            if (this.selectedAudioDeviceId === 'disabled') {
-                                await this.tryReplaceTrack('audio', null);
-                                this.replacePreviewTrack('audio', null);
-                                this.safeStopTrack(oldTrack);
-                                return;
-                            }
-                            const userMedia = await navigator.mediaDevices.getUserMedia({
-                                audio: { deviceId: { exact: this.selectedAudioDeviceId } },
-                                video: false
-                            });
-                            const newTrack = userMedia.getAudioTracks()[0];
-                            await this.tryReplaceTrack('audio', newTrack);
-                            this.replacePreviewTrack('audio', newTrack);
-                            this.stopTracks(userMedia, newTrack);
+                        if (this.selectedAudioDeviceId === 'disabled') {
+                            await this.tryReplaceTrack('audio', null);
+                            this.replacePreviewTrack('audio', null);
                             this.safeStopTrack(oldTrack);
-                        } catch (e) {
-                            this.showErrorMessage('Failed to switch microphone: ' + Util.stringify(e));
-                        }
-                    },
-                    async onResolutionSelectionChange() {
-                        const elStream = this.$refs.camera.srcObject;
-                        const track = elStream && elStream.getVideoTracks()[0];
-                        if (!track) {
                             return;
                         }
-                        var opt = this.resolutionOptions.find(function(o){ return o.key === app.selectedResolutionKey; });
-                        const isAuto = !opt || !opt.w || !opt.h;
+                        const userMedia = await navigator.mediaDevices.getUserMedia({
+                            audio: { deviceId: { exact: this.selectedAudioDeviceId } },
+                            video: false
+                        });
+                        const newTrack = userMedia.getAudioTracks()[0];
+                        await this.tryReplaceTrack('audio', newTrack);
+                        this.replacePreviewTrack('audio', newTrack);
+                        this.stopTracks(userMedia, newTrack);
+                        this.safeStopTrack(oldTrack);
+                    } catch (e) {
+                        this.setStreamError({ type: 'Device', name: 'Failed to switch microphone', detail: e.message || Util.stringify(e) });
+                    }
+                },
+                async onResolutionSelectionChange() {
+                    const elStream = this.$refs.video.srcObject;
+                    const track = elStream && elStream.getVideoTracks()[0];
+                    if (!track) {
+                        return;
+                    }
+                    const opt = this.resolutionOptions.find(o => o.key === this.selectedResolutionKey);
+                    const isAuto = !opt || !opt.w || !opt.h;
 
-                        if (track.applyConstraints) {
-                            try {
-                                if (isAuto) {
-                                    await track.applyConstraints({ width: undefined, height: undefined });
-                                    this.updateCanvasAndVideoSize();
-                                } else {
-                                    await track.applyConstraints({ width: { exact: opt.w }, height: { exact: opt.h } });
-                                    this.updateCanvasAndVideoSize(opt.w, opt.h);
-                                }
-                                return;
-                            } catch (e) {
-                                log('applyConstraints failed; falling back to getUserMedia', e).warn();
-                            }
-                        }
-
+                    if (track.applyConstraints) {
                         try {
-                            log('Applying resolution constraints via getUserMedia', isAuto ? 'auto' : (opt.w + 'x' + opt.h)).info();
-                            const userMedia = await navigator.mediaDevices.getUserMedia({
-                                video: {
-                                    deviceId: this.selectedVideoDeviceId ? { exact: this.selectedVideoDeviceId } : undefined,
-                                    width: isAuto? undefined : { exact: opt.w }, 
-                                    height: isAuto? undefined : { exact: opt.h }
-                                },
-                                audio: false
-                            });
-                            const newTrack = userMedia.getVideoTracks()[0];
-
-                            await this.tryReplaceTrack('video', newTrack);
-                            this.replacePreviewTrack('video', newTrack);
-
-                            this.updateCanvasAndVideoSize(isAuto? DEFAULT_STREAMING_WIDTH : opt.w, isAuto? DEFAULT_STREAMING_HEIGHT : opt.h);
-
-                            await this.updateResolutionOptionsForTrack(newTrack);
-                            this.stopTracks(userMedia, newTrack);
-                        } catch (e) {
-                            this.showErrorMessage('Resolution not supported by the current camera.');
-                        }
-                    },
-                    async tryReplaceTrack(kind, newTrack) {
-                        try {
-                            if (kind === 'audio') {
-                                await this.streamer.setAudioTrack(newTrack);
+                            if (isAuto) {
+                                await track.applyConstraints({ width: undefined, height: undefined });
+                                this.updateCanvasAndVideoSize();
                             } else {
-                                await this.streamer.setVideoTrack(newTrack);
+                                await track.applyConstraints({ width: { exact: opt.w }, height: { exact: opt.h } });
+                                this.updateCanvasAndVideoSize(opt.w, opt.h);
                             }
+                            return;
                         } catch (e) {
-                            this.showErrorMessage(`Failed to replace ${kind} track: ${Util.stringify(e)}`, true);
+                            log('applyConstraints failed; falling back to getUserMedia', e).warn();
                         }
-                    },
-                    replacePreviewTrack(kind, newTrack) {
-                        var elStream = this.$refs.camera.srcObject || new MediaStream();
-                        var toRemove = kind === 'video' ? elStream.getVideoTracks() : elStream.getAudioTracks();
-                        toRemove.forEach(function(t){ elStream.removeTrack(t); });
-                        if (newTrack) {
-                            elStream.addTrack(newTrack);
-                        }
-                        this.$refs.camera.srcObject = elStream;
-                        this.$refs.camera.play();
-                    },
-                    updateCanvasAndVideoSize(width = DEFAULT_STREAMING_WIDTH, height = DEFAULT_STREAMING_HEIGHT) {
-                        this.streaming.width = width;
-                        this.streaming.height = height;
-                        this.$refs.canvas.setAttribute('width', width);
-                        this.$refs.canvas.setAttribute('height', height);
-                        this.$refs.camera.setAttribute('width', width);
-                        this.$refs.camera.setAttribute('height', height);
-                    },
+                    }
 
-                    updateRTP() {
-                        if (this.streamer.controller) {
-                            this.streamer.setRTPProps(this.streaming.rtp.nack, this.streaming.rtp.drop);
+                    try {
+                        log('Applying resolution constraints via getUserMedia', isAuto ? 'auto' : (opt.w + 'x' + opt.h)).info();
+                        const userMedia = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                deviceId: this.selectedVideoDeviceId ? { exact: this.selectedVideoDeviceId } : undefined,
+                                width: isAuto ? undefined : { exact: opt.w },
+                                height: isAuto ? undefined : { exact: opt.h }
+                            },
+                            audio: false
+                        });
+                        const newTrack = userMedia.getVideoTracks()[0];
+
+                        await this.tryReplaceTrack('video', newTrack);
+                        this.replacePreviewTrack('video', newTrack);
+
+                        this.updateCanvasAndVideoSize(isAuto ? DEFAULT_STREAMING_WIDTH : opt.w, isAuto ? DEFAULT_STREAMING_HEIGHT : opt.h);
+
+                        await this.updateResolutionOptionsForTrack(newTrack);
+                        this.stopTracks(userMedia, newTrack);
+                    } catch (e) {
+                        this.setStreamError({ type: 'Device', name: 'Resolution not supported by the current camera', detail: e.message });
+                    }
+                },
+                async tryReplaceTrack(kind, newTrack) {
+                    try {
+                        if (kind === 'audio') {
+                            await this.streamer.setAudioTrack(newTrack);
+                        } else {
+                            await this.streamer.setVideoTrack(newTrack);
                         }
-                    },
-                    changeState() {
-                        if (this.state === StreamingState.IDLE) {
+                    } catch (e) {
+                        this.setStreamError({ type: 'Device', name: `Failed to replace ${kind} track`, detail: e.message || Util.stringify(e) });
+                    }
+                },
+                replacePreviewTrack(kind, newTrack) {
+                    const elStream = this.$refs.video.srcObject || new MediaStream();
+                    const toRemove = kind === 'video' ? elStream.getVideoTracks() : elStream.getAudioTracks();
+                    toRemove.forEach(t => elStream.removeTrack(t));
+                    if (newTrack) {
+                        elStream.addTrack(newTrack);
+                    }
+                    this.$refs.video.srcObject = elStream;
+                    this.$refs.video.play();
+                },
+                updateCanvasAndVideoSize(width = DEFAULT_STREAMING_WIDTH, height = DEFAULT_STREAMING_HEIGHT) {
+                    this.streaming.width = width;
+                    this.streaming.height = height;
+                    this.$refs.canvas.setAttribute('width', width);
+                    this.$refs.canvas.setAttribute('height', height);
+                    this.$refs.video.setAttribute('width', width);
+                    this.$refs.video.setAttribute('height', height);
+                },
+
+                changeState() {
+                    if (this.state === StreamingState.IDLE) {
+                        this.state = StreamingState.PROCESSING;
+                        this.startStreaming();
+                    } else if (this.state === StreamingState.STREAMING) {
+                        this.state = StreamingState.PROCESSING;
+                        this.stopStreaming();
+                    }
+                },
+                captureMediaStream() {
+                    log('Capturing media stream ...').info();
+
+                    const videoConstraints = this.selectedVideoDeviceId === 'disabled' ? false : {
+                        deviceId: this.selectedVideoDeviceId ? { exact: this.selectedVideoDeviceId } : undefined,
+                        frameRate: this.streaming.framerate,
+                        width: { ideal: this.streaming.width },
+                        height: { ideal: this.streaming.height }
+                    };
+                    const audioConstraints = this.selectedAudioDeviceId === 'disabled' ? false : {
+                        deviceId: this.selectedAudioDeviceId ? { exact: this.selectedAudioDeviceId } : undefined
+                    };
+
+                    return navigator.mediaDevices
+                        .getUserMedia({
+                            audio: audioConstraints,
+                            video: videoConstraints
+                        })
+                        .then(stream => {
+                            this.$refs.video.volume = 0;
+                            this.$refs.video.muted = true;
+                            this.$refs.video.srcObject = stream;
+                            this.$refs.video.play();
+
+                            const videoTrack = stream.getVideoTracks()[0];
+                            if (videoTrack) {
+                                return this.updateResolutionOptionsForTrack(videoTrack).then(() => stream);
+                            }
+                            return stream;
+                        })
+                        .then(stream => {
+                            this._frameCount = 0;
+                            if (this.diagnostics) {
+                                this.diagnostics = { timestamps: [] };
+                                window.requestAnimationFrame(this.onDrawFrame);
+                            }
+                            if (this.canvasSource) {
+                                stream = this.setupCanvasStream(stream);
+                                window.requestAnimationFrame(this.onDrawFrame);
+                            } else if (this.overlayTimestamp) {
+                                window.requestAnimationFrame(this.onDrawFrame);
+                            }
+                            return stream;
+                        })
+                        .catch(e => {
+                            log('Failed to capture media stream', e).error();
+                            this.setStreamError({ type: 'Capture', name: e.name || 'Failed to capture media stream', detail: e.message || Util.stringify(e) });
+                        });
+                },
+                startStreaming() {
+                    this.setStreamError(null);
+                    if (!this.streamName.trim()) {
+                        this.state = StreamingState.IDLE;
+                        this.setStreamError({
+                            type: 'Input',
+                            name: 'Missing stream',
+                            detail: 'Enter a non-empty stream name to stream.'
+                        });
+                        return;
+                    }
+                    this.updateURL();
+
+                    this.captureMediaStream()
+                        .then(stream => {
+                            log(`Start streaming... (stream : ${stream ? 'true' : 'false'})`).info();
+                            if (!stream) {
+                                this.state = StreamingState.IDLE;
+                                return;
+                            }
+                            this.resetMetrics(true);
+                            this.streamer = new Streamer(this.connectorType === CONNECTOR_WS ? WSController : HTTPConnector);
+                            this.streamer.onStart = this.onStreamingStart.bind(this);
+                            this.streamer.onStop = this.onStreamingStop.bind(this);
+                            this.streamer.onRTPProps = props => log('onRTPProps', props).info();
+
+                            this.streamer.start(stream,
+                                {
+                                    endPoint: this.endPoint,
+                                    streamName: this.streamName.trim(),
+                                    accessToken: this.accessToken.trim() || undefined
+                                },
+                                {
+                                    maximum: this.streaming.bitrate,
+                                    startup: this.streaming.bitrate * 0.7
+                                });
+
+                            // Report the streamer stats every second as an HTTP JSON POST (import Telemetry),
+                            // reporting stops by itself with the streamer
+                            // const telemetry = new Telemetry('https://address/metrics');
+                            // telemetry.report(this.streamer.computeStats(), 1);
+                        });
+                },
+                stopStreaming() {
+                    if (this.streamer) {
+                        log('Stop streaming...').info();
+                        this.streamer.stop();
+                    }
+                },
+                onStreamingStart() {
+                    log('onStreamingStart').info();
+                    this.state = StreamingState.STREAMING;
+                    if (this.streamer.controller) {
+                        // to get current values!
+                        this.streamer.setRTPProps();
+                    }
+                },
+                onStreamingStop(error) {
+                    if (error) {
+                        log('onStreamingStop', error).error();
+                        this.setStreamError(error);
+                        if (error.name === 'Replace track failed') {
+                            log('onStreamingStop: Restarting...').warn();
+                            this.restarting = true;
+                        }
+                    } else {
+                        log('onStreamingStop').info();
+                    }
+                    this.state = StreamingState.IDLE;
+                    this.hideControls();
+
+                    this.$refs.video.pause();
+                    this.$refs.video.srcObject = null;
+
+                    // stop stream!
+                    if (this.streaming.videoSource) {
+                        this.streaming.videoSource.stop();
+                        this.streaming.videoSource = null;
+                    }
+                    this.safeStopTrack(this.getCurrentConnectorTrack('audio'));
+                    this.safeStopTrack(this.getCurrentConnectorTrack('video'));
+                    this.streamer = null;
+
+                    this.clearFrame();
+
+                    if (this.restarting) {
+                        this.restarting = false;
+
+                        setTimeout(() => {
+                            log('Planned restarting...').info();
                             this.state = StreamingState.PROCESSING;
                             this.startStreaming();
-                        } else if (this.state === StreamingState.STREAMING) {
-                            this.state = StreamingState.PROCESSING;
-                            this.stopStreaming();
-                        }
-                    },
-                    captureMediaStream() {
-                        log('Capturing media stream ...').info();
-
-                        const videoConstraints = this.selectedVideoDeviceId === 'disabled' ? false : {
-                            deviceId: this.selectedVideoDeviceId ? { exact: this.selectedVideoDeviceId } : undefined,
-                            frameRate: this.streaming.framerate,
-                            width: { ideal: this.streaming.width },
-                            height: { ideal: this.streaming.height }
-                        };
-                        const audioConstraints = this.selectedAudioDeviceId === 'disabled' ? false : {
-                            deviceId: this.selectedAudioDeviceId ? { exact: this.selectedAudioDeviceId } : undefined
-                        };
-
-                        return navigator.mediaDevices
-                            .getUserMedia({
-                                audio: audioConstraints,
-                                video: videoConstraints
-                            })
-                            .then(stream => {
-                                this.$refs.camera.volume = 0;
-                                this.$refs.camera.muted = true;
-                                this.$refs.camera.srcObject = stream;
-                                this.$refs.camera.play();
-
-                                const videoTrack = stream.getVideoTracks()[0];
-                                if (videoTrack) {
-                                    return this.updateResolutionOptionsForTrack(videoTrack).then(function(){ 
-                                        return stream; 
-                                    });
-                                }
-                                return stream;
-                            })
-                            .then(stream => {
-                                this.onDrawFrame.count = 0;
-                                if(this.diagnostics) {
-                                    this.diagnostics = { timestamps: []};
-                                    window.requestAnimationFrame(this.onDrawFrame);
-                                }
-                                if (this.canvasSource) {
-                                    stream = this.setupCanvasStream(stream);
-                                    window.requestAnimationFrame(this.onDrawFrame);
-                                } else if (this.overlayTimestamp) {
-                                    window.requestAnimationFrame(this.onDrawFrame);
-                                }
-                                return stream;
-                            })
-                            .catch((e) => {
-                                log(
-                                    this.showErrorMessage(`Failed to capture media stream ${Util.stringify(e)}`)
-                                ).error();
-                            });
-                    },
-                    startStreaming() {
-                        if (!this.streamName) {
-                            this.state = StreamingState.IDLE;
-                            this.showErrorMessage('Stream name is empty!');
-                            return;
-                        }
-
-                        this.captureMediaStream()
-                            .then(stream => {
-                                log(`Start streaming... (stream : ${stream? 'true' : 'false'})`).info();
-                                if (!stream) {
-                                    this.state = StreamingState.IDLE;
-                                    return;
-                                }
-                                this.streamer = new Streamer(this.connectorType.startsWith('WebSocket') ? WSController : HTTPConnector);
-                                this.streamer.onStart = this.onStreamingStart.bind(this);
-                                this.streamer.onStop = this.onStreamingStop.bind(this);
-                                this.streamer.onRTPProps = this.onRTPProps.bind(this);
-
-                                this.streamer.start(stream,
-                                    {
-                                        endPoint: this.endPoint,
-                                        streamName: this.streamName,
-                                        accessToken: this.accessToken
-                                    },
-                                    {
-                                        maximum: this.streaming.bitrate,
-                                        startup: this.streaming.bitrate * 0.7
-                                    });
-
-                                // WebSocket streamer report every second
-                                // const telemetry = new Telemetry('wss://address/metrics');
-                                // telemetry.report(new StreamerStats(this.streamer), 1);
-
-                            });
-                    },
-                    stopStreaming() {
-                        if (this.streamer) {
-                            log('Stop streaming...').info();
-                            this.streamer.stop();
-                        }
-                    },
-                    onStreamingStart() {
-                        log('onStreamingStart').info();
-                        this.state = StreamingState.STREAMING;
-                        if (this.streamer.controller) {
-                            // to get current values!
-                            this.streamer.setRTPProps();
-                        }
-                    },
-                    onStreamingStop(error) {
-                        if(error) {
-                            log('onStreamingStop', error).error();
-                            this.showErrorMessage(error.name, true);
-                            if (error.name === 'Replace track failed') {
-                                log('onStreamingStop: Restarting...').warn();
-                                this.restarting = true;
-                            }
-                        } else {
-                            log('onStreamingStop').info();
-                        }
-                        this.state = StreamingState.IDLE;
-
-                        this.$refs.camera.pause();
-                        this.$refs.camera.srcObject = null;
-
-                        // stop stream!
-                        if(this.streaming.videoSource) {
-                            this.streaming.videoSource.stop();
-                            this.streaming.videoSource = null;
-                        }
-                        this.safeStopTrack(this.getCurrentConnectorTrack('audio'));
-                        this.safeStopTrack(this.getCurrentConnectorTrack('video'));
-                        this.streamer = null;
-
-                        this.clearFrame();
-
-                        if (this.restarting) {
-                            this.restarting = false;
-
-                            setTimeout(() => {
-                                log('Planned restarting...').info();
-                                this.state = StreamingState.PROCESSING;
-                                this.startStreaming();
-                            }, 100);
-                        }
-                    },
-                    onRTPProps(props) {
-                        log('* onRTPProps').info();
-
-                        if (props && props.nack != null) {
-                            this.streaming.rtp.nack = props.nack;
-                        }
-
-                        if (props && props.drop != null) {
-                            this.streaming.rtp.drop = props.drop;
-                        }
-                    },
-                    setupCanvasStream(cameraStream) {
-                        log('* SetupCanvasStream').info();
-                        const videoTrack = cameraStream.getVideoTracks()[0];
-
-                        if (videoTrack) {
-                            const capabilities = videoTrack.getCapabilities?.() || {};
-                            log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
-
-                            try {
-                                if (capabilities.frameRate && capabilities.frameRate.max) {
-                                    videoTrack.applyConstraints({
-                                        frameRate: {
-                                            ideal: capabilities.frameRate.max,
-                                            min: capabilities.frameRate.max,
-                                            max: (capabilities.frameRate.max > this.streaming.framerate ? this.streaming.framerate : capabilities.frameRate.max)
-                                        }
-                                    });
-                                }
-                            } catch (e) {
-                                log('Constraint error (ignoring):', e).error();
-                            }
-                        }
-
-                        // Create a stream which captures canvas image + has the same audio tracks that original media-stream
-                        const stream = new MediaStream();
-                        /// add video from canvas capture
-                        stream.addTrack(this.$refs.canvas.captureStream(this.streaming.framerate).getVideoTracks()[0]);
-                        /// add audio from camera
-                        cameraStream.getAudioTracks().forEach(track => stream.addTrack(track));
-                        this.streaming.videoSource = videoTrack || null;
-                        return stream;
-                    },
-                    onDrawFrame: function () {
-                        if(!this.streamer)
-                            return;
-                        ++this.onDrawFrame.count;
-
-                        let context = this.$refs.canvas.getContext('2d');
-
-                        context.fillStyle = '#000000';
-                        context.fillRect(0, 0, this.streaming.width, this.streaming.height);
-
-                        let videoSettings = this.streaming.videoSource;
-                        if(videoSettings) {
-                            // Landscape Wrapper is set! Draw canvas!
-                            videoSettings = videoSettings.getSettings();
-                            if (videoSettings.width && videoSettings.height) {
-
-                                const scaleFactor = Math.min(this.streaming.height / videoSettings.height, this.streaming.width / videoSettings.width);
-
-                                const scaledWidth = videoSettings.width * scaleFactor;
-                                const scaledHeight = videoSettings.height * scaleFactor;
-
-                                context.drawImage(this.$refs.camera,
-                                    0, 0, videoSettings.width, videoSettings.height,
-                                    ((this.streaming.width - scaledWidth) / 2), 0, scaledWidth, scaledHeight);
-                            } else {
-                                context.drawImage(this.$refs.camera,
-                                    0, 0, this.streaming.width, this.streaming.height);
-                            }
-                            context.globalAlpha = 1;
-                        }
-
-                        if (this.diagnostics) {
-                            // Debug is activated
-                            context.font = 'bold 32px sans-serif';
-                            context.textAlign = 'left';
-                            context.fillStyle = '#ff2b00';
-
-                            const msgHeight = 32 + 10;
-                            let shift = msgHeight;
-                            if (videoSettings && videoSettings.width && videoSettings.height) {
-                                context.fillText(`Camera: ${videoSettings.width}X${videoSettings.height}  ${videoSettings.frameRate}fps`, 20, shift);
-                                shift += msgHeight;
-                            }
-
-                            context.fillText(`Streaming: ${this.streaming.width}X${this.streaming.height}`, 20, shift);
-                            shift += msgHeight;
-
-                            const timestamps = this.diagnostics.timestamps;
-                            timestamps.push(Date.now());
-                            if (timestamps.length > 30) {
-                                timestamps.shift();
-                            }
-                            const begin = timestamps[0];
-                            const end = timestamps[timestamps.length - 1];
-                            const fps = timestamps.length / ((end - begin) / 1000);
-
-                            context.fillText(`#${this.onDrawFrame.count}   ${fps.toFixed(2)}fps`, 20, shift);
-                        }
-
-                        if (this.overlayTimestamp) {
-                            // Overlay time enabled
-                            const timestamp = new Date();
-
-                            context.font = '36px Arial';
-                            context.fillStyle = '#1854de';
-                            context.textAlign = 'center';
-                            context.fillText(`${timestamp.toLocaleDateString('en-GB', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                                timeZone: 'Europe/Amsterdam'
-                            })} ${timestamp.toLocaleTimeString('en-GB', {timeZone: 'Europe/Amsterdam', timeZoneName: 'short'})}`,
-                                this.streaming.width / 2, this.streaming.height - 50);
-                            context.fillText(`${timestamp.toISOString()}`,
-                                this.streaming.width / 2, this.streaming.height - 10);
-                        }
-
-                        if (this.epochTimestamp) {
-                            // Machine-readable timestamp burnt at the top of the image, decoded by the
-                            // player with EpochTime.getLatency() to measure the end-to-end latency.
-                            // Drawn last so nothing overwrites the blocks.
-                            EpochTime.encodeTimestamp(context, this.streaming.width);
-                        }
-
-                        window.requestAnimationFrame(this.onDrawFrame);
-                    },
-                    clearFrame() {
-                        let context = this.$refs.canvas.getContext('2d');
-                        context.fillStyle = '#333333';
-                        context.fillRect(0, 0, this.streaming.width, this.streaming.height);
-                    },
-
-                    /* UI */
-                    isStreaming() {
-                        return this.state === StreamingState.STREAMING;
-                    },
-                    isIdle() {
-                        return this.state === StreamingState.IDLE;
-                    },
-                    isProcessing() {
-                        return this.state === StreamingState.PROCESSING;
-                    },
-                    getStreamingButtonCaptionByState(state) {
-                        if (state === StreamingState.IDLE) {
-                            return 'Start streaming';
-                        } else if (state === StreamingState.STREAMING) {
-                            return 'Stop streaming';
-                        } else {
-                            return '...';
-                        }
-                    },
-                    getStreamingButtonCaption() {
-                        return this.getStreamingButtonCaptionByState(this.state);
-                    },
-                    showErrorMessage(message, isPersistence) {
-                        const timestamp = Date.now();
-                        const errorNotification = { message, timestamp };
-                        let timeOut = 3000;
-                        if (isPersistence) {
-                            timeOut *= timeOut;
-                        }
-
-                        errorNotification.closeTimeout = setTimeout(() => {
-                            this.errorNotifications = this.errorNotifications.filter(e => e.timestamp !== timestamp);
-                        }, timeOut);
-
-                        this.errorNotifications.push(errorNotification);
-                        return message;
-                    },
-                    closeErrorMessage(notification) {
-                        this.errorNotifications = this.errorNotifications.filter(e => e.timestamp !== notification.timestamp);
-                        clearTimeout(notification.closeTimeout);
+                        }, 100);
                     }
-                }
-            });
+                },
+                setupCanvasStream(cameraStream) {
+                    log('* SetupCanvasStream').info();
+                    const videoTrack = cameraStream.getVideoTracks()[0];
 
-        </script>
-    </body>
+                    if (videoTrack) {
+                        const capabilities = videoTrack.getCapabilities?.() || {};
+                        log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
+
+                        try {
+                            if (capabilities.frameRate && capabilities.frameRate.max) {
+                                videoTrack.applyConstraints({
+                                    frameRate: {
+                                        ideal: capabilities.frameRate.max,
+                                        min: capabilities.frameRate.max,
+                                        max: (capabilities.frameRate.max > this.streaming.framerate ? this.streaming.framerate : capabilities.frameRate.max)
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            log('Constraint error (ignoring):', e).error();
+                        }
+                    }
+
+                    // Create a stream which captures canvas image + has the same audio tracks that original media-stream
+                    const stream = new MediaStream();
+                    /// add video from canvas capture
+                    stream.addTrack(this.$refs.canvas.captureStream(this.streaming.framerate).getVideoTracks()[0]);
+                    /// add audio from camera
+                    cameraStream.getAudioTracks().forEach(track => stream.addTrack(track));
+                    this.streaming.videoSource = videoTrack || null;
+                    return stream;
+                },
+                onDrawFrame() {
+                    if (!this.streamer) {
+                        return;
+                    }
+                    ++this._frameCount;
+
+                    const context = this.$refs.canvas.getContext('2d');
+
+                    context.fillStyle = '#000000';
+                    context.fillRect(0, 0, this.streaming.width, this.streaming.height);
+
+                    let videoSettings = this.streaming.videoSource;
+                    if (videoSettings) {
+                        // Landscape Wrapper is set! Draw canvas!
+                        videoSettings = videoSettings.getSettings();
+                        if (videoSettings.width && videoSettings.height) {
+
+                            const scaleFactor = Math.min(this.streaming.height / videoSettings.height, this.streaming.width / videoSettings.width);
+
+                            const scaledWidth = videoSettings.width * scaleFactor;
+                            const scaledHeight = videoSettings.height * scaleFactor;
+
+                            context.drawImage(this.$refs.video,
+                                0, 0, videoSettings.width, videoSettings.height,
+                                ((this.streaming.width - scaledWidth) / 2), 0, scaledWidth, scaledHeight);
+                        } else {
+                            context.drawImage(this.$refs.video,
+                                0, 0, this.streaming.width, this.streaming.height);
+                        }
+                        context.globalAlpha = 1;
+                    }
+
+                    if (this.diagnostics) {
+                        // Debug is activated
+                        context.font = 'bold 32px sans-serif';
+                        context.textAlign = 'left';
+                        context.fillStyle = '#ff2b00';
+
+                        const msgHeight = 32 + 10;
+                        let shift = msgHeight;
+                        if (videoSettings && videoSettings.width && videoSettings.height) {
+                            context.fillText(`Camera: ${videoSettings.width}X${videoSettings.height}  ${videoSettings.frameRate}fps`, 20, shift);
+                            shift += msgHeight;
+                        }
+
+                        context.fillText(`Streaming: ${this.streaming.width}X${this.streaming.height}`, 20, shift);
+                        shift += msgHeight;
+
+                        const timestamps = this.diagnostics.timestamps;
+                        timestamps.push(Date.now());
+                        if (timestamps.length > 30) {
+                            timestamps.shift();
+                        }
+                        const begin = timestamps[0];
+                        const end = timestamps[timestamps.length - 1];
+                        const fps = timestamps.length / ((end - begin) / 1000);
+
+                        context.fillText(`#${this._frameCount}   ${fps.toFixed(2)}fps`, 20, shift);
+                    }
+
+                    if (this.overlayTimestamp) {
+                        // Overlay time enabled
+                        const timestamp = new Date();
+
+                        context.font = '36px Arial';
+                        context.fillStyle = '#1854de';
+                        context.textAlign = 'center';
+                        context.fillText(`${timestamp.toLocaleDateString('en-GB', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            timeZone: 'Europe/Amsterdam'
+                        })} ${timestamp.toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam', timeZoneName: 'short' })}`,
+                            this.streaming.width / 2, this.streaming.height - 50);
+                        context.fillText(`${timestamp.toISOString()}`,
+                            this.streaming.width / 2, this.streaming.height - 10);
+                    }
+
+                    if (this.epochTimestamp) {
+                        // Machine-readable timestamp burnt at the top of the image, decoded by the
+                        // player with EpochTime.getLatency() to measure the end-to-end latency.
+                        // Drawn last so nothing overwrites the blocks.
+                        EpochTime.encodeTimestamp(context, this.streaming.width);
+                    }
+
+                    window.requestAnimationFrame(this.onDrawFrame);
+                },
+                clearFrame() {
+                    const context = this.$refs.canvas.getContext('2d');
+                    context.fillStyle = '#000000';
+                    context.fillRect(0, 0, this.streaming.width, this.streaming.height);
+                },
+
+                // ── Metrics ──
+                sampleMetrics() {
+                    const streamer = this.streamer;
+                    if (streamer && this.isStreaming()) {
+                        this.hasMetrics = true;
+                        const stats = streamer.computeStats();
+                        const push = (name, value) => {
+                            // A series appears only once it has a value, so WHIP doesn't show empty server metrics
+                            const values = this.stats.get(name);
+                            if (values.length || value != null) {
+                                values.push(value ?? 0);
+                            }
+                        };
+                        const kbps = byteRate => byteRate != null ? (byteRate * 8).toFixed(0) + 'kbps' : undefined;
+                        const ms = seconds => seconds != null ? (seconds * 1000).toFixed(0) + 'ms' : undefined;
+                        const delta = name => stats[name] != null ? stats[name] - (this.deltaStats[name] ?? 0) : undefined;
+
+                        push('Bandwidth', kbps((stats.audioByteRate ?? 0) + (stats.videoByteRate ?? 0)));
+                        push('Target bps', stats.videoBitrate != null ? (stats.videoBitrate / 1000).toFixed(0) + 'kbps' : undefined);
+                        push('Track video', kbps(stats.videoByteRate));
+                        push('Track audio', kbps(stats.audioByteRate));
+                        push('Video FPS', stats.videoPerSecond);
+                        push('Encode time', stats.encodeTime?.toFixed(1).concat('ms'));
+                        push('RTT', ms(stats.rtt));
+                        push('Nack', delta('nackCount'));
+                        push('Retransmits', delta('retransmittedPacketCount'));
+                        push('Server loss', stats.serverLossPercent?.toFixed(2).concat('%'));
+                        push('Server jitter', ms(stats.serverJitter));
+
+                        this.times.push({
+                            time: new Date().toISOString(),
+                            mediaTime: this.$refs.video.currentTime || 0
+                        });
+                    }
+                    this.uiStats.display(this.stats);
+                },
+                resetMetrics(all = false) {
+                    this.uiStats.reset();
+                    // Rebaseline the counters WebRTC reports cumulatively, so the chart
+                    // shows what happened since this reset and not since the stream started.
+                    if (this.streamer) {
+                        const { nackCount, retransmittedPacketCount } = this.streamer.computeStats();
+                        this.deltaStats = { nackCount, retransmittedPacketCount };
+                    }
+                    this.trimStats(all);
+                    if (all) {
+                        this.hasMetrics = false;
+                        this.deltaStats = {};
+                    }
+                },
+
+                /* UI */
+                isStreaming() {
+                    return this.state === StreamingState.STREAMING;
+                },
+                isIdle() {
+                    return this.state === StreamingState.IDLE;
+                },
+                isProcessing() {
+                    return this.state === StreamingState.PROCESSING;
+                },
+
+                // Keeps the address bar shareable: replaceState so settings tweaks don't stack history entries
+                updateURL() {
+                    const url = new URL(location.href);
+                    setURLParam(url, 'endPoint', this.endPoint);
+                    setURLParam(url, 'streamName', this.streamName.trim());
+                    setURLParam(url, 'accessToken', this.accessToken.trim());
+                    setURLParam(url, 'whip', this.connectorType === CONNECTOR_WHIP);
+                    setURLParam(url, 'landscape', this.permanentLandscape);
+                    setURLParam(url, 'epochTime', this.epochTimestamp);
+                    setURLParam(url, 'sidePanel', this.sidePanel);
+                    replaceURL(url);
+                }
+            }
+        }).mount('#main');
+    </script>
 </html>
