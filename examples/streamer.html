@@ -253,6 +253,12 @@
 
         const AUTO_RESOLUTION = { key: 'auto', label: 'Auto (camera default)', w: null, h: null };
 
+        // Paces the canvas drawing: worker timers keep running in a background tab,
+        // where requestAnimationFrame stops and main-thread timers are throttled.
+        const FRAME_CLOCK = URL.createObjectURL(new Blob([
+            'let timer; onmessage = e => { clearInterval(timer); if (e.data) { timer = setInterval(() => postMessage(0), e.data); } };'
+        ], { type: 'text/javascript' }));
+
         createApp({
             mixins: [themeMixin, sidePanelMixin, overlayMixin, metricsMixin],
             data() {
@@ -296,9 +302,9 @@
                 };
             },
             computed: {
-                // Both options need the canvas to become the streamed video source
+                // These options draw on the canvas, which then becomes the streamed video source
                 canvasSource() {
-                    return this.permanentLandscape || this.epochTimestamp;
+                    return this.permanentLandscape || this.epochTimestamp || this.overlayTimestamp || !!this.diagnostics;
                 }
             },
             created() {
@@ -339,6 +345,7 @@
             },
             beforeUnmount() {
                 clearInterval(this._metricsTimer);
+                this._frameClock?.terminate();
                 if (this.streamer) {
                     this.streamer.stop();
                 }
@@ -449,12 +456,8 @@
                         return;
                     }
                     try {
-                        const oldTrack = this.getCurrentConnectorTrack('video');
-
                         if (this.selectedVideoDeviceId === 'disabled') {
-                            await this.tryReplaceTrack('video', null);
-                            this.replacePreviewTrack('video', null);
-                            this.safeStopTrack(oldTrack);
+                            await this.setCameraTrack(null);
                             return;
                         }
                         const userMedia = await navigator.mediaDevices.getUserMedia({
@@ -462,14 +465,27 @@
                             audio: false
                         });
                         const newTrack = userMedia.getVideoTracks()[0];
-                        await this.tryReplaceTrack('video', newTrack);
-                        this.replacePreviewTrack('video', newTrack);
-                        await this.updateResolutionOptionsForTrack(newTrack);
-                        this.stopTracks(userMedia, newTrack);
-                        this.safeStopTrack(oldTrack);
+                        if (await this.setCameraTrack(newTrack)) {
+                            await this.updateResolutionOptionsForTrack(newTrack);
+                        }
                     } catch (e) {
                         this.setStreamError({ type: 'Device', name: 'Failed to switch camera', detail: e.message || Util.stringify(e) });
                     }
+                },
+                // Swaps the camera track. In canvas mode the canvas stays the streamed track, only its source changes.
+                async setCameraTrack(newTrack) {
+                    const oldTrack = this.canvasSource ? this.streaming.videoSource : this.getCurrentConnectorTrack('video');
+                    if (this.canvasSource) {
+                        this.streaming.videoSource = newTrack;
+                    } else if (!await this.tryReplaceTrack('video', newTrack)) {
+                        this.safeStopTrack(newTrack);
+                        return false;
+                    }
+                    this.replacePreviewTrack('video', newTrack);
+                    if (oldTrack !== newTrack) {
+                        this.safeStopTrack(oldTrack);
+                    }
+                    return true;
                 },
                 async onMicSelectionChange() {
                     if (!this.isStreaming()) {
@@ -489,7 +505,10 @@
                             video: false
                         });
                         const newTrack = userMedia.getAudioTracks()[0];
-                        await this.tryReplaceTrack('audio', newTrack);
+                        if (!await this.tryReplaceTrack('audio', newTrack)) {
+                            this.safeStopTrack(newTrack);
+                            return;
+                        }
                         this.replacePreviewTrack('audio', newTrack);
                         this.stopTracks(userMedia, newTrack);
                         this.safeStopTrack(oldTrack);
@@ -506,15 +525,18 @@
                     const opt = this.resolutionOptions.find(o => o.key === this.selectedResolutionKey);
                     const isAuto = !opt || !opt.w || !opt.h;
 
+                    // In canvas mode the camera is fitted into the canvas, whose size stays fixed
+                    const resize = () => {
+                        if (!this.canvasSource) {
+                            this.updateCanvasAndVideoSize(isAuto ? DEFAULT_STREAMING_WIDTH : opt.w, isAuto ? DEFAULT_STREAMING_HEIGHT : opt.h);
+                        }
+                    };
                     if (track.applyConstraints) {
                         try {
-                            if (isAuto) {
-                                await track.applyConstraints({ width: undefined, height: undefined });
-                                this.updateCanvasAndVideoSize();
-                            } else {
-                                await track.applyConstraints({ width: { exact: opt.w }, height: { exact: opt.h } });
-                                this.updateCanvasAndVideoSize(opt.w, opt.h);
-                            }
+                            await track.applyConstraints(isAuto
+                                ? { width: undefined, height: undefined }
+                                : { width: { exact: opt.w }, height: { exact: opt.h } });
+                            resize();
                             return;
                         } catch (e) {
                             log('applyConstraints failed; falling back to getUserMedia', e).warn();
@@ -532,14 +554,10 @@
                             audio: false
                         });
                         const newTrack = userMedia.getVideoTracks()[0];
-
-                        await this.tryReplaceTrack('video', newTrack);
-                        this.replacePreviewTrack('video', newTrack);
-
-                        this.updateCanvasAndVideoSize(isAuto ? DEFAULT_STREAMING_WIDTH : opt.w, isAuto ? DEFAULT_STREAMING_HEIGHT : opt.h);
-
-                        await this.updateResolutionOptionsForTrack(newTrack);
-                        this.stopTracks(userMedia, newTrack);
+                        if (await this.setCameraTrack(newTrack)) {
+                            resize();
+                            await this.updateResolutionOptionsForTrack(newTrack);
+                        }
                     } catch (e) {
                         this.setStreamError({ type: 'Device', name: 'Resolution not supported by the current camera', detail: e.message });
                     }
@@ -551,8 +569,10 @@
                         } else {
                             await this.streamer.setVideoTrack(newTrack);
                         }
+                        return true;
                     } catch (e) {
                         this.setStreamError({ type: 'Device', name: `Failed to replace ${kind} track`, detail: e.message || Util.stringify(e) });
+                        return false;
                     }
                 },
                 replacePreviewTrack(kind, newTrack) {
@@ -614,16 +634,9 @@
                             return stream;
                         })
                         .then(stream => {
-                            this._frameCount = 0;
-                            if (this.diagnostics) {
-                                this.diagnostics = { timestamps: [] };
-                                window.requestAnimationFrame(this.onDrawFrame);
-                            }
                             if (this.canvasSource) {
                                 stream = this.setupCanvasStream(stream);
-                                window.requestAnimationFrame(this.onDrawFrame);
-                            } else if (this.overlayTimestamp) {
-                                window.requestAnimationFrame(this.onDrawFrame);
+                                this.startDrawing();
                             }
                             return stream;
                         })
@@ -703,6 +716,7 @@
                     this.state = StreamingState.IDLE;
                     this.hideControls();
 
+                    this.stopDrawing();
                     this.$refs.video.pause();
                     this.$refs.video.srcObject = null;
 
@@ -735,20 +749,17 @@
                         const capabilities = videoTrack.getCapabilities?.() || {};
                         log('* Track settings: ', capabilities, Util.stringify(videoTrack.getSettings())).info();
 
-                        try {
-                            if (capabilities.frameRate && capabilities.frameRate.max) {
-                                videoTrack.applyConstraints({
-                                    frameRate: {
-                                        ideal: capabilities.frameRate.max,
-                                        min: capabilities.frameRate.max,
-                                        max: (capabilities.frameRate.max > this.streaming.framerate ? this.streaming.framerate : capabilities.frameRate.max)
-                                    }
-                                });
-                            }
-                        } catch (e) {
-                            log('Constraint error (ignoring):', e).error();
+                        // Camera at the canvas framerate, or the closest it supports
+                        const maxFrameRate = capabilities.frameRate?.max;
+                        if (maxFrameRate) {
+                            videoTrack.applyConstraints({
+                                frameRate: { ideal: Math.min(maxFrameRate, this.streaming.framerate) }
+                            }).catch(e => log('Constraint error (ignoring):', e).warn());
                         }
                     }
+
+                    // Fixed output size, the camera is fitted into it whatever its resolution or orientation
+                    this.updateCanvasAndVideoSize();
 
                     // Create a stream which captures canvas image + has the same audio tracks that original media-stream
                     const stream = new MediaStream();
@@ -759,52 +770,52 @@
                     this.streaming.videoSource = videoTrack || null;
                     return stream;
                 },
-                onDrawFrame() {
-                    if (!this.streamer) {
-                        return;
+                startDrawing() {
+                    this._frameCount = 0;
+                    if (this.diagnostics) {
+                        this.diagnostics = { timestamps: [] };
                     }
+                    this._frameClock ??= new Worker(FRAME_CLOCK);
+                    this._frameClock.onmessage = () => this.onDrawFrame();
+                    this._frameClock.postMessage(1000 / this.streaming.framerate);
+                },
+                stopDrawing() {
+                    this._frameClock?.postMessage(0);
+                },
+                onDrawFrame() {
                     ++this._frameCount;
-
+                    const { width, height } = this.streaming;
                     const context = this.$refs.canvas.getContext('2d');
 
                     context.fillStyle = '#000000';
-                    context.fillRect(0, 0, this.streaming.width, this.streaming.height);
+                    context.fillRect(0, 0, width, height);
 
-                    let videoSettings = this.streaming.videoSource;
-                    if (videoSettings) {
-                        // Landscape Wrapper is set! Draw canvas!
-                        videoSettings = videoSettings.getSettings();
-                        if (videoSettings.width && videoSettings.height) {
-
-                            const scaleFactor = Math.min(this.streaming.height / videoSettings.height, this.streaming.width / videoSettings.width);
-
-                            const scaledWidth = videoSettings.width * scaleFactor;
-                            const scaledHeight = videoSettings.height * scaleFactor;
-
-                            context.drawImage(this.$refs.video,
-                                0, 0, videoSettings.width, videoSettings.height,
-                                ((this.streaming.width - scaledWidth) / 2), 0, scaledWidth, scaledHeight);
-                        } else {
-                            context.drawImage(this.$refs.video,
-                                0, 0, this.streaming.width, this.streaming.height);
-                        }
-                        context.globalAlpha = 1;
+                    // Camera fitted and centered in the fixed-size canvas, black bars fill the rest.
+                    // videoWidth/videoHeight follow the real frames, also after a device rotation.
+                    const video = this.$refs.video;
+                    const camera = this.streaming.videoSource;
+                    const hasFrame = camera && video.videoWidth && video.videoHeight;
+                    if (hasFrame) {
+                        const scale = Math.min(width / video.videoWidth, height / video.videoHeight);
+                        const scaledWidth = video.videoWidth * scale;
+                        const scaledHeight = video.videoHeight * scale;
+                        context.drawImage(video, (width - scaledWidth) / 2, (height - scaledHeight) / 2, scaledWidth, scaledHeight);
                     }
 
                     if (this.diagnostics) {
-                        // Debug is activated
                         context.font = 'bold 32px sans-serif';
                         context.textAlign = 'left';
                         context.fillStyle = '#ff2b00';
 
                         const msgHeight = 32 + 10;
-                        let shift = msgHeight;
-                        if (videoSettings && videoSettings.width && videoSettings.height) {
-                            context.fillText(`Camera: ${videoSettings.width}X${videoSettings.height}  ${videoSettings.frameRate}fps`, 20, shift);
+                        // Below the EpochTime band (one block high, 32 blocks per row) drawn at the top
+                        let shift = (this.epochTimestamp ? Math.floor(width / 32) : 0) + msgHeight;
+                        if (hasFrame) {
+                            context.fillText(`Camera: ${video.videoWidth}x${video.videoHeight}  ${camera.getSettings().frameRate}fps`, 20, shift);
                             shift += msgHeight;
                         }
 
-                        context.fillText(`Streaming: ${this.streaming.width}X${this.streaming.height}`, 20, shift);
+                        context.fillText(`Streaming: ${width}x${height}`, 20, shift);
                         shift += msgHeight;
 
                         const timestamps = this.diagnostics.timestamps;
@@ -820,7 +831,6 @@
                     }
 
                     if (this.overlayTimestamp) {
-                        // Overlay time enabled
                         const timestamp = new Date();
 
                         context.font = '36px Arial';
@@ -833,19 +843,16 @@
                             day: 'numeric',
                             timeZone: 'Europe/Amsterdam'
                         })} ${timestamp.toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam', timeZoneName: 'short' })}`,
-                            this.streaming.width / 2, this.streaming.height - 50);
-                        context.fillText(`${timestamp.toISOString()}`,
-                            this.streaming.width / 2, this.streaming.height - 10);
+                            width / 2, height - 50);
+                        context.fillText(`${timestamp.toISOString()}`, width / 2, height - 10);
                     }
 
                     if (this.epochTimestamp) {
                         // Machine-readable timestamp burnt at the top of the image, decoded by the
                         // player with EpochTime.getLatency() to measure the end-to-end latency.
                         // Drawn last so nothing overwrites the blocks.
-                        EpochTime.encodeTimestamp(context, this.streaming.width);
+                        EpochTime.encodeTimestamp(context, width);
                     }
-
-                    window.requestAnimationFrame(this.onDrawFrame);
                 },
                 clearFrame() {
                     const context = this.$refs.canvas.getContext('2d');
