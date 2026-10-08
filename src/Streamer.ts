@@ -11,6 +11,7 @@ import { HTTPConnector } from './connectors/HTTPConnector';
 import { IController, IsController, RTPProps, MediaReport } from './connectors/IController';
 import { ABRAbstract, ABRParams } from './abr/ABRAbstract';
 import { ABRLinear } from './abr/ABRLinear';
+import { StreamerStats } from './stats/StreamerStats';
 
 export type StreamerError =
     /**
@@ -204,6 +205,8 @@ export class Streamer extends EventEmitter {
     private _videoBitrateConstraint?: number;
     private _videoBitrateFixed: boolean;
     private _rtpProps?: RTPProps;
+    private _statsPollingTimeout?: NodeJS.Timeout;
+    private _streamerStats: StreamerStats;
     /**
      * Constructs a new Streamer instance, optionally with a custom connector
      * This doesn't start the broadcast, you must call start() method
@@ -212,6 +215,15 @@ export class Streamer extends EventEmitter {
     constructor(private Connector?: { new (connectParams: Connect.Params, stream: MediaStream): IConnector }) {
         super();
         this._videoBitrateFixed = false;
+        this._streamerStats = new StreamerStats();
+    }
+
+    /**
+     * Compute the current streamer statistics as a {@link StreamerStats} object
+     * @returns {StreamerStats} the current streamer statistics
+     */
+    computeStats(): StreamerStats {
+        return this._streamerStats;
     }
 
     /**
@@ -287,7 +299,10 @@ export class Streamer extends EventEmitter {
 
         this._connector.log = this.log.bind(this, 'Signaling:') as ILog;
 
-        this._connector.onOpen = stream => this.onStart(stream);
+        this._connector.onOpen = stream => {
+            this._pollStats(); // Start polling stats
+            this.onStart(stream);
+        };
         this._connector.onClose = (error?: ConnectorError) => {
             // reset to release resources!
             abr?.reset();
@@ -317,6 +332,7 @@ export class Streamer extends EventEmitter {
         this._controller = this._connector;
         this._controller.onOpen = stream => {
             this._computeVideoBitrate(abr);
+            this._pollStats(); // Start polling stats
             this.onStart(stream);
         };
         this._controller.onRTPProps = props => {
@@ -351,6 +367,12 @@ export class Streamer extends EventEmitter {
         this._videoBitrate = undefined;
         this._videoBitrateConstraint = undefined;
         this._rtpProps = undefined;
+
+        clearTimeout(this._statsPollingTimeout);
+        // Release first so that a Telemetry reporting it stops, then reset stats
+        this._streamerStats.onRelease();
+        this._streamerStats = new StreamerStats();
+
         // User event (always in last)
         this.onStop(error);
     }
@@ -396,6 +418,28 @@ export class Streamer extends EventEmitter {
         if (track) {
             stream.addTrack(track);
         }
+    }
+
+    // Poll stats every second to update the values inside our StreamerStats object
+    private _pollStats() {
+        this._statsPollingTimeout = setTimeout(async () => {
+            if (!this._connector) {
+                return;
+            }
+            try {
+                this._streamerStats.compute(
+                    await this._connector.connectionInfos(100),
+                    this._mediaReport,
+                    this._videoBitrate,
+                    this._videoBitrateConstraint
+                );
+            } catch {
+                // ignore failures while polling stats
+            }
+            if (this.running) {
+                this._pollStats();
+            }
+        }, 1000);
     }
 
     private _computeVideoBitrate(abr: ABRAbstract) {
