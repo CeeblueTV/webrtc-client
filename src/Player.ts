@@ -518,7 +518,9 @@ export class Player extends EventEmitter {
         this._connector = undefined;
 
         clearTimeout(this._statsPollingTimeout);
-        this._playerStats = new PlayerStats(); // reset stats
+        // Release first so that a Telemetry reporting it stops, then reset stats
+        this._playerStats.onRelease();
+        this._playerStats = new PlayerStats();
 
         // Detach video
         this._videoElement.pause();
