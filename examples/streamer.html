@@ -218,7 +218,7 @@
         import { createApp } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
         import {
             themeMixin, sidePanelMixin, overlayMixin, metricsMixin,
-            normalizeError, setURLParam, replaceURL, setupDebugOverlay
+            normalizeError, setURLParam, replaceURL, setupDebugOverlay, isSmallScreen
         } from './js/common.js';
         const { EpochTime, Util, Connect, LogLevel, log, UIMetrics } = utils;
 
@@ -288,7 +288,7 @@
                     connectorType: CONNECTOR_WS,
                     connectorTypes: [CONNECTOR_WS, CONNECTOR_WHIP],
 
-                    sidePanel: options.sidePanel ? true : false, // dock the metrics panel to the right (large screens)
+                    sidePanel: options.sidePanel ?? true, // dock the metrics panel to the right (large screens)
                     controlsHidden: false,
                     streamError: null,
 
@@ -657,6 +657,10 @@
                         return;
                     }
                     this.updateURL();
+                    // Make room for the graph on phones
+                    if (isSmallScreen()) {
+                        this.controlsHidden = true;
+                    }
 
                     this.captureMediaStream()
                         .then(stream => {
@@ -931,7 +935,7 @@
                     setURLParam(url, 'whip', this.connectorType === CONNECTOR_WHIP);
                     setURLParam(url, 'landscape', this.permanentLandscape);
                     setURLParam(url, 'epochTime', this.epochTimestamp);
-                    setURLParam(url, 'sidePanel', this.sidePanel);
+                    setURLParam(url, 'sidePanel', !this.sidePanel && 'false'); // on by default
                     replaceURL(url);
                 }
             }

@@ -210,7 +210,7 @@
         import { createApp, nextTick } from 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.prod.js';
         import {
             themeMixin, sidePanelMixin, overlayMixin, metricsMixin,
-            normalizeError, setURLParam, replaceURL, setupDebugOverlay, logMediaEvents
+            normalizeError, setURLParam, replaceURL, setupDebugOverlay, logMediaEvents, isSmallScreen
         } from './js/common.js';
         const { EpochTime, Util, Connect, LogLevel, log, UIMetrics } = utils;
 
@@ -254,7 +254,7 @@
                     connectorType: CONNECTOR_WS,
                     connectorTypes: [CONNECTOR_WS, CONNECTOR_WHEP],
 
-                    sidePanel: options.sidePanel ? true : false, // dock the metrics panel to the right (large screens)
+                    sidePanel: options.sidePanel ?? true, // dock the metrics panel to the right (large screens)
                     controlsHidden: false,
 
                     canvas: document.createElement('canvas'),
@@ -390,6 +390,10 @@
                     }
                     log('Play stream', params.streamName, 'with', this.connectorType).info();
                     this.updateURL();
+                    // Make room for the graph on phones
+                    if (isSmallScreen()) {
+                        this.controlsHidden = true;
+                    }
 
                     this.playState = PlayState.STARTING;
 
@@ -565,7 +569,7 @@
                     setURLParam(url, 'streamName', this.streamName.trim());
                     setURLParam(url, 'accessToken', this.accessToken.trim());
                     setURLParam(url, 'whep', this.connectorType === CONNECTOR_WHEP);
-                    setURLParam(url, 'sidePanel', this.sidePanel);
+                    setURLParam(url, 'sidePanel', !this.sidePanel && 'false'); // on by default
                     replaceURL(url);
                 }
             },

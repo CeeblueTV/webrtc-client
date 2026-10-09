@@ -65,7 +65,7 @@ export const themeMixin = {
  */
 export const sidePanelMixin = {
     data() {
-        return { sidePanel: false };
+        return { sidePanel: true };
     },
     mounted() {
         // The watcher below only fires on a change, apply whatever the page defaulted to.
@@ -247,6 +247,15 @@ export const metricsMixin = {
         }
     }
 };
+
+/**
+ * Phone-sized viewport (portrait or landscape), where the settings eat the room of the graph.
+ *
+ * @returns {boolean}
+ */
+export function isSmallScreen() {
+    return matchMedia('(max-width: 680px), (max-height: 500px)').matches;
+}
 
 /**
  * Sets, or removes when empty, a query parameter, dropping the case variants
