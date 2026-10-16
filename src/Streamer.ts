@@ -423,20 +423,20 @@ export class Streamer extends EventEmitter {
     // Poll stats every second to update the values inside our StreamerStats object
     private _pollStats() {
         this._statsPollingTimeout = setTimeout(async () => {
-            if (!this._connector) {
+            const connector = this._connector;
+            if (!connector) {
                 return;
             }
             try {
-                this._streamerStats.compute(
-                    await this._connector.connectionInfos(100),
-                    this._mediaReport,
-                    this._videoBitrate,
-                    this._videoBitrateConstraint
-                );
+                const infos = await connector.connectionInfos(100);
+                if (connector !== this._connector) {
+                    return; // stopped or restarted meanwhile, the stats belong to another session
+                }
+                this._streamerStats.compute(infos, this._mediaReport, this._videoBitrate, this._videoBitrateConstraint);
             } catch {
                 // ignore failures while polling stats
             }
-            if (this.running) {
+            if (connector === this._connector) {
                 this._pollStats();
             }
         }, 1000);
