@@ -16,6 +16,16 @@ const { Util, log } = utils;
 
 const THEME_KEY = 'wrts-theme';
 const THEME_CYCLE = ['light', 'dark'];
+const ADVANCED_CONTROLS_LONG_PRESS_MS = 1000;
+
+/**
+ * Compact UTC timestamp for download file names, e.g. `20261016T142530Z`.
+ *
+ * @returns {string}
+ */
+function downloadDate() {
+    return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
 
 /**
  * Theme selector: `theme` state, the header button's icon/tooltip, and a live follow of
@@ -88,11 +98,14 @@ export const sidePanelMixin = {
  * Hover/touch revealed overlay controls (fullscreen / stop) on the `.player` box.
  * Expects a `player` ref on the box, a `video` ref inside it, and an `overlayActive()`
  * method telling when the controls may show.
+ * A page with debug controls binds the `*AdvancedControlsPress` handlers: holding the video
+ * then sets `advancedControlsVisible`.
  */
 export const overlayMixin = {
     data() {
         return {
             controlsVisible: false,
+            advancedControlsVisible: false,
             isFullscreen: false
         };
     },
@@ -115,6 +128,7 @@ export const overlayMixin = {
         document.removeEventListener('fullscreenchange', this._fsListener);
         document.removeEventListener('webkitfullscreenchange', this._fsListener);
         clearTimeout(this._controlsTimer);
+        clearTimeout(this._advancedControlsTimer);
     },
     methods: {
         onPlayerActivity() {
@@ -123,7 +137,27 @@ export const overlayMixin = {
             }
         },
         onPlayerLeave() {
+            this.cancelAdvancedControlsPress();
             this.hideControls();
+        },
+        startAdvancedControlsPress(event) {
+            // Presses begun on a control remain regular clicks
+            if (!this.overlayActive() || event.button !== 0 || event.target.closest('button')) {
+                return;
+            }
+            this.cancelAdvancedControlsPress();
+            this._advancedControlsTimer = setTimeout(() => {
+                this._advancedControlsTimer = null;
+                this.advancedControlsVisible = true;
+                this.showControls();
+                if (event.pointerType !== 'mouse') {
+                    navigator.vibrate?.(25);
+                }
+            }, ADVANCED_CONTROLS_LONG_PRESS_MS);
+        },
+        cancelAdvancedControlsPress() {
+            clearTimeout(this._advancedControlsTimer);
+            this._advancedControlsTimer = null;
         },
         onPlayerTouch(event) {
             if (!this.overlayActive()) {
@@ -189,7 +223,8 @@ export const overlayMixin = {
 
 /**
  * Metrics chart plumbing: the `stats` series feeding UIMetrics, their CSV export, and the
- * generic file download. Each page keeps its own sampling loop and `resetMetrics()`.
+ * generic file download. Each page keeps its own sampling loop and `resetMetrics()`, and
+ * sets a `downloadPrefix` naming its exports.
  */
 export const metricsMixin = {
     data() {
@@ -224,17 +259,19 @@ export const metricsMixin = {
             }
             let csv = headers.join(';');
 
-            // Series are filled independently (a metric can start late), so a row can be short
+            // Series are filled independently (a metric can start late) but all end on the
+            // latest sample, so they are right-aligned and a late one leaves its first cells empty
             for (let i = 0; i < max; ++i) {
                 csv += '\n';
-                const { time, mediaTime } = this.times[i] ?? {};
+                const { time, mediaTime } = this.times[i - (max - this.times.length)] ?? {};
                 csv += (time || '') + ';' + (mediaTime || '') + ';';
                 for (const [, values] of this.stats) {
-                    csv += (values[i] == null ? '' : parseFloat(values[i])) + ';';
+                    const value = values[i - (max - values.length)];
+                    csv += (value == null ? '' : parseFloat(value)) + ';';
                 }
             }
 
-            this.download('stats.csv', csv, 'text/csv;charset=utf-8;');
+            this.download(`${this.downloadPrefix}-stats-${downloadDate()}.csv`, csv, 'text/csv;charset=utf-8;');
         },
         // Drop the samples the chart no longer displays, or all of them when `all` is set
         // (a new stream: the previous run's scale would flatten the new one).
@@ -346,11 +383,14 @@ export function normalizeError(error) {
 
 /**
  * Builds a fixed, collapsible on-screen panel mirroring every `log()` line (newest at the
- * end), so logs can be read and copied on a device with no working chrome://inspect.
+ * end), so logs can be read, copied or downloaded on a device with no working
+ * chrome://inspect.
  * Hooks `log.on` non-destructively, the default console output still runs.
  * Enabled by the `?debugoverlay` query parameter.
+ *
+ * @param {string} downloadPrefix prefix of the downloaded log file name
  */
-export function setupDebugOverlay() {
+export function setupDebugOverlay(downloadPrefix) {
     const PANEL_VH = 40; // expanded height
     const MAX_ROWS = 500; // cap retained rows to avoid unbounded DOM/memory growth
     // Container: header bar (always visible) + scrollable log box.
@@ -366,14 +406,22 @@ export function setupDebugOverlay() {
     const copyBtn = document.createElement('button');
     copyBtn.textContent = 'copy';
     copyBtn.style.cssText = 'font:11px monospace';
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = 'download';
+    downloadBtn.style.cssText = 'font:11px monospace';
     const clearBtn = document.createElement('button');
     clearBtn.textContent = 'clear';
     clearBtn.style.cssText = 'font:11px monospace';
     const box = document.createElement('div');
     box.style.cssText =
         'overflow:auto;color:#9f9;padding:4px 6px;white-space:pre-wrap;word-break:break-word;' + 'height:' + PANEL_VH + 'vh';
-    header.append(title, copyBtn, clearBtn);
+    header.append(title, copyBtn, downloadBtn, clearBtn);
     panel.append(header, box);
+
+    // Rows are oldest-on-top (chronological), export them as-is.
+    const getText = () => Array.from(box.children)
+        .map(row => row.textContent)
+        .join('\n');
 
     let collapsed = false;
     const apply = () => {
@@ -384,7 +432,7 @@ export function setupDebugOverlay() {
         document.body.style.paddingBottom = collapsed ? '26px' : 'calc(' + PANEL_VH + 'vh + 26px)';
     };
     header.onclick = e => {
-        if (e.target === clearBtn || e.target === copyBtn) {
+        if (e.target === clearBtn || e.target === copyBtn || e.target === downloadBtn) {
             return;
         }
         collapsed = !collapsed;
@@ -393,11 +441,18 @@ export function setupDebugOverlay() {
     clearBtn.onclick = () => {
         box.textContent = '';
     };
+    downloadBtn.onclick = () => {
+        const url = URL.createObjectURL(new Blob([getText()], { type: 'text/plain;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${downloadPrefix}-logs-${downloadDate()}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
     copyBtn.onclick = () => {
-        // Rows are oldest-on-top (chronological), copy as-is.
-        const text = Array.from(box.children)
-            .map(r => r.textContent)
-            .join('\n');
+        const text = getText();
         const done = ok => {
             copyBtn.textContent = ok ? 'copied!' : 'copy failed';
             setTimeout(() => {
@@ -481,6 +536,7 @@ export function logMediaEvents(video) {
                 't=' + video.currentTime.toFixed(3),
                 'paused=' + video.paused,
                 'readyState=' + video.readyState,
+                'seeking=' + video.seeking,
                 'rate=' + video.playbackRate
             ).info()
         );

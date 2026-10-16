@@ -228,10 +228,13 @@
 
         const options = Util.caseInsensitive(Util.options());
 
+        // Prefix of the downloaded stats and logs file names
+        const DOWNLOAD_PREFIX = 'webrtc-streamer';
+
         // On-screen log overlay for on-device debugging (e.g. Android with no working
         // chrome://inspect). Append `?debugoverlay` to the URL to enable.
         if (options.debugoverlay) {
-            setupDebugOverlay();
+            setupDebugOverlay(DOWNLOAD_PREFIX);
         }
 
         log('webrtc-client version:', VERSION).info();
@@ -263,6 +266,7 @@
             mixins: [themeMixin, sidePanelMixin, overlayMixin, metricsMixin],
             data() {
                 return {
+                    downloadPrefix: DOWNLOAD_PREFIX,
                     endPoint: '',
                     streamName: '',
                     accessToken: '',
@@ -341,10 +345,15 @@
                     this.stats.set(name, []);
                 }
                 this.uiStats = new UIMetrics(this.$refs.stats);
-                this._metricsTimer = setInterval(() => this.sampleMetrics(), 700);
+                // Chained rather than setInterval, so a slow sample can't stack up polls
+                const poll = () => {
+                    this.sampleMetrics();
+                    this._metricsTimer = setTimeout(poll, 700);
+                };
+                poll();
             },
             beforeUnmount() {
-                clearInterval(this._metricsTimer);
+                clearTimeout(this._metricsTimer);
                 this._frameClock?.terminate();
                 if (this.streamer) {
                     this.streamer.stop();

@@ -288,12 +288,14 @@ body {
     box-shadow: 0 8px 22px rgba(0,0,0,.45);
 }
 .pc-btn:hover { background: var(--accent-b); transform: scale(1.08); }
+.pc-latency.is-on { background: var(--ok); }
+.pc-latency i { font-size: .82em; }
 
 @media (max-width: 580px) {
     .player-action { width: 72px; height: 72px; }
     .player-action i { font-size: 26px; }
     .pc-btn { width: 64px; height: 64px; font-size: 22px; }
-    .player-ctrls { gap: 28px; }
+    .player-ctrls { gap: 16px; }
 }
 
 /* ── Field label ── */
