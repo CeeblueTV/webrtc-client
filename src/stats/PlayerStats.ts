@@ -75,13 +75,14 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
 
         // recvByteRate
         let now = performance.now();
-        const deltaTime = Math.max(1, now - this._prevTime);
+        // No rate on the first sample, it only sets the baseline
+        const deltaTime = this._prevTime ? Math.max(1, now - this._prevTime) : undefined;
         this._prevTime = now;
 
         // audioByteRate
         const audioBytes = audioIn?.bytesReceived;
         if (audioBytes != null) {
-            this.audioByteRate = Math.max(0, audioBytes - this._prevAudioBytes) / deltaTime;
+            this.audioByteRate = deltaTime ? Math.max(0, audioBytes - this._prevAudioBytes) / deltaTime : undefined;
             this._prevAudioBytes = audioBytes;
         } else {
             this.audioByteRate = undefined;
@@ -90,7 +91,7 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         // videoByteRate
         const videoBytes = videoIn?.bytesReceived;
         if (videoBytes != null) {
-            this.videoByteRate = Math.max(0, videoBytes - this._prevVideoBytes) / deltaTime;
+            this.videoByteRate = deltaTime ? Math.max(0, videoBytes - this._prevVideoBytes) / deltaTime : undefined;
             this._prevVideoBytes = videoBytes;
         } else {
             this.videoByteRate = undefined;
@@ -165,7 +166,7 @@ export class PlayerStats extends utils.PlayerStats implements IStats {
         now = performance.now();
         const videoTime = currentTime;
         let measuredSpeed = 0;
-        if (this._prevVideoTime !== undefined && this._prevRealTime !== undefined) {
+        if (this._prevRealTime) {
             const deltaVideoTime = videoTime - this._prevVideoTime;
             const deltaRealTime = (now - this._prevRealTime) / 1000;
             if (deltaVideoTime >= 0 && deltaRealTime > 0.05) {
