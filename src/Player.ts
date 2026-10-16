@@ -518,7 +518,9 @@ export class Player extends EventEmitter {
         this._connector = undefined;
 
         clearTimeout(this._statsPollingTimeout);
-        this._playerStats = new PlayerStats(); // reset stats
+        // Release first so that a Telemetry reporting it stops, then reset stats
+        this._playerStats.onRelease();
+        this._playerStats = new PlayerStats();
 
         // Detach video
         this._videoElement.pause();
@@ -644,12 +646,17 @@ export class Player extends EventEmitter {
     // Poll stats every second to update the values inside our PlayerStats object
     private _pollStats() {
         this._statsPollingTimeout = setTimeout(async () => {
-            if (!this._connector) {
+            const connector = this._connector;
+            if (!connector) {
                 return;
             }
             try {
+                const infos = await connector.connectionInfos(100);
+                if (connector !== this._connector) {
+                    return; // stopped or restarted meanwhile, the stats belong to another session
+                }
                 await this._playerStats.compute(
-                    await this._connector.connectionInfos(100),
+                    infos,
                     this._metadata ?? new Metadata(),
                     this._videoElement.currentTime,
                     this._audioTrack,
@@ -658,7 +665,7 @@ export class Player extends EventEmitter {
             } catch {
                 // ignore failures while polling stats
             }
-            if (this.running) {
+            if (connector === this._connector) {
                 this._pollStats();
             }
         }, 1000);
