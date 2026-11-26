@@ -15,6 +15,15 @@ import { MediaReport } from '../connectors/IController';
  */
 export class StreamerStats extends Loggable implements IStats {
     protocol?: string;
+    streamName?: string;
+    /**
+     * Id of the selected ICE candidate pair, identifies the streaming session
+     */
+    sessionId?: string;
+    /**
+     * Timestamp of the WebRTC stats sample, in milliseconds
+     */
+    timestamp?: number;
     /**
      * Audio bytes sent per millisecond
      */
@@ -106,18 +115,25 @@ export class StreamerStats extends Loggable implements IStats {
     /**
      * Computes and updates all streamer statistics based on the current connection infos and server feedback.
      * @param infos ConnectionInfos: WebRTC connection and output stats.
+     * @param streamName string: name of the stream being published.
      * @param mediaReport MediaReport (optional): last server media report, controllable connector only.
      * @param videoBitrate number (optional): video bitrate target configured by the server.
      * @param videoBitrateConstraint number (optional): video bitrate constraint computed by the server.
      */
     public compute(
         infos: ConnectionInfos,
+        streamName: string,
         mediaReport?: MediaReport,
         videoBitrate?: number,
         videoBitrateConstraint?: number
     ) {
         const audioOut = infos.outputs?.audio;
         const videoOut = infos.outputs?.video;
+
+        // identifiers, so that a telemetry backend can group the reports
+        this.streamName = streamName;
+        this.sessionId = infos.candidate?.id;
+        this.timestamp = infos.candidate?.timestamp;
 
         const now = performance.now();
         // No rate on the first sample, it only sets the baseline

@@ -432,7 +432,13 @@ export class Streamer extends EventEmitter {
                 if (connector !== this._connector) {
                     return; // stopped or restarted meanwhile, the stats belong to another session
                 }
-                this._streamerStats.compute(infos, this._mediaReport, this._videoBitrate, this._videoBitrateConstraint);
+                this._streamerStats.compute(
+                    infos,
+                    connector.streamName,
+                    this._mediaReport,
+                    this._videoBitrate,
+                    this._videoBitrateConstraint
+                );
             } catch {
                 // ignore failures while polling stats
             }
