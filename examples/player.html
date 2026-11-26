@@ -125,7 +125,7 @@
                                 <div>
                                     <span class="lbl">Video track</span>
                                     <select class="sel" id="video-track-selection"
-                                        :disabled="!player || !player.controller"
+                                        :disabled="!player?.controller"
                                         v-model="videoTrackId" @change="onVideoTrackChange()">
                                         <option :value="undefined" :key="videoTrack">AUTO — {{ videoTrack }}</option>
                                         <option v-for="[idx, track] of videoTracks" :value="idx">{{ track }}</option>
@@ -134,7 +134,7 @@
                                 <div>
                                     <span class="lbl">Audio track</span>
                                     <select class="sel" id="audio-track-selection"
-                                        :disabled="!player || !player.controller"
+                                        :disabled="!player?.controller"
                                         v-model="audioTrackId" @change="onAudioTrackChange()">
                                         <option :value="undefined" :key="audioTrack">AUTO — {{ audioTrack }}</option>
                                         <option v-for="[idx, track] of audioTracks" :value="idx">{{ track }}</option>
