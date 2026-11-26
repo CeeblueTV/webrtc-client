@@ -152,11 +152,12 @@ export class StreamerStats extends Loggable implements IStats {
         const framesEncoded = videoOut?.framesEncoded;
         const totalEncodeTime = videoOut?.totalEncodeTime;
         if (framesEncoded != null && totalEncodeTime != null) {
-            if (framesEncoded > this._prevFramesEncoded) {
-                this.encodeTime =
-                    (1000 * Math.max(0, totalEncodeTime - this._prevTotalEncodeTime)) /
-                    (framesEncoded - this._prevFramesEncoded);
-            }
+            // No frame encoded since the last poll (muted track or stalled encoder): no value
+            this.encodeTime =
+                framesEncoded > this._prevFramesEncoded
+                    ? (1000 * Math.max(0, totalEncodeTime - this._prevTotalEncodeTime)) /
+                      (framesEncoded - this._prevFramesEncoded)
+                    : undefined;
             this._prevFramesEncoded = framesEncoded;
             this._prevTotalEncodeTime = totalEncodeTime;
         } else {
@@ -167,8 +168,12 @@ export class StreamerStats extends Loggable implements IStats {
         this.rtt = infos.candidate?.currentRoundTripTime;
         this.availableOutgoingBitrate = infos.candidate?.availableOutgoingBitrate;
 
-        // nackCount, only video carries it on outbound stats
-        this.nackCount = videoOut?.nackCount;
+        // nackCount
+        if (videoOut?.nackCount != null || audioOut?.nackCount != null) {
+            this.nackCount = (videoOut?.nackCount ?? 0) + (audioOut?.nackCount ?? 0);
+        } else {
+            this.nackCount = undefined;
+        }
 
         // retransmittedPacketCount
         if (videoOut?.retransmittedPacketsSent != null || audioOut?.retransmittedPacketsSent != null) {
