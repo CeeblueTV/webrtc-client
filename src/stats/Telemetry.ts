@@ -11,9 +11,10 @@ import { IStats } from './IStats';
  * Use Telemetry to report statistics from an {@link IStats} object
  * at a regular interval to a WebSocket or HTTP server.
  * @example
- * // Streamer statistics reporting to a websocket SSL server with a frequency of 1 second
- * const telemetry = new Telemetry('wss://address/metrics');
- * telemetry.report(new StreamerStats(streamer), 1);
+ * // Streamer statistics reporting as HTTP JSON POST with a frequency of 1 second
+ * const telemetry = new Telemetry('https://address/metrics');
+ * // reporting stops by itself when the streamer stops
+ * telemetry.report(streamer.computeStats(), 1);
  */
 export class Telemetry extends Loggable {
     /**
