@@ -634,7 +634,6 @@
                     const url = new URL(location.href);
                     setURLParam(url, 'endPoint', this.endPoint);
                     setURLParam(url, 'streamName', this.streamName.trim());
-                    setURLParam(url, 'accessToken', this.accessToken.trim());
                     setURLParam(url, 'whep', this.connectorType === CONNECTOR_WHEP);
                     setURLParam(url, 'latency', this.e2eLatency);
                     setURLParam(url, 'sidePanel', !this.sidePanel && 'false'); // on by default
